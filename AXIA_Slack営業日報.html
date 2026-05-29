@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>営業日報 Slack投稿</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    font-family:'Noto Sans JP',sans-serif;
+    background:#f4f6fb;
+    color:#1f2a44;
+    min-height:100vh;
+    padding-bottom:50px;
+  }
+  .header {
+    background:#4A154B;
+    color:#fff;
+    padding:18px 20px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    position:sticky;
+    top:0;
+    z-index:10;
+    box-shadow:0 2px 8px rgba(74,21,75,.15);
+  }
+  .header h1 { font-size:17px; font-weight:700; display:flex; align-items:center; gap:8px; }
+  .gear {
+    background:rgba(255,255,255,.18);
+    border:none; color:#fff;
+    width:38px; height:38px; border-radius:10px;
+    font-size:18px; cursor:pointer;
+  }
+  .wrap { max-width:560px; margin:0 auto; padding:18px 16px; }
+  .card {
+    background:#fff; border-radius:16px; padding:18px;
+    box-shadow:0 2px 12px rgba(31,42,68,.06); margin-bottom:16px;
+  }
+  .sec-title {
+    font-size:14px; font-weight:700; color:#4A154B;
+    margin-bottom:12px; display:flex; align-items:center; gap:7px;
+  }
+  .label { font-size:13px; font-weight:700; color:#5a6478; margin-bottom:8px; display:block; }
+  textarea, input, select {
+    width:100%; font-family:'Noto Sans JP',sans-serif;
+    font-size:15px; color:#1f2a44;
+    border:1.5px solid #e2e6f0; border-radius:12px;
+    padding:13px 14px; background:#fafbfe; outline:none;
+  }
+  textarea { resize:vertical; min-height:90px; line-height:1.6; }
+  textarea:focus, input:focus, select:focus { border-color:#4A154B; background:#fff; }
+  select {
+    appearance:none;
+    background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%234A154B' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 14px center;
+    padding-right:36px; font-family:'DM Mono',monospace; font-size:16px;
+  }
+  .num-grid { display:flex; gap:12px; }
+  .num-grid > div { flex:1; }
+  .num-grid .label { font-size:12px; }
+  .field { margin-bottom:14px; }
+  .field:last-child { margin-bottom:0; }
+  .preview-card { background:#fff; border-radius:16px; padding:18px; box-shadow:0 2px 12px rgba(31,42,68,.06); margin-bottom:16px; }
+  .preview {
+    background:#f8f9fc; border:1.5px dashed #d4dae8; border-radius:12px;
+    padding:14px; font-size:14px; line-height:1.7; white-space:pre-wrap;
+    color:#2a3350; min-height:60px;
+  }
+  .btn-row { display:flex; gap:10px; margin-top:14px; }
+  .btn {
+    flex:1; border:none; border-radius:13px; padding:15px;
+    font-size:15px; font-weight:700; cursor:pointer;
+    font-family:'Noto Sans JP',sans-serif;
+  }
+  .btn-main { background:#4A154B; color:#fff; }
+  .btn-main:active { background:#3a103b; }
+  .btn-sub { background:#fff; color:#4A154B; border:1.5px solid #4A154B; }
+  .btn-sub:active { background:#f0eaf1; }
+  .hint { font-size:12px; color:#8a93a8; margin-top:10px; line-height:1.5; }
+  .toast {
+    position:fixed; bottom:30px; left:50%;
+    transform:translateX(-50%) translateY(80px);
+    background:#1f2a44; color:#fff; padding:13px 22px;
+    border-radius:12px; font-size:14px; font-weight:500;
+    opacity:0; transition:.3s; z-index:100;
+    box-shadow:0 4px 16px rgba(0,0,0,.2);
+  }
+  .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+  .settings { display:none; }
+  .settings.open { display:block; }
+  .main-view.hide { display:none; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>📋 営業日報</h1>
+  <button class="gear" onclick="toggleSettings()">⚙️</button>
+</div>
+
+<div class="wrap">
+  <!-- メイン -->
+  <div id="mainView" class="main-view">
+    <div class="card">
+      <div class="sec-title">⚫ 出来たこと</div>
+      <textarea id="done" placeholder="今日できたことを入力..." oninput="buildPreview()"></textarea>
+    </div>
+
+    <div class="card">
+      <div class="sec-title">⚫ 出来なかったこと</div>
+      <textarea id="notdone" placeholder="課題・できなかったことを入力..." oninput="buildPreview()"></textarea>
+    </div>
+
+    <div class="card">
+      <div class="sec-title">📊 今日の実績</div>
+      <div class="num-grid">
+        <div>
+          <span class="label">見込み</span>
+          <select id="todayMikomi" onchange="buildPreview()"></select>
+        </div>
+        <div>
+          <span class="label">リスト</span>
+          <select id="todayList" onchange="buildPreview()"></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="sec-title">🎯 明日の目標</div>
+      <div class="num-grid">
+        <div>
+          <span class="label">見込み</span>
+          <select id="nextMikomi" onchange="buildPreview()"></select>
+        </div>
+        <div>
+          <span class="label">リスト</span>
+          <select id="nextList" onchange="buildPreview()"></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="preview-card">
+      <div class="sec-title">👀 プレビュー</div>
+      <div class="preview" id="preview"></div>
+      <div class="btn-row">
+        <button class="btn btn-sub" onclick="copyOnly()">📋 コピー</button>
+        <button class="btn btn-main" onclick="copyAndOpen()">📋 コピー＋Slack</button>
+      </div>
+      <p class="hint">「コピー＋Slack」で日報をコピーした後、営業チャンネルが開くっちゃ。貼り付けは手動でね。</p>
+    </div>
+
+    <div style="text-align:center;">
+      <button class="btn btn-sub" style="max-width:160px;margin:0 auto;" onclick="clearForm()">🗑️ 入力クリア</button>
+    </div>
+  </div>
+
+  <!-- 設定 -->
+  <div id="settingsView" class="settings">
+    <div class="card">
+      <span class="label">📢 チャンネルID</span>
+      <input id="setChannel" placeholder="例: C08P1MWKVT5">
+      <p class="hint">Slackで対象チャンネルを開く → チャンネル名タップ → 一番下の「チャンネルID」（CかGで始まる）をコピーして貼る。</p>
+    </div>
+    <div class="card">
+      <span class="label">🏢 ワークスペースID（任意）</span>
+      <input id="setTeam" placeholder="例: T01ABCDEFG（空でもOK）">
+      <p class="hint">複数ワークスペースに入っとる場合だけ入れれば確実。基本は空でOK。</p>
+    </div>
+    <div class="card">
+      <span class="label">🔢 数字プルダウンの最大値</span>
+      <input id="setMax" type="number" placeholder="30" inputmode="numeric">
+      <p class="hint">見込み・リストの選択肢の上限（デフォルト30）。</p>
+    </div>
+    <div class="card">
+      <button class="btn btn-main" style="width:100%;" onclick="saveSettings()">💾 設定を保存</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const SK = 'axia_eigyo_nippo_v1';
+const DEFAULTS = { channel:'C08P1MWKVT5', team:'T08N4SFEAQN', maxNum:30 };
+
+function load(){
+  try { return {...DEFAULTS, ...JSON.parse(localStorage.getItem(SK)||'{}')}; }
+  catch(e){ return {...DEFAULTS}; }
+}
+function save(s){ localStorage.setItem(SK, JSON.stringify(s)); }
+let state = load();
+
+// 旧バージョンでTeam IDが未保存の場合、最新の既定値を自動補完
+if(!state.team){ state.team = DEFAULTS.team; save(state); }
+if(!state.channel){ state.channel = DEFAULTS.channel; save(state); }
+
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// プルダウン生成（0〜max、先頭は「-」未選択）
+function fillSelects(){
+  const ids=['todayMikomi','todayList','nextMikomi','nextList'];
+  const max=parseInt(state.maxNum)||30;
+  ids.forEach(id=>{
+    const sel=document.getElementById(id);
+    const cur=sel.value;
+    sel.innerHTML='<option value="">-</option>';
+    for(let i=0;i<=max;i++){
+      const o=document.createElement('option');
+      o.value=i; o.textContent=i;
+      sel.appendChild(o);
+    }
+    if(cur!==''&&parseInt(cur)<=max) sel.value=cur;
+  });
+}
+
+// 日報文を組み立て
+function buildPreview(){
+  const done=document.getElementById('done').value.trim();
+  const notdone=document.getElementById('notdone').value.trim();
+  const tm=document.getElementById('todayMikomi').value;
+  const tl=document.getElementById('todayList').value;
+  const nm=document.getElementById('nextMikomi').value;
+  const nl=document.getElementById('nextList').value;
+
+  let txt='営業日報\n';
+  txt+='●出来たこと\n'+(done||'')+'\n\n';
+  txt+='●出来なかったこと\n'+(notdone||'')+'\n\n';
+  txt+='見込み'+(tm!==''?tm:'')+'\n';
+  txt+='リスト'+(tl!==''?tl:'')+'\n\n';
+  txt+='明日の目標\n';
+  txt+='見込み'+(nm!==''?nm:'')+'\n';
+  txt+='リスト'+(nl!==''?nl:'');
+
+  document.getElementById('preview').textContent=txt;
+  return txt;
+}
+
+async function doCopy(){
+  const txt=buildPreview();
+  try { await navigator.clipboard.writeText(txt); return true; }
+  catch(e){
+    const ta=document.createElement('textarea');
+    ta.value=txt; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); document.body.removeChild(ta); return true; }
+    catch(e2){ document.body.removeChild(ta); toast('⚠️ コピー失敗'); return false; }
+  }
+}
+
+async function copyOnly(){
+  if(await doCopy()) toast('✅ コピーしたっちゃ');
+}
+async function copyAndOpen(){
+  if(!(await doCopy())) return;
+  toast('✅ コピー完了 → Slackを開くね');
+  setTimeout(openSlack,600);
+}
+
+function openSlack(){
+  const team=(state.team||'').trim();
+  const ch=(state.channel||'').trim();
+  let appUrl,webUrl;
+  if(team&&ch){ appUrl=`slack://channel?team=${team}&id=${ch}`; webUrl=`https://app.slack.com/client/${team}/${ch}`; }
+  else if(ch){ appUrl=`slack://channel?id=${ch}`; webUrl='https://app.slack.com/client/'; }
+  else { appUrl='slack://open'; webUrl='https://app.slack.com/client/'; }
+  const now=Date.now();
+  window.location.href=appUrl;
+  setTimeout(()=>{ if(Date.now()-now<2000) window.open(webUrl,'_blank'); },1200);
+}
+
+function clearForm(){
+  document.getElementById('done').value='';
+  document.getElementById('notdone').value='';
+  ['todayMikomi','todayList','nextMikomi','nextList'].forEach(id=>document.getElementById(id).value='');
+  buildPreview();
+  toast('🗑️ クリアしたっちゃ');
+}
+
+function toggleSettings(){
+  const sv=document.getElementById('settingsView');
+  const mv=document.getElementById('mainView');
+  const opening=!sv.classList.contains('open');
+  if(opening){
+    document.getElementById('setChannel').value=state.channel||'';
+    document.getElementById('setTeam').value=state.team||'';
+    document.getElementById('setMax').value=state.maxNum||30;
+    sv.classList.add('open'); mv.classList.add('hide');
+  } else { sv.classList.remove('open'); mv.classList.remove('hide'); }
+}
+
+function saveSettings(){
+  state.channel=document.getElementById('setChannel').value.trim();
+  state.team=document.getElementById('setTeam').value.trim();
+  const m=parseInt(document.getElementById('setMax').value);
+  state.maxNum=(m&&m>0)?m:30;
+  save(state);
+  fillSelects(); buildPreview();
+  toast('💾 保存したっちゃ');
+  toggleSettings();
+}
+
+// 初期化
+fillSelects();
+buildPreview();
+</script>
+</body>
+</html>
