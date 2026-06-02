@@ -499,7 +499,7 @@ function Card({ prop, settings, onUpdate, onDeleteReq, onCopyReq, onMoveReq, onS
         <Ring done={done} total={total}/>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontSize:13,fontWeight:700,lineHeight:1.3,color:'#1e2a4a'}}>{prop.name||`（${settings.itemLabel}名未設定）`}</div>
-          {warnCount > 0 && (
+          {warnCount > 0 && prop.tab !== 'delivered' && (
             <div style={{fontSize:10,color:'#f97316',fontWeight:700,marginTop:2}}>⚠️ 要確認 {warnCount}件</div>
           )}
           <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:5,alignItems:'center'}}>
@@ -590,7 +590,21 @@ function Card({ prop, settings, onUpdate, onDeleteReq, onCopyReq, onMoveReq, onS
             ))}
           </div>
         </div>
-        <div style={{flexShrink:0,fontSize:11,color:'#8a96b8',transition:'transform .3s',transform:open?'rotate(180deg)':'none'}}>▼</div>
+        <div style={{flexShrink:0,display:'flex',alignItems:'center',gap:3}}>
+          {settings.tabs.filter(t => t.key !== prop.tab).map(t => (
+            <button key={t.key} onClick={e=>{e.stopPropagation();
+              const patch = {tab:t.key};
+              if(t.key==='delivered') patch.sbjVisible = true;
+              onUpdate(prop.id, patch);
+            }}
+              style={{padding:'4px 8px',borderRadius:8,fontSize:10,fontWeight:700,
+                border:'1px solid #dde3f5',background:'#f0f4ff',color:'#4a5680',
+                whiteSpace:'nowrap',lineHeight:1.2}}>
+              {t.label.replace(/^[^\s]+\s/, '')}
+            </button>
+          ))}
+          <div style={{fontSize:11,color:'#8a96b8',transition:'transform .3s',transform:open?'rotate(180deg)':'none',marginLeft:4}}>▼</div>
+        </div>
       </div>
 
       {open && (
@@ -748,7 +762,7 @@ function App() {
   }, [props, copyId, updateProps]);
 
   const doMove = useCallback(toTab => {
-    updateProps(ps => ps.map(p => p.id===moveId ? {...p, tab:toTab} : p), moveId);
+    updateProps(ps => ps.map(p => p.id===moveId ? {...p, tab:toTab, ...(toTab==='delivered'?{sbjVisible:true}:{})} : p), moveId);
     setTab(toTab); setMoveId(null);
   }, [moveId, updateProps]);
 
@@ -853,7 +867,7 @@ function App() {
             fields: {
               f_customer: sp.f_customer, f_price: sp.f_price, f_bank: sp.f_bank,
               f_age: sp.f_age, f_site: sp.f_site,
-              _checks: checks, _warnMemos: warnMemos, _sbjVisible: false, _sortOrder: i,
+              _checks: checks, _warnMemos: warnMemos, _sbjVisible: sp.status === '引渡し済み', _sortOrder: i,
             }
           });
           inserted++;
