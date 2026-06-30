@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>朝のやることリスト（課員用）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: #f4f5f7; font-family: 'Noto Sans JP', sans-serif; }
+  #root { min-height: 100vh; }
+  ::selection { background: #c8a94a33; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const SK_CHECKS  = 'axia_morning_checklist_checks_v1';
+const SK_DATE    = 'axia_morning_checklist_date_v1';
+const SK_HISTORY = 'axia_morning_checklist_history_v1';
+
+const TITLE = '朝のやることリスト';
+const SUBTITLE = '営業職・10:30出社';
+
+const SECTIONS = [
+  {
+    id: 'before',
+    label: '〜10:30　たばこ休憩、朝ごはん等済ませておく',
+    items: [
+      { key: 'smoke_meal', label: 'たばこ・朝食（10:30まで）' },
+    ],
+  },
+  {
+    id: 'arrival',
+    label: '10:30〜　出社後タスク',
+    items: [
+      { key: 'cleaning', label: '掃除・プリンターのコピー用紙補充（倉庫・ベランダも）' },
+      { key: 'mail_check', label: 'メールの確認（クライアント・社内連絡）' },
+      { key: 'apply_status', label: '自分の課の申し込み状況を確認' },
+      { key: 'contract_status', label: '契約状況を確認' },
+      { key: 'kinsho_check', label: '金消（金銭消費貸借契約）の終了確認' },
+      { key: 'submit_docs', label: '提出書類があれば業務（部署）に提出' },
+    ],
+  },
+  {
+    id: 'meeting',
+    label: 'ミーティング準備',
+    items: [
+      { key: 'review_yesterday', label: '昨日の結果（成果・進捗・課題）を振り返る' },
+      { key: 'plan_today', label: '昨日の結果を踏まえて、今日すべきことを整理する' },
+      { key: 'summarize_cases', label: '自分の担当案件の状況をまとめる（報告できる形に）' },
+      { key: 'research_companies', label: 'リスト作成のための企業調べ' },
+      { key: 'check_news', label: 'ニュースの確認（業界・経済・関連企業など）' },
+      { key: 'organize_share', label: 'ミーティングで共有・相談したい点を整理する' },
+      { key: 'action_plan', label: '今日のアクションプラン（優先順位付き）を決めておく' },
+    ],
+  },
+  {
+    id: 'lunch',
+    label: '昼休憩',
+    items: [
+      { key: 'property_change', label: '物件の変更があった場合は作成する' },
+    ],
+  },
+];
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+const WEEKDAY_JP = ['日','月','火','水','木','金','土'];
+
+function formatDateJp(date) {
+  return `${date.getMonth()+1}月${date.getDate()}日（${WEEKDAY_JP[date.getDay()]}）`;
+}
+
+function loadChecks() {
+  try {
+    const raw = localStorage.getItem(SK_CHECKS);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) { return {}; }
+}
+
+function saveChecks(checks) {
+  try { localStorage.setItem(SK_CHECKS, JSON.stringify(checks)); } catch (e) {}
+}
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(SK_HISTORY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) { return {}; }
+}
+
+function saveHistory(history) {
+  try { localStorage.setItem(SK_HISTORY, JSON.stringify(history)); } catch (e) {}
+}
+
+function totalItemCount() {
+  return SECTIONS.reduce((sum, s) => sum + s.items.length, 0);
+}
+
+function CheckRow({ item, checked, onToggle }) {
+  return (
+    <div
+      onClick={onToggle}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '14px 16px',
+        borderBottom: '1px solid #eef0f3',
+        cursor: 'pointer',
+        background: checked ? '#f7fbf3' : '#fff',
+        transition: 'background 0.15s',
+      }}
+    >
+      <div style={{
+        width: 26, height: 26, borderRadius: 7, flexShrink: 0,
+        border: checked ? '2px solid #4caf50' : '2px solid #d0d4da',
+        background: checked ? '#4caf50' : '#fff',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'all 0.15s',
+      }}>
+        {checked && (
+          <svg width="15" height="12" viewBox="0 0 15 12" fill="none">
+            <path d="M1 6L5.5 10.5L14 1" stroke="#fff" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        )}
+      </div>
+      <div style={{
+        fontSize: 14.5,
+        lineHeight: 1.5,
+        color: checked ? '#7c8a93' : '#2a2f36',
+        textDecoration: checked ? 'line-through' : 'none',
+        fontWeight: 500,
+      }}>
+        {item.label}
+      </div>
+    </div>
+  );
+}
+
+function SectionBlock({ section, checks, onToggle }) {
+  const doneCount = section.items.filter(it => checks[it.key]).length;
+  const total = section.items.length;
+  const allDone = doneCount === total;
+
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '10px 16px',
+        background: allDone ? '#1e2a4a' : '#2e3a5c',
+        color: '#fff',
+      }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700, letterSpacing: 0.3 }}>
+          {section.label}
+        </div>
+        <div style={{
+          fontFamily: 'DM Mono, monospace',
+          fontSize: 12.5,
+          background: allDone ? '#c8a94a' : 'rgba(255,255,255,0.15)',
+          color: allDone ? '#1e2a4a' : '#fff',
+          fontWeight: 700,
+          borderRadius: 20,
+          padding: '3px 10px',
+          minWidth: 38,
+          textAlign: 'center',
+        }}>
+          {doneCount}/{total}
+        </div>
+      </div>
+      <div style={{ background: '#fff', borderRadius: '0 0 10px 10px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        {section.items.map(item => (
+          <CheckRow
+            key={item.key}
+            item={item}
+            checked={!!checks[item.key]}
+            onToggle={() => onToggle(item.key)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function HistoryCalendar({ history, onClose }) {
+  const [viewDate, setViewDate] = useState(() => {
+    const d = new Date();
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
+
+  const { year, month } = viewDate;
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startWeekday = firstDay.getDay();
+  const daysInMonth = lastDay.getDate();
+
+  const cells = [];
+  for (let i = 0; i < startWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const monthKeys = Object.keys(history).filter(k => k.startsWith(`${year}-${String(month+1).padStart(2,'0')}`));
+  const completedDays = monthKeys.filter(k => history[k].pct === 100).length;
+  const avgPct = monthKeys.length > 0
+    ? Math.round(monthKeys.reduce((sum, k) => sum + history[k].pct, 0) / monthKeys.length)
+    : 0;
+
+  const prevMonth = () => {
+    setViewDate(v => {
+      const m = v.month - 1;
+      return m < 0 ? { year: v.year - 1, month: 11 } : { year: v.year, month: m };
+    });
+  };
+  const nextMonth = () => {
+    setViewDate(v => {
+      const m = v.month + 1;
+      return m > 11 ? { year: v.year + 1, month: 0 } : { year: v.year, month: m };
+    });
+  };
+
+  const cellColor = (pct) => {
+    if (pct === undefined) return null;
+    if (pct === 100) return '#4caf50';
+    if (pct >= 70) return '#c8a94a';
+    if (pct >= 40) return '#e0a458';
+    return '#d97a6c';
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 100, padding: 16,
+    }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: '#fff', borderRadius: 14, padding: 20, maxWidth: 380, width: '100%',
+        maxHeight: '85vh', overflowY: 'auto',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <button onClick={prevMonth} style={{ border: 'none', background: 'none', fontSize: 18, color: '#1e2a4a', cursor: 'pointer', padding: 6 }}>‹</button>
+          <div style={{ fontSize: 16, fontWeight: 900, color: '#1e2a4a' }}>{year}年{month+1}月</div>
+          <button onClick={nextMonth} style={{ border: 'none', background: 'none', fontSize: 18, color: '#1e2a4a', cursor: 'pointer', padding: 6 }}>›</button>
+        </div>
+
+        <div style={{
+          display: 'flex', gap: 10, marginBottom: 14, padding: '10px 12px',
+          background: '#f7f8fa', borderRadius: 10,
+        }}>
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 19, fontWeight: 700, color: '#4caf50' }}>{completedDays}</div>
+            <div style={{ fontSize: 10.5, color: '#888', marginTop: 2 }}>100%達成日数</div>
+          </div>
+          <div style={{ width: 1, background: '#e0e0e0' }} />
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 19, fontWeight: 700, color: '#c8a94a' }}>{avgPct}%</div>
+            <div style={{ fontSize: 10.5, color: '#888', marginTop: 2 }}>平均進捗率</div>
+          </div>
+          <div style={{ width: 1, background: '#e0e0e0' }} />
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 19, fontWeight: 700, color: '#1e2a4a' }}>{monthKeys.length}</div>
+            <div style={{ fontSize: 10.5, color: '#888', marginTop: 2 }}>記録日数</div>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4, marginBottom: 6 }}>
+          {['日','月','火','水','木','金','土'].map((w, i) => (
+            <div key={w} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: i===0?'#d97a6c':i===6?'#5b7fd9':'#999' }}>{w}</div>
+          ))}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4 }}>
+          {cells.map((d, i) => {
+            if (d === null) return <div key={i} />;
+            const key = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const rec = history[key];
+            const color = rec ? cellColor(rec.pct) : null;
+            const isToday = key === todayStr();
+            return (
+              <div key={i} style={{
+                aspectRatio: '1', borderRadius: 8,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                background: color ? color : '#f4f5f7',
+                border: isToday ? '2px solid #1e2a4a' : 'none',
+                position: 'relative',
+              }}>
+                <div style={{
+                  fontSize: 12, fontWeight: 700,
+                  color: color ? '#fff' : '#888',
+                }}>{d}</div>
+                {rec && (
+                  <div style={{ fontSize: 8.5, fontWeight: 700, color: '#fff', marginTop: -1 }}>{rec.pct}%</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 16, fontSize: 10.5, color: '#888', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <span><span style={{display:'inline-block',width:9,height:9,borderRadius:2,background:'#4caf50',marginRight:4}}/>100%</span>
+          <span><span style={{display:'inline-block',width:9,height:9,borderRadius:2,background:'#c8a94a',marginRight:4}}/>70%〜</span>
+          <span><span style={{display:'inline-block',width:9,height:9,borderRadius:2,background:'#e0a458',marginRight:4}}/>40%〜</span>
+          <span><span style={{display:'inline-block',width:9,height:9,borderRadius:2,background:'#d97a6c',marginRight:4}}/>40%未満</span>
+        </div>
+
+        <button onClick={onClose} style={{
+          width: '100%', marginTop: 16, padding: '11px 0', borderRadius: 8,
+          border: 'none', background: '#1e2a4a', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+        }}>閉じる</button>
+      </div>
+    </div>
+  );
+}
+
+function ResetConfirm({ onConfirm, onCancel, pct }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 100, padding: 20,
+    }} onClick={onCancel}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: '#fff', borderRadius: 14, padding: 24, maxWidth: 320, width: '100%',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+      }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#1e2a4a', marginBottom: 8 }}>
+          全てリセットしますか？
+        </div>
+        <div style={{ fontSize: 13.5, color: '#666', lineHeight: 1.6, marginBottom: 8 }}>
+          本日の進捗率（<b style={{color:'#1e2a4a'}}>{pct}%</b>）を記録して、チェック状態を全て未完了に戻します。
+        </div>
+        <div style={{ fontSize: 12, color: '#999', lineHeight: 1.5, marginBottom: 20 }}>
+          {(() => {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            return formatDateJp(tomorrow);
+          })()}を新しい1日として始めます。
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onCancel} style={{
+            flex: 1, padding: '11px 0', borderRadius: 8, border: '1px solid #ddd',
+            background: '#fff', color: '#555', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+          }}>キャンセル</button>
+          <button onClick={onConfirm} style={{
+            flex: 1, padding: '11px 0', borderRadius: 8, border: 'none',
+            background: '#c8534a', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+          }}>リセットする</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [checks, setChecks] = useState(loadChecks);
+  const [history, setHistory] = useState(loadHistory);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [savedDate, setSavedDate] = useState(() => {
+    try { return localStorage.getItem(SK_DATE) || ''; } catch (e) { return ''; }
+  });
+
+  useEffect(() => { saveChecks(checks); }, [checks]);
+
+  const toggle = useCallback((key) => {
+    setChecks(prev => {
+      const next = { ...prev, [key]: !prev[key] };
+      return next;
+    });
+  }, []);
+
+  const total = totalItemCount();
+  const doneTotal = Object.values(checks).filter(Boolean).length;
+  const pct = total > 0 ? Math.round((doneTotal / total) * 100) : 0;
+  const allDone = doneTotal === total && total > 0;
+
+  const doReset = () => {
+    const t = todayStr();
+    const nextHistory = { ...history, [t]: { pct, done: doneTotal, total } };
+    setHistory(nextHistory);
+    saveHistory(nextHistory);
+    setChecks({});
+    setSavedDate(t);
+    try { localStorage.setItem(SK_DATE, t); } catch (e) {}
+    setShowResetConfirm(false);
+  };
+
+  return (
+    <div style={{ maxWidth: 520, margin: '0 auto', minHeight: '100vh', background: '#f4f5f7', paddingBottom: 40 }}>
+      {/* ヘッダー */}
+      <div style={{ background: '#1e2a4a', color: '#fff', padding: '22px 18px 18px' }}>
+        <div style={{
+          fontFamily: 'DM Mono, monospace', fontSize: 12.5, color: 'rgba(255,255,255,0.6)',
+          fontWeight: 500, marginBottom: 6, letterSpacing: 0.5,
+        }}>
+          {formatDateJp(new Date())}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 19, fontWeight: 900, letterSpacing: 0.3 }}>{TITLE}</div>
+            <div style={{ fontSize: 12.5, color: '#c8a94a', fontWeight: 700, marginTop: 3 }}>{SUBTITLE}</div>
+          </div>
+          <button onClick={() => setShowCalendar(true)} style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 8,
+            padding: '7px 10px', color: '#fff', fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c8a94a" strokeWidth="2.2">
+              <rect x="3" y="5" width="18" height="16" rx="2"/>
+              <path d="M3 9h18M8 3v4M16 3v4" strokeLinecap="round"/>
+            </svg>
+            履歴
+          </button>
+        </div>
+
+        <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ flex: 1, height: 8, background: 'rgba(255,255,255,0.15)', borderRadius: 10, overflow: 'hidden' }}>
+            <div style={{
+              height: '100%', width: `${pct}%`,
+              background: allDone ? '#4caf50' : '#c8a94a',
+              borderRadius: 10, transition: 'width 0.3s',
+            }} />
+          </div>
+          <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, fontWeight: 700, minWidth: 56, textAlign: 'right' }}>
+            {doneTotal}/{total}
+          </div>
+        </div>
+
+        {allDone && (
+          <div style={{ marginTop: 10, fontSize: 13, fontWeight: 700, color: '#9be39b' }}>
+            ✅ 本日の朝タスクは全て完了しています！
+          </div>
+        )}
+      </div>
+
+      {/* セクション */}
+      <div style={{ padding: '16px 14px 0' }}>
+        {SECTIONS.map(section => (
+          <SectionBlock
+            key={section.id}
+            section={section}
+            checks={checks}
+            onToggle={toggle}
+          />
+        ))}
+      </div>
+
+      {/* リセットボタン */}
+      <div style={{ padding: '8px 14px 0' }}>
+        <button
+          onClick={() => setShowResetConfirm(true)}
+          style={{
+            width: '100%', padding: '13px 0', borderRadius: 10,
+            border: '1px solid #d8d8d8', background: '#fff',
+            color: '#888', fontSize: 13.5, fontWeight: 700, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2">
+            <path d="M3 12a9 9 0 1 0 2.6-6.4L3 8" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M3 3v5h5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          全てリセット（新しい1日を始める）
+        </button>
+        <div style={{ textAlign: 'center', fontSize: 11.5, color: '#aaa', marginTop: 8 }}>
+          翌日：{(() => {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            return formatDateJp(tomorrow);
+          })()}
+        </div>
+        {savedDate && (
+          <div style={{ textAlign: 'center', fontSize: 10.5, color: '#c4c4c4', marginTop: 3 }}>
+            最終リセット：{savedDate}
+          </div>
+        )}
+      </div>
+
+      {showResetConfirm && (
+        <ResetConfirm pct={pct} onConfirm={doReset} onCancel={() => setShowResetConfirm(false)} />
+      )}
+      {showCalendar && (
+        <HistoryCalendar history={history} onClose={() => setShowCalendar(false)} />
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
