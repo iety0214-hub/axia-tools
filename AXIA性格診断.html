@@ -5658,17 +5658,17 @@ var __async = (__this, __arguments, generator) => {
     function utf8CheckExtraBytes(self2, buf, p) {
       if ((buf[0] & 192) !== 128) {
         self2.lastNeed = 0;
-        return "�";
+        return " ";
       }
       if (self2.lastNeed > 1 && buf.length > 1) {
         if ((buf[1] & 192) !== 128) {
           self2.lastNeed = 1;
-          return "�";
+          return " ";
         }
         if (self2.lastNeed > 2 && buf.length > 2) {
           if ((buf[2] & 192) !== 128) {
             self2.lastNeed = 2;
-            return "�";
+            return " ";
           }
         }
       }
@@ -5697,7 +5697,7 @@ var __async = (__this, __arguments, generator) => {
     function utf8End(buf) {
       var r = buf && buf.length ? this.write(buf) : "";
       if (this.lastNeed)
-        return r + "�";
+        return r + " ";
       return r;
     }
     function utf16Text(buf, i) {
@@ -20254,6 +20254,19 @@ var __async = (__this, __arguments, generator) => {
     padding:13px 14px;line-height:1.6;text-align:center;
   }
   .mini-note{font-size:11px;color:var(--sub);margin-top:10px;line-height:1.6;}
+  .hitokoto-box{
+    background:linear-gradient(135deg,#fdf6ec,#f8ecdf);
+    border:1.5px solid var(--gold);border-radius:14px;
+    padding:16px 15px;margin-bottom:14px;text-align:center;
+  }
+  .hitokoto-label{font-size:11px;letter-spacing:.2em;color:var(--gold);font-weight:700;margin-bottom:6px;}
+  .hitokoto-main{font-size:19px;font-weight:700;color:var(--ink);line-height:1.5;}
+  .hitokoto-tags{margin-top:10px;display:flex;justify-content:center;gap:6px;flex-wrap:wrap;}
+  .htag{
+    font-size:12px;font-weight:600;color:var(--ink);
+    background:#fff;border:1px solid var(--line);border-radius:20px;
+    padding:4px 11px;
+  }
   .layer-note{font-size:12px;color:var(--sub);background:#f6f1ea;border-radius:10px;padding:11px 13px;margin-top:12px;line-height:1.7;}
   .face{
     border:1px solid var(--line);border-radius:12px;
@@ -20302,6 +20315,37 @@ var __async = (__this, __arguments, generator) => {
     padding:6px 11px;cursor:pointer;
   }
   .member-del:active{background:#f3e3dd;}
+  .member-aisho{
+    flex:0 0 auto;font-size:12px;color:var(--accent);font-weight:600;
+    background:var(--accent-soft);border:1px solid var(--accent-soft);border-radius:8px;
+    padding:6px 11px;cursor:pointer;
+  }
+  .member-aisho:active{opacity:.7;}
+  .aisho-row{
+    border:1px solid var(--line);border-radius:12px;
+    padding:12px 13px;margin-bottom:9px;background:#fdfbf8;cursor:pointer;
+  }
+  .aisho-head{display:flex;align-items:center;gap:9px;}
+  .aisho-no{
+    flex:0 0 auto;width:22px;height:22px;border-radius:50%;
+    background:var(--line);color:var(--sub);font-size:12px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .aisho-name{flex:1;font-size:14.5px;font-weight:700;color:var(--ink);}
+  .aisho-star{font-size:10.5px;font-weight:600;color:var(--gold);margin-left:7px;}
+  .aisho-rank{
+    flex:0 0 auto;color:#fff;font-size:13px;font-weight:700;
+    width:26px;height:26px;border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .aisho-pt{flex:0 0 auto;font-size:17px;font-weight:700;color:var(--ink);min-width:48px;text-align:right;}
+  .aisho-pt small{font-size:10px;color:var(--sub);font-weight:600;}
+  .aisho-detail{display:none;margin-top:10px;border-top:1px dashed var(--line);padding-top:10px;}
+  .aisho-detail.open{display:block;}
+  .aisho-advice{font-size:13px;color:var(--ink);margin-bottom:8px;line-height:1.7;}
+  .aisho-breakdown{list-style:none;padding:0;margin:0;}
+  .aisho-breakdown li{font-size:12px;color:var(--sub);line-height:1.8;padding-left:10px;position:relative;}
+  .aisho-breakdown li::before{content:"・";position:absolute;left:0;}
   .more{margin-top:18px;border-top:1px dashed var(--line);padding-top:14px;}
   .more summary{
     font-size:13px;color:var(--accent);cursor:pointer;font-weight:600;
@@ -20517,34 +20561,34 @@ const JUS_FLAVOR={
 };
 
 const CUSTOM_PROFILE={
- "茂木洋平":{catch:"静かに束ねる、田園の名将",deep:"温厚でどっしり構え、人を静かに束ねる調整型のトップ。号令で動かすより、深く考え抜いて場を治める名将タイプ。芯はぶれない一本気な人。"},
- "井上隼斗":{catch:"神出鬼没の、人たらし参謀",deep:"面倒見のよさに、驚くほど素早い機転と発想が同居する人たらし。場面ごとに賢く顔を変える、懐の広い参謀役。"},
- "土屋完太":{catch:"水を得て未知へ漕ぎ出す探求者",deep:"知性を土台に、未知へ踏み出す探求心の持ち主。プライドと責任感が強く、いい加減な仕事を嫌う完璧志向。学びと挑戦が結びつくと伸びる。"},
- "笠原大寿":{catch:"太陽みたいに巻き込む世話役",deep:"太陽のように明るく、いるだけで場が華やぐ世話役。型より場のノリで人の懐に入るのが抜群にうまい。明るく見えて芯はしっかり者。"},
- "家原利博":{catch:"嵐を秘めた、雨上がりの表現者",deep:"穏やかな雨のような知性家。でも内側には社内屈指のパワーと、こだわり抜く表現衝動を秘めている。事務の枠を超えて形にする力を持つ。"},
- "伊藤愛":{catch:"大地のように受け止める和の人",deep:"大地のように何でも受け止める、懐の深い和合の人。穏やかにチームを和ませつつ、芯では譲らない強さを持つ。"},
- "川合亮太":{catch:"灯火で照らす、気の利く支え手",deep:"人の心の機微を読むのが得意な、気配りの支え手。必要なところにそっと気を配り、チームの潤滑油になる落ち着いた人。"},
- "安部寿紀":{catch:"まっすぐ伸びる、若き大樹",deep:"まっすぐで素直、曲がったことを嫌う若き大樹。正攻法で責任感が強く、伸びしろが大きい。礼儀正しく挑戦心もある。"},
- "髙野怜慈":{catch:"田園に実る、おおらか楽天家",deep:"おおらかで場を和ませる楽天家。でも地に足のついた堅実さも併せ持つ、安定感のあるしっかり者。"},
- "大内友輔":{catch:"パワー全開、笑顔の突進力",deep:"社内最大級のエネルギーを持つパワフルな人。おおらかさと圧倒的な行動量、鋭い決断力で前へ突き進む笑顔の突進力タイプ。"},
- "秋元有香":{catch:"しなやかに尽くす、草花の癒し手",deep:"風になびく草花のように柔軟で、粘り強く人に尽くす癒し手。何度でも立ち上がるしたたかな強さを内に秘めている。"},
- "浅見翔太":{catch:"根を張る大樹、誠実な働き者",deep:"地にしっかり根を張る大樹のような誠実さと安定感。正攻法でコツコツ信頼を積み、人の面倒もよく見る働き者。"},
- "佐野宏樹":{catch:"草花の根気、堅実な蓄財家",deep:"くじけても立ち上がる草花の根気で、着実に成果を蓄える堅実家。明るさと和を作る交友力も併せ持つ。"},
- "深谷順一":{catch:"山のごとく動じぬ自由人",deep:"山のように動じない安定感と、楽しむおおらかさを併せ持つ自由人。マイペースで簡単には動かない、頼れるベテラン。"},
- "坪井洸樹":{catch:"陽だまりの、堅実な縁つなぎ",deep:"陽だまりのようなあたたかさで、堅実に信頼を積む人。明るさと堅実さ、両方をバランスよく持つ。"},
- "佐藤武斗":{catch:"蓄えて守る、草花の堅実家",deep:"柔軟に人を支える世話役。でも内にはしっかり自分の世界を持ち、コツコツ蓄える粘り強さがある若手。"},
- "桃井貴也":{catch:"大樹で挑む、好奇心の開拓者",deep:"まっすぐな勢いで新しい世界を開拓するタイプ。素直さと挑戦心を併せ持つ、伸び盛りの開拓者。"},
- "髙田響":{catch:"山に蔵を築く、寡黙な堅実家",deep:"山のように構えて、自分の世界に着実に蓄える寡黙な堅実家。多くを語らずとも確実に物事を積み上げる。"},
- "五十嵐麗恩":{catch:"田園を治める、静かな和合家",deep:"大地のように人を受け入れ、穏やかに場を治める和合家。芯には品格と知性を備えている。"},
- "三浦舞鈴":{catch:"鋼を磨く、孤高の感性派",deep:"鋼のような強い芯と、鋭い感性・表現力が同居する珍しいタイプ。はっきりものを言う強さとこだわりを持つ孤高の感性派。"},
- "脇田菜々映":{catch:"灯火の探究、ひらめきの旅人",deep:"灯火のように鋭い直感で、新しい世界を探究する旅人。独自の感性とひらめきで道を切り拓く。"},
- "儀間悠介":{catch:"草花の閃き、変幻自在の人気者",deep:"柔軟さに驚くほどの機転が加わった変幻自在タイプ。粘り強く人に尽くしつつ、素早い発想で場を動かすつかみどころのない人気者。"},
- "内田樹那":{catch:"大地に根を張る、不動の若武者",deep:"大地に根を張って動じない不動の構え。マイペースに見えて、内に強いパワーを秘めた頼もしい若武者。"},
- "瓜田到夢":{catch:"蔵に満ちる、芯の強い蓄財家",deep:"草花の根気で着実に蓄える堅実家。控えめに見えて、芯はしたたかで譲らない。"},
- "柴田瑛月":{catch:"磨かれた宝石、独立の野心家",deep:"磨かれるほど光る宝石のように、経験を積むほど輝くタイプ。繊細な美意識と強い独立心、大きな野心を併せ持つ。"},
- "木村桜子":{catch:"灯火の感性、表現する繊細家",deep:"灯火のように内に熱を持ち、鋭い感性で表現するタイプ。繊細さと表現力で人の心を動かすこだわり屋。"},
- "後藤ひまり":{catch:"大樹の知性、学びの伝承者",deep:"まっすぐな素直さと、深く学んで人に伝える知性を併せ持つ。学んだことを丁寧に積み上げる伝承者タイプ。"},
- "長谷川万緒":{catch:"田園に集う、知性の和合家",deep:"温厚な包容力で人をまとめる和合家。穏やかに場を支えつつ、内に知性と落ち着きを備えている。"},
+ "茂木洋平":{catch:"静かに束ねる、田園の名将",deep:"温厚でどっしり構え、人を静かに束ねる調整型のトップ。号令で動かすより、深く考え抜いて場を治める名将タイプ。芯はぶれない一本気な人。",hitokoto:"どっしり構えて皆をまとめる人",tags:["🗻 動じない","🤝 まとめ役","🧠 深く考える"]},
+ "井上隼斗":{catch:"神出鬼没の、人たらし参謀",deep:"面倒見のよさに、驚くほど素早い機転と発想が同居する人たらし。場面ごとに賢く顔を変える、懐の広い参謀役。",hitokoto:"頭の回転が速い世話好きな人",tags:["⚡ 機転が利く","🤝 面倒見よし","🎭 器用"]},
+ "土屋完太":{catch:"水を得て未知へ漕ぎ出す探求者",deep:"知性を土台に、未知へ踏み出す探求心の持ち主。プライドと責任感が強く、いい加減な仕事を嫌う完璧志向。学びと挑戦が結びつくと伸びる。",hitokoto:"真面目に新しいことを学ぶ人",tags:["📚 探求心","🎯 完璧志向","🚀 挑戦好き"]},
+ "笠原大寿":{catch:"太陽みたいに巻き込む世話役",deep:"太陽のように明るく、いるだけで場が華やぐ世話役。型より場のノリで人の懐に入るのが抜群にうまい。明るく見えて芯はしっかり者。",hitokoto:"明るくて人の懐に入るのがうまい人",tags:["🌞 明るい","🤝 世話好き","🎉 場を華やげる"]},
+ "家原利博":{catch:"嵐を秘めた、雨上がりの表現者",deep:"穏やかな雨のような知性家。でも内側には社内屈指のパワーと、こだわり抜く表現衝動を秘めている。事務の枠を超えて形にする力を持つ。",hitokoto:"物静かに見えて中身は超パワフルな人",tags:["🧠 知的","🔥 内に秘めた力","🎨 こだわり屋"]},
+ "伊藤愛":{catch:"大地のように受け止める和の人",deep:"大地のように何でも受け止める、懐の深い和合の人。穏やかにチームを和ませつつ、芯では譲らない強さを持つ。",hitokoto:"何でも受け止めてくれる安心感の人",tags:["🌏 懐が深い","😌 穏やか","💪 芯が強い"]},
+ "川合亮太":{catch:"灯火で照らす、気の利く支え手",deep:"人の心の機微を読むのが得意な、気配りの支え手。必要なところにそっと気を配り、チームの潤滑油になる落ち着いた人。",hitokoto:"よく気がつく縁の下の力持ち",tags:["🕯 気配り上手","🤝 支え役","😌 落ち着き"]},
+ "安部寿紀":{catch:"まっすぐ伸びる、若き大樹",deep:"まっすぐで素直、曲がったことを嫌う若き大樹。正攻法で責任感が強く、伸びしろが大きい。礼儀正しく挑戦心もある。",hitokoto:"素直でまっすぐな頑張り屋",tags:["🌱 素直","💪 責任感","🚀 挑戦心"]},
+ "髙野怜慈":{catch:"田園に実る、おおらか楽天家",deep:"おおらかで場を和ませる楽天家。でも地に足のついた堅実さも併せ持つ、安定感のあるしっかり者。",hitokoto:"おおらかで安定感のある人",tags:["😊 おおらか","🏔 安定感","📋 堅実"]},
+ "大内友輔":{catch:"パワー全開、笑顔の突進力",deep:"社内最大級のエネルギーを持つパワフルな人。おおらかさと圧倒的な行動量、鋭い決断力で前へ突き進む笑顔の突進力タイプ。",hitokoto:"エネルギーの塊みたいな行動派",tags:["🔥 パワフル","🏃 行動派","😄 笑顔"]},
+ "秋元有香":{catch:"しなやかに尽くす、草花の癒し手",deep:"風になびく草花のように柔軟で、粘り強く人に尽くす癒し手。何度でも立ち上がるしたたかな強さを内に秘めている。",hitokoto:"柔らかいのに粘り強い人",tags:["🌸 柔軟","🤝 尽くす","💪 粘り強い"]},
+ "浅見翔太":{catch:"根を張る大樹、誠実な働き者",deep:"地にしっかり根を張る大樹のような誠実さと安定感。正攻法でコツコツ信頼を積み、人の面倒もよく見る働き者。",hitokoto:"コツコツ信頼を積む誠実な人",tags:["🌳 誠実","📋 コツコツ","🤝 面倒見よし"]},
+ "佐野宏樹":{catch:"草花の根気、堅実な蓄財家",deep:"くじけても立ち上がる草花の根気で、着実に成果を蓄える堅実家。明るさと和を作る交友力も併せ持つ。",hitokoto:"折れずに積み上げる堅実な人",tags:["🌱 根気強い","📋 堅実","🤝 交友上手"]},
+ "深谷順一":{catch:"山のごとく動じぬ自由人",deep:"山のように動じない安定感と、楽しむおおらかさを併せ持つ自由人。マイペースで簡単には動かない、頼れるベテラン。",hitokoto:"マイペースで動じないベテラン",tags:["🗻 動じない","😊 自由人","🎯 頼れる"]},
+ "坪井洸樹":{catch:"陽だまりの、堅実な縁つなぎ",deep:"陽だまりのようなあたたかさで、堅実に信頼を積む人。明るさと堅実さ、両方をバランスよく持つ。",hitokoto:"あたたかくて着実な人",tags:["🌞 あたたか","📋 堅実","🤝 縁を大事に"]},
+ "佐藤武斗":{catch:"蓄えて守る、草花の堅実家",deep:"柔軟に人を支える世話役。でも内にはしっかり自分の世界を持ち、コツコツ蓄える粘り強さがある若手。",hitokoto:"人あたり柔らかく自分の世界を持つ人",tags:["🌸 柔軟","🏰 自分の世界","📋 コツコツ"]},
+ "桃井貴也":{catch:"大樹で挑む、好奇心の開拓者",deep:"まっすぐな勢いで新しい世界を開拓するタイプ。素直さと挑戦心を併せ持つ、伸び盛りの開拓者。",hitokoto:"素直で伸びしろの大きい挑戦者",tags:["🌱 素直","🚀 挑戦好き","😊 愛嬌"]},
+ "髙田響":{catch:"山に蔵を築く、寡黙な堅実家",deep:"山のように構えて、自分の世界に着実に蓄える寡黙な堅実家。多くを語らずとも確実に物事を積み上げる。",hitokoto:"静かに確実に積み上げる人",tags:["🤫 寡黙","📋 確実","🏰 探求心"]},
+ "五十嵐麗恩":{catch:"田園を治める、静かな和合家",deep:"大地のように人を受け入れ、穏やかに場を治める和合家。芯には品格と知性を備えている。",hitokoto:"穏やかに場を整える人",tags:["😌 穏やか","🤝 まとめ役","👔 品がある"]},
+ "三浦舞鈴":{catch:"鋼を磨く、孤高の感性派",deep:"鋼のような強い芯と、鋭い感性・表現力が同居する珍しいタイプ。はっきりものを言う強さとこだわりを持つ孤高の感性派。",hitokoto:"芯が強くてこだわりのある人",tags:["⚔ 芯が強い","🎨 感性派","🗣 はっきり言う"]},
+ "脇田菜々映":{catch:"灯火の探究、ひらめきの旅人",deep:"灯火のように鋭い直感で、新しい世界を探究する旅人。独自の感性とひらめきで道を切り拓く。",hitokoto:"直感とひらめきで動く人",tags:["💡 ひらめき","🧭 探究心","🎨 独自の感性"]},
+ "儀間悠介":{catch:"草花の閃き、変幻自在の人気者",deep:"柔軟さに驚くほどの機転が加わった変幻自在タイプ。粘り強く人に尽くしつつ、素早い発想で場を動かすつかみどころのない人気者。",hitokoto:"つかみどころのない人気者",tags:["⚡ 機転","🤝 尽くす","🎭 変幻自在"]},
+ "内田樹那":{catch:"大地に根を張る、不動の若武者",deep:"大地に根を張って動じない不動の構え。マイペースに見えて、内に強いパワーを秘めた頼もしい若武者。",hitokoto:"マイペースだけど頼りになる人",tags:["🗻 動じない","🔥 秘めた力","😊 マイペース"]},
+ "瓜田到夢":{catch:"蔵に満ちる、芯の強い蓄財家",deep:"草花の根気で着実に蓄える堅実家。控えめに見えて、芯はしたたかで譲らない。",hitokoto:"控えめに見えて芯が強い人",tags:["🌱 根気強い","🏰 芯が強い","📋 蓄える"]},
+ "柴田瑛月":{catch:"磨かれた宝石、独立の野心家",deep:"磨かれるほど光る宝石のように、経験を積むほど輝くタイプ。繊細な美意識と強い独立心、大きな野心を併せ持つ。",hitokoto:"磨けば磨くほど光る野心家",tags:["💎 美意識","🚀 野心","💪 独立心"]},
+ "木村桜子":{catch:"灯火の感性、表現する繊細家",deep:"灯火のように内に熱を持ち、鋭い感性で表現するタイプ。繊細さと表現力で人の心を動かすこだわり屋。",hitokoto:"繊細な感性で表現する人",tags:["🕯 繊細","🎨 表現力","🔥 内に熱い"]},
+ "後藤ひまり":{catch:"大樹の知性、学びの伝承者",deep:"まっすぐな素直さと、深く学んで人に伝える知性を併せ持つ。学んだことを丁寧に積み上げる伝承者タイプ。",hitokoto:"学んだことを丁寧に伝えられる人",tags:["📚 学び好き","🌳 素直","🤝 伝え上手"]},
+ "長谷川万緒":{catch:"田園に集う、知性の和合家",deep:"温厚な包容力で人をまとめる和合家。穏やかに場を支えつつ、内に知性と落ち着きを備えている。",hitokoto:"穏やかで知的なまとめ役",tags:["😌 穏やか","🧠 知的","🤝 まとめ役"]},
 };
 
 const WORK={
@@ -20934,11 +20978,139 @@ function renderList(){
         <div class="member-name">${escapeHtml(m.name)}</div>
         <div class="member-sub">${m.y}/${m.m}/${m.d}　▶ ${wk.catch}</div>
       </div>
+      <button class="member-aisho" onclick="event.stopPropagation();showAisho(${i})">相性</button>
       <button class="member-del" onclick="event.stopPropagation();deleteMember(${i})">削除</button>
     </div>`;
   }).join('');
 }
+
+/* ===== 相性ランキング表示 ===== */
+function showAisho(idx){
+  const list=loadMembers();
+  if(list.length<2){ alert('相性を見るには2人以上の登録が必要です。'); return; }
+  const base=list[idx];
+  const o1=computeChart(base.y,base.m,base.d); o1.name=base.name;
+  // 全員との相性を計算
+  const rows=list.map((m,i)=>{
+    if(i===idx) return null;
+    const o2=computeChart(m.y,m.m,m.d); o2.name=m.name;
+    const sc=aishoScore(o1,o2);
+    const adv=aishoAdvice(sc,o1,o2);
+    return {name:m.name,center:o2.centerStar,score:sc,adv};
+  }).filter(Boolean).sort((a,b)=>b.score.total-a.score.total);
+
+  const rankColor={S:"#b5462f",A:"#c79a4a",B:"#6b8e6b",C:"#857b6e",D:"#9a9aa0"};
+  const html=`
+  <div class="card">
+    <div class="result-head">
+      <div class="rh-name">${escapeHtml(base.name)} の相性ランキング</div>
+      <div class="rh-birth">${base.y}/${base.m}/${base.d}・${o1.centerStar}</div>
+    </div>
+    <p style="font-size:12.5px;color:var(--sub);margin-bottom:14px">日干の関係・支の縁・星の組み合わせ・エネルギーバランスから、仕事での相性を100点満点で算出しています。</p>
+    ${rows.map((r,i)=>`
+      <div class="aisho-row" onclick="this.querySelector('.aisho-detail').classList.toggle('open')">
+        <div class="aisho-head">
+          <span class="aisho-no">${i+1}</span>
+          <span class="aisho-name">${escapeHtml(r.name)}<span class="aisho-star">${r.center}</span></span>
+          <span class="aisho-rank" style="background:${rankColor[r.adv.rank]}">${r.adv.rank}</span>
+          <span class="aisho-pt">${r.score.total}<small>点</small></span>
+        </div>
+        <div class="aisho-detail">
+          <p class="aisho-advice">💡 ${r.adv.advice}</p>
+          <ul class="aisho-breakdown">
+            <li>日干：${r.score.detail.kan.txt}（${r.score.detail.kan.pt}/40）</li>
+            <li>支の縁：${r.score.detail.shi.txt}（${r.score.detail.shi.pt}/30）</li>
+            <li>星：${r.score.detail.star.txt}（${r.score.detail.star.pt}/20）</li>
+            <li>エネルギー：${r.score.detail.energy.txt}（${r.score.detail.energy.pt}/10）</li>
+          </ul>
+        </div>
+      </div>`).join('')}
+    <p class="mini-note">※ タップすると組み方のポイントと内訳が開きます。相性は「仕事の組みやすさ」の目安です。</p>
+  </div>
+  <button class="btn" onclick="backToTop()">一覧に戻る</button>`;
+
+  const r=document.getElementById('result');
+  r.innerHTML=html; r.style.display='block';
+  document.getElementById('inputCard').style.display='none';
+  document.getElementById('listCard').style.display='none';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
 function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+/* ===== 相性診断 ===== */
+/* 干合ペア: 甲己 乙庚 丙辛 丁壬 戊癸 */
+const KANGO=[[0,5],[1,6],[2,7],[3,8],[4,9]];
+/* 支合: 子丑 寅亥 卯戌 辰酉 巳申 午未 */
+const SHIGO=[[0,1],[2,11],[3,10],[4,9],[5,8],[6,7]];
+/* 冲: 子午 丑未 寅申 卯酉 辰戌 巳亥 */
+const CHU=[[0,6],[1,7],[2,8],[3,9],[4,10],[5,11]];
+/* 三合グループ: 申子辰(水) 寅午戌(火) 巳酉丑(金) 亥卯未(木) */
+const SANGO=[[8,0,4],[2,6,10],[5,9,1],[11,3,7]];
+/* 星の陰陽ペアグループ */
+const STAR_GROUP={"貫索星":0,"石門星":0,"鳳閣星":1,"調舒星":1,"禄存星":2,"司禄星":2,"車騎星":3,"牽牛星":3,"龍高星":4,"玉堂星":4};
+
+function pairIn(list,a,b){return list.some(p=>(p[0]===a&&p[1]===b)||(p[0]===b&&p[1]===a));}
+function inSameSango(a,b){return SANGO.some(g=>g.includes(a)&&g.includes(b));}
+
+function aishoScore(o1,o2){
+  let detail={};
+  // 1) 日干関係(40)
+  const k1=o1.dayKan,k2=o2.dayKan;
+  const g1=KAN_GOGYO[k1],g2=KAN_GOGYO[k2];
+  let kanPt,kanTxt;
+  if(pairIn(KANGO,k1,k2)){kanPt=40;kanTxt="干合：強く引き合う最高の縁";}
+  else if((g1+1)%5===g2){kanPt=32;kanTxt="相生：自分が相手を生かす関係";}
+  else if((g2+1)%5===g1){kanPt=34;kanTxt="相生：相手に支えられる関係";}
+  else if(g1===g2){kanPt=26;kanTxt="比和：同質で分かり合えるが張り合いも";}
+  else if((g1+2)%5===g2){kanPt=18;kanTxt="相剋：自分が攻める側でぶつかりがち";}
+  else {kanPt=16;kanTxt="相剋：相手に押されやすい関係";}
+  detail.kan={pt:kanPt,txt:kanTxt};
+  // 2) 日支関係(30)
+  const s1=o1.dayShi,s2=o2.dayShi;
+  let shiPt,shiTxt;
+  if(pairIn(SHIGO,s1,s2)){shiPt=30;shiTxt="支合：自然と息が合う";}
+  else if(inSameSango(s1,s2)){shiPt=26;shiTxt="三合：同じ方向を向ける仲間";}
+  else if(pairIn(CHU,s1,s2)){shiPt=8;shiTxt="冲：正反対でぶつかりやすい（補い合えれば強力）";}
+  else {shiPt=18;shiTxt="支の特別な関係はなくフラット";}
+  detail.shi={pt:shiPt,txt:shiTxt};
+  // 3) 中心星相性(20)
+  const c1=o1.centerStar,c2=o2.centerStar;
+  let starPt,starTxt;
+  if(c1===c2){starPt=14;starTxt="同じ星：似た者同士、共感も競合もある";}
+  else if(STAR_GROUP[c1]===STAR_GROUP[c2]){starPt=16;starTxt="同グループの星：価値観が近い";}
+  else {
+    // 星の五行で相生判定(簡易): 貫索石門=木,鳳閣調舒=火,禄存司禄=土,車騎牽牛=金,龍高玉堂=水
+    const sg1=STAR_GROUP[c1],sg2=STAR_GROUP[c2];
+    if((sg1+1)%5===sg2||(sg2+1)%5===sg1){starPt=18;starTxt="生かし合う星の組み合わせ";}
+    else if((sg1+2)%5===sg2||(sg2+2)%5===sg1){starPt=10;starTxt="価値観がぶつかりやすい星同士";}
+    else {starPt=12;starTxt="星同士は中立的な関係";}
+  }
+  detail.star={pt:starPt,txt:starTxt};
+  // 4) エネルギー(10)
+  const e1=SUB_ENERGY[o1.subYoung]+SUB_ENERGY[o1.subMid]+SUB_ENERGY[o1.subOld];
+  const e2=SUB_ENERGY[o2.subYoung]+SUB_ENERGY[o2.subMid]+SUB_ENERGY[o2.subOld];
+  const diff=Math.abs(e1-e2);
+  let ePt,eTxt;
+  if(diff>=8){ePt=8;eTxt="エネルギー差が大きく補完関係になれる";}
+  else if(diff>=3){ePt=10;eTxt="エネルギーバランスがちょうどよい";}
+  else {ePt=7;eTxt="エネルギーが拮抗、強み衝突に注意";}
+  detail.energy={pt:ePt,txt:eTxt};
+
+  const total=kanPt+shiPt+starPt+ePt;
+  return {total,detail};
+}
+
+/* 相性ランク＆組み方アドバイス */
+function aishoAdvice(score,o1,o2){
+  const t=score.total;
+  let rank,advice;
+  if(t>=85){rank="S";advice="最高の相性。ペアで案件を任せると1+1が3になる組み合わせ。重要案件の相棒に。";}
+  else if(t>=75){rank="A";advice="かなり良い相性。自然と協力できるので、同じチーム・近い席がおすすめ。";}
+  else if(t>=65){rank="B";advice="良い相性。役割を分ければスムーズに協働できる。定期的なペア業務も◎。";}
+  else if(t>=55){rank="C";advice="普通の相性。仕事上の接点を明確にし、報連相のルールを決めるとうまくいく。";}
+  else {rank="D";advice="ぶつかりやすい組み合わせ。直接ペアより、間に調整役を入れるか、役割を完全に分けるのが吉。";}
+  return {rank,advice};
+}
 
 /* ===== 同タイプでも差が出る合成文生成 =====
    中心星のベース文に、日干(根本の性質)と従星(エネルギー)の色を織り込む */
@@ -20961,6 +21133,24 @@ function composeProfile(o){
 
   // キャッチ：個別があれば個別、なければ合成
   const catch2 = custom ? custom.catch : `${nf.adj}${wk.catch}`;
+  // ひとこと＆特徴タグ：個別があれば個別、なければ星・日干から自動合成
+  const AUTO_HITOKOTO={
+   "貫索星":"自分のペースを貫くマイペースな人","石門星":"人の輪を大事にするまとめ役",
+   "鳳閣星":"自然体で場をなごませる人","調舒星":"感性豊かなこだわり屋",
+   "禄存星":"面倒見がよくて好かれる人","司禄星":"コツコツ積み上げる堅実な人",
+   "車騎星":"考えるより先に動く行動派","牽牛星":"責任感が強いしっかり者",
+   "龍高星":"新しいことが好きな探求者","玉堂星":"落ち着いて考える頭脳派"};
+  const AUTO_TAGS={
+   "貫索星":["🏰 マイペース","💪 芯が強い"],"石門星":["🤝 まとめ役","😊 社交的"],
+   "鳳閣星":["🌞 自然体","🎉 楽しむ力"],"調舒星":["🎨 感性派","✨ こだわり"],
+   "禄存星":["🤝 世話好き","💛 愛される"],"司禄星":["📋 堅実","🐢 コツコツ"],
+   "車騎星":["🏃 行動派","⚡ スピード"],"牽牛星":["👔 責任感","🎯 きっちり"],
+   "龍高星":["🚀 挑戦好き","💡 独創的"],"玉堂星":["🧠 知的","📚 学び好き"]};
+  const NIK_TAG={"甲":"🌳 まっすぐ","乙":"🌸 しなやか","丙":"🌞 明るい","丁":"🕯 繊細",
+   "戊":"🗻 どっしり","己":"🌏 包容力","庚":"⚔ ストレート","辛":"💎 美意識",
+   "壬":"🌊 スケール大","癸":"💧 知的"};
+  const hitokoto = (custom&&custom.hitokoto) ? custom.hitokoto : AUTO_HITOKOTO[cs];
+  const tags = (custom&&custom.tags) ? custom.tags : [...AUTO_TAGS[cs], NIK_TAG[kan]];
   // 深掘り文：個別があれば個別を冒頭に添える
   const deepIntro = custom ? custom.deep : '';
 
@@ -20976,7 +21166,7 @@ function composeProfile(o){
   // 上司としての接し方：ベース＋日干のtip
   const manageUp=`${wk.manageUp} なお${nf.tip}ため、そこを踏まえて接すると関係がスムーズです。`;
 
-  return {catch2,strength,role,assign,manageUp,deepIntro,
+  return {catch2,strength,role,assign,manageUp,deepIntro,hitokoto,tags,
           nikSymbol:nikData.symbol, nikDesc:nikData.desc,
           juseiStage:JUSEI_DATA[o.subMid].stage, juseiKey:JUSEI_DATA[o.subMid].key, juseiDesc:JUSEI_DATA[o.subMid].desc};
 }
@@ -21085,6 +21275,11 @@ function render(o){
     <div class="result-head">
       <div class="rh-name">${escapeHtml(o.name||'名前未登録')}</div>
       <div class="rh-birth">${o.y}/${o.m}/${o.d} 生まれ</div>
+    </div>
+    <div class="hitokoto-box">
+      <div class="hitokoto-label">ひとことで言うと</div>
+      <div class="hitokoto-main">${prof.hitokoto}</div>
+      <div class="hitokoto-tags">${prof.tags.map(t=>`<span class="htag">${t}</span>`).join('')}</div>
     </div>
     <div class="char-catch">${prof.catch2}</div>
     ${prof.deepIntro?`<p style="margin-top:12px"><b style="color:var(--accent)">この人を深掘りすると…</b><br>${prof.deepIntro}</p>`:''}
