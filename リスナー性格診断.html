@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>リスナー性格診断｜配信者のための算命学</title>
+<style>
+  :root{
+    --bg:#fff7fb;
+    --card:#ffffff;
+    --ink:#4a3d4d;
+    --sub:#a08ca6;
+    --line:#f3dbea;
+    --pink:#ff6b9d;
+    --pink-soft:#ffe3ef;
+    --purple:#a78bfa;
+    --purple-soft:#f0eaff;
+    --yellow:#ffc93d;
+    --yellow-soft:#fff6dc;
+    --mint:#4fd1c5;
+    --shadow:0 6px 24px rgba(255,107,157,.12);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:"Hiragino Kaku Gothic ProN","Meiryo",sans-serif;
+    background:linear-gradient(160deg,#fff7fb 0%,#f6f0ff 60%,#fff9ec 100%);
+    color:var(--ink);
+    line-height:1.8;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:50px;
+    min-height:100vh;
+  }
+  .wrap{max-width:680px;margin:0 auto;padding:0 16px;}
+  header{text-align:center;padding:34px 16px 22px;}
+  header .mark{
+    display:inline-block;
+    font-size:12px;letter-spacing:.25em;color:#fff;
+    background:linear-gradient(90deg,var(--pink),var(--purple));
+    border-radius:20px;padding:5px 16px;margin-bottom:12px;font-weight:700;
+  }
+  header h1{
+    font-size:26px;font-weight:800;letter-spacing:.05em;
+    background:linear-gradient(90deg,var(--pink),var(--purple));
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+    background-clip:text;
+  }
+  header .lead{font-size:13px;color:var(--sub);margin-top:10px;line-height:1.7;}
+  .card{
+    background:var(--card);
+    border:1.5px solid var(--line);
+    border-radius:20px;
+    box-shadow:var(--shadow);
+    padding:22px 20px;
+    margin-bottom:18px;
+  }
+  .card h2{
+    font-size:15px;letter-spacing:.06em;color:var(--pink);
+    margin-bottom:16px;font-weight:800;
+    display:flex;align-items:center;gap:8px;
+  }
+  label{display:block;font-size:13px;color:var(--sub);margin-bottom:6px;font-weight:700;}
+  .row{display:flex;gap:10px;}
+  .row > div{flex:1;}
+  select,input{
+    width:100%;font-size:16px;padding:11px 12px;
+    border:1.5px solid var(--line);border-radius:12px;
+    background:#fffbfd;color:var(--ink);font-family:inherit;
+  }
+  select:focus,input:focus{outline:none;border-color:var(--pink);background:#fff;}
+  .btn{
+    width:100%;margin-top:16px;padding:14px;
+    font-size:16px;font-weight:800;letter-spacing:.08em;
+    color:#fff;
+    background:linear-gradient(90deg,var(--pink),var(--purple));
+    border:none;border-radius:14px;cursor:pointer;
+    box-shadow:0 4px 14px rgba(255,107,157,.3);
+    transition:opacity .2s;
+  }
+  .btn:active{opacity:.8;}
+  .btn.sub{
+    background:#fff;color:var(--pink);
+    border:2px solid var(--pink);box-shadow:none;margin-top:10px;
+  }
+  .btn.mini{
+    width:auto;padding:9px 16px;font-size:13px;margin-top:0;border-radius:10px;
+  }
+  #result{display:none;}
+  .note{font-size:11px;color:var(--sub);margin-top:8px;line-height:1.6;}
+  .streamer-badge{
+    background:var(--yellow-soft);border:1.5px solid var(--yellow);
+    border-radius:12px;padding:10px 14px;font-size:13px;font-weight:700;
+    display:flex;align-items:center;gap:8px;margin-bottom:6px;
+  }
+  .member{
+    display:flex;align-items:center;gap:8px;
+    border:1.5px solid var(--line);border-radius:14px;
+    padding:12px 14px;margin-bottom:9px;background:#fffbfd;
+  }
+  .member-main{flex:1;cursor:pointer;}
+  .member-name{font-size:15px;font-weight:800;color:var(--ink);}
+  .member-sub{font-size:12px;color:var(--sub);margin-top:2px;}
+  .member-score{
+    flex:0 0 auto;font-size:13px;font-weight:800;
+    background:var(--pink-soft);color:var(--pink);
+    border-radius:20px;padding:5px 12px;
+  }
+  .member-del{
+    flex:0 0 auto;font-size:12px;color:var(--sub);
+    background:#fff;border:1.5px solid var(--line);border-radius:10px;
+    padding:6px 10px;cursor:pointer;
+  }
+  .hitokoto-box{
+    background:linear-gradient(135deg,var(--pink-soft),var(--purple-soft));
+    border:2px solid var(--pink);border-radius:18px;
+    padding:18px 15px;margin-bottom:14px;text-align:center;
+  }
+  .hitokoto-label{font-size:11px;letter-spacing:.2em;color:var(--pink);font-weight:800;margin-bottom:6px;}
+  .hitokoto-main{font-size:19px;font-weight:800;color:var(--ink);line-height:1.5;}
+  .hitokoto-tags{margin-top:10px;display:flex;justify-content:center;gap:6px;flex-wrap:wrap;}
+  .htag{
+    font-size:12px;font-weight:700;color:var(--ink);
+    background:#fff;border:1.5px solid var(--line);border-radius:20px;
+    padding:4px 11px;
+  }
+  .section{margin-top:20px;}
+  .section h3{
+    font-size:14px;color:var(--pink);font-weight:800;
+    margin-bottom:8px;display:flex;align-items:center;gap:7px;
+  }
+  .section p{font-size:14px;color:var(--ink);margin-bottom:8px;}
+  .aibox{
+    background:linear-gradient(135deg,var(--purple-soft),var(--pink-soft));
+    border:2px solid var(--purple);border-radius:18px;
+    padding:18px 16px;margin-top:8px;text-align:center;
+  }
+  .aiscore{
+    font-size:44px;font-weight:800;
+    background:linear-gradient(90deg,var(--pink),var(--purple));
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    line-height:1.2;
+  }
+  .aiscore small{font-size:18px;}
+  .airel{font-size:14px;font-weight:800;color:var(--purple);margin-top:4px;}
+  .aitext{font-size:13.5px;color:var(--ink);margin-top:10px;text-align:left;line-height:1.75;}
+  .rank-item{
+    display:flex;align-items:center;gap:10px;
+    border:1.5px solid var(--line);border-radius:14px;
+    padding:12px 14px;margin-bottom:9px;background:#fffbfd;cursor:pointer;
+  }
+  .rank-no{
+    flex:0 0 34px;height:34px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:15px;color:#fff;
+    background:linear-gradient(135deg,var(--pink),var(--purple));
+  }
+  .rank-no.top1{background:linear-gradient(135deg,#ffd93d,#ff9a3d);font-size:17px;}
+  .rank-no.top2{background:linear-gradient(135deg,#c0c8d8,#9aa8c0);}
+  .rank-no.top3{background:linear-gradient(135deg,#e8a87c,#cd7f32);}
+  .rank-main{flex:1;}
+  .rank-name{font-size:15px;font-weight:800;}
+  .rank-sub{font-size:11px;color:var(--sub);}
+  .rank-score{font-size:18px;font-weight:800;color:var(--pink);}
+  .hl-box{
+    background:var(--yellow-soft);
+    border:1.5px solid var(--yellow);border-radius:14px;
+    padding:14px;font-size:14px;color:var(--ink);line-height:1.75;
+  }
+  footer{text-align:center;font-size:11px;color:var(--sub);margin-top:24px;line-height:1.7;}
+  .tabbar{display:flex;gap:8px;margin-bottom:16px;}
+  .tab{
+    flex:1;text-align:center;padding:10px;font-size:13px;font-weight:800;
+    border-radius:12px;border:2px solid var(--line);color:var(--sub);
+    background:#fff;cursor:pointer;
+  }
+  .tab.on{border-color:var(--pink);color:var(--pink);background:var(--pink-soft);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="mark">FOR STREAMERS ✦ 算命学</div>
+    <h1>リスナー性格診断</h1>
+    <p class="lead">生年月日で、リスナーさんの性格・コメントの傾向・あなたとの相性がまるわかり。<br>推しリスナーランキングも出せる配信者専用ツール🎤</p>
+  </header>
+
+  <div class="card" id="streamerCard">
+    <h2>🎤 まずは配信者（あなた）の設定</h2>
+    <div id="streamerSet" style="display:none"></div>
+    <div id="streamerForm">
+      <label>配信者ネーム</label>
+      <input type="text" id="sname" placeholder="例：あおちゃん" maxlength="20">
+      <div class="row" style="margin-top:12px">
+        <div><label>年</label><select id="syear"></select></div>
+        <div><label>月</label><select id="smonth"></select></div>
+        <div><label>日</label><select id="sday"></select></div>
+      </div>
+      <button class="btn" onclick="saveStreamer()">配信者として登録</button>
+      <p class="note">※ 相性診断・ランキングはこの生年月日が基準になります。</p>
+    </div>
+  </div>
+
+  <div class="card" id="inputCard">
+    <h2>🙋 リスナーを登録して診断</h2>
+    <label>リスナーネーム</label>
+    <input type="text" id="pname" placeholder="例：たろすけ" maxlength="20">
+    <div class="row" style="margin-top:12px">
+      <div><label>年</label><select id="year"></select></div>
+      <div><label>月</label><select id="month"></select></div>
+      <div><label>日</label><select id="day"></select></div>
+    </div>
+    <button class="btn" onclick="diagnose(true)">診断してリスナー名簿に追加</button>
+    <button class="btn sub" onclick="diagnose(false)">登録せず診断だけ</button>
+  </div>
+
+  <div class="card" id="listCard" style="display:none">
+    <h2>📋 リスナー名簿</h2>
+    <div id="memberList"></div>
+    <button class="btn" onclick="showRanking()">👑 相性ランキングを見る</button>
+  </div>
+
+  <div id="result"></div>
+</div>
+<script>
+/* ===== 算命学エンジン（AXIA版と同一基準） ===== */
+const JIKAN=["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"];
+const JIKAN_YOMI=["きのえ","きのと","ひのえ","ひのと","つちのえ","つちのと","かのえ","かのと","みずのえ","みずのと"];
+const JISHI=["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
+const KAN_GOGYO=[0,0,1,1,2,2,3,3,4,4];
+const KAN_INYO=[0,1,0,1,0,1,0,1,0,1];
+const SHI_GOGYO=[4,2,0,0,2,1,1,2,3,3,2,4];
+const SHI_HONKI=[9,5,0,1,4,2,3,5,6,7,4,8];
+const GOGYO_NAME=["木","火","土","金","水"];
+const MAIN_STARS=["貫索星","石門星","鳳閣星","調舒星","禄存星","司禄星","車騎星","牽牛星","龍高星","玉堂星"];
+const SUB_STARS=["天報星","天印星","天貴星","天恍星","天南星","天禄星","天将星","天堂星","天胡星","天極星","天庫星","天馳星"];
+const SUB_ENERGY={"天報星":3,"天印星":6,"天貴星":9,"天恍星":7,"天南星":10,"天禄星":11,"天将星":12,"天堂星":8,"天胡星":4,"天極星":2,"天庫星":5,"天馳星":1};
+const CHOSEI_START={0:11,1:6,2:2,3:9,4:2,5:9,6:5,7:0,8:8,9:3};
+const JUNI_UN=["長生","沐浴","冠帯","建禄","帝旺","衰","病","死","墓","絶","胎","養"];
+const UN_TO_SUB={"長生":"天貴星","沐浴":"天恍星","冠帯":"天南星","建禄":"天禄星","帝旺":"天将星","衰":"天堂星","病":"天胡星","死":"天極星","墓":"天庫星","絶":"天馳星","胎":"天報星","養":"天印星"};
+
+var SETSU_DAY={
+1930:[6,4,6,5,6,6,8,8,8,9,8,8],
+1931:[6,5,6,6,6,7,8,8,8,9,8,8],
+1932:[6,5,6,5,6,6,7,8,8,8,7,7],
+1933:[6,4,6,5,6,6,7,8,8,9,8,7],
+1934:[6,4,6,5,6,6,8,8,8,9,8,8],
+1935:[6,5,6,6,6,6,8,8,8,9,8,8],
+1936:[6,5,6,5,6,6,7,8,8,8,7,7],
+1937:[6,4,6,5,6,6,7,8,8,9,8,7],
+1938:[6,4,6,5,6,6,8,8,8,9,8,8],
+1939:[6,5,6,6,6,6,8,8,8,9,8,8],
+1940:[6,5,6,5,6,6,7,8,8,8,7,7],
+1941:[6,4,6,5,6,6,7,8,8,9,8,7],
+1942:[6,4,6,5,6,6,8,8,8,9,8,8],
+1943:[6,5,6,6,6,6,8,8,8,9,8,8],
+1944:[6,5,6,5,5,6,7,8,8,8,7,7],
+1945:[6,4,6,5,6,6,7,8,8,8,8,7],
+1946:[6,4,6,5,6,6,8,8,8,9,8,8],
+1947:[6,4,6,5,6,6,8,8,8,9,8,8],
+1948:[6,5,5,5,5,6,7,7,8,8,7,7],
+1949:[5,4,6,5,6,6,7,8,8,8,8,7],
+1950:[6,4,6,5,6,6,8,8,8,9,8,8],
+1951:[6,4,6,5,6,6,8,8,8,9,8,8],
+1952:[6,5,5,5,5,6,7,7,8,8,7,7],
+1953:[5,4,6,5,6,6,7,8,8,8,8,7],
+1954:[6,4,6,5,6,6,8,8,8,9,8,7],
+1955:[6,4,6,5,6,6,8,8,8,9,8,8],
+1956:[6,5,5,5,5,6,7,7,8,8,7,7],
+1957:[5,4,6,5,6,6,7,8,8,8,8,7],
+1958:[6,4,6,5,6,6,7,8,8,9,8,7],
+1959:[6,4,6,5,6,6,8,8,8,9,8,8],
+1960:[6,5,5,5,5,6,7,7,7,8,7,7],
+1961:[5,4,6,5,6,6,7,8,8,8,7,7],
+1962:[6,4,6,5,6,6,7,8,8,9,8,7],
+1963:[6,4,6,5,6,6,8,8,8,9,8,8],
+1964:[6,5,5,5,5,6,7,7,7,8,7,7],
+1965:[5,4,6,5,6,6,7,8,8,8,7,7],
+1966:[6,4,6,5,6,6,7,8,8,9,8,7],
+1967:[6,4,6,5,6,6,8,8,8,9,8,8],
+1968:[6,5,5,5,5,5,7,7,7,8,7,7],
+1969:[5,4,6,5,6,6,7,8,8,8,7,7],
+1970:[6,4,6,5,6,6,7,8,8,9,8,7],
+1971:[6,4,6,5,6,6,8,8,8,9,8,8],
+1972:[6,5,5,5,5,5,7,7,7,8,7,7],
+1973:[5,4,6,5,5,6,7,8,8,8,7,7],
+1974:[6,4,6,5,6,6,7,8,8,9,8,7],
+1975:[6,4,6,5,6,6,8,8,8,9,8,8],
+1976:[6,5,5,4,5,5,7,7,7,8,7,7],
+1977:[5,4,6,5,5,6,7,7,8,8,7,7],
+1978:[6,4,6,5,6,6,7,8,8,8,8,7],
+1979:[6,4,6,5,6,6,8,8,8,9,8,8],
+1980:[6,5,5,4,5,5,7,7,7,8,7,7],
+1981:[5,4,6,5,5,6,7,7,8,8,7,7],
+1982:[6,4,6,5,6,6,7,8,8,8,8,7],
+1983:[6,4,6,5,6,6,8,8,8,9,8,8],
+1984:[6,4,5,4,5,5,7,7,7,8,7,7],
+1985:[5,4,5,5,5,6,7,7,8,8,7,7],
+1986:[5,4,6,5,6,6,7,8,8,8,8,7],
+1987:[6,4,6,5,6,6,7,8,8,9,8,7],
+1988:[6,4,5,4,5,5,7,7,7,8,7,7],
+1989:[5,4,5,5,5,6,7,7,7,8,7,7],
+1990:[5,4,6,5,6,6,7,8,8,8,8,7],
+1991:[6,4,6,5,6,6,7,8,8,9,8,7],
+1992:[6,4,5,4,5,5,7,7,7,8,7,7],
+1993:[5,4,5,5,5,6,7,7,7,8,7,7],
+1994:[5,4,6,5,6,6,7,8,8,8,7,7],
+1995:[6,4,6,5,6,6,7,8,8,9,8,7],
+1996:[6,4,5,4,5,5,7,7,7,8,7,7],
+1997:[5,4,5,5,5,5,7,7,7,8,7,7],
+1998:[5,4,6,5,6,6,7,8,8,8,7,7],
+1999:[6,4,6,5,6,6,7,8,8,9,8,7],
+2000:[6,4,5,4,5,5,7,7,7,8,7,7],
+2001:[5,4,5,5,5,5,7,7,7,8,7,7],
+2002:[5,4,6,5,6,6,7,8,8,8,7,7],
+2003:[6,4,6,5,6,6,7,8,8,9,8,7],
+2004:[6,4,5,4,5,5,7,7,7,8,7,7],
+2005:[5,4,5,5,5,5,7,7,7,8,7,7],
+2006:[5,4,6,5,5,6,7,7,8,8,7,7],
+2007:[6,4,6,5,6,6,7,8,8,9,8,7],
+2008:[6,4,5,4,5,5,7,7,7,8,7,7],
+2009:[5,4,5,4,5,5,7,7,7,8,7,7],
+2010:[5,4,6,5,5,6,7,7,8,8,7,7],
+2011:[6,4,6,5,6,6,7,8,8,8,8,7],
+2012:[6,4,5,4,5,5,7,7,7,8,7,7],
+2013:[5,4,5,4,5,5,7,7,7,8,7,7],
+2014:[5,4,6,5,5,6,7,7,8,8,7,7],
+2015:[6,4,6,5,6,6,7,8,8,8,8,7],
+2016:[6,4,5,4,5,5,7,7,7,8,7,7],
+2017:[5,3,5,4,5,5,7,7,7,8,7,7],
+2018:[5,4,5,5,5,6,7,7,8,8,7,7],
+2019:[5,4,6,5,6,6,7,8,8,8,8,7],
+2020:[6,4,5,4,5,5,6,7,7,8,7,7],
+2021:[5,3,5,4,5,5,7,7,7,8,7,7],
+2022:[5,4,5,5,5,6,7,7,7,8,7,7],
+2023:[5,4,6,5,6,6,7,8,8,8,8,7],
+2024:[6,4,5,4,5,5,6,7,7,8,7,6],
+2025:[5,3,5,4,5,5,7,7,7,8,7,7],
+2026:[5,4,5,5,5,5,7,7,7,8,7,7],
+};
+
+function setsuDayOf(y,m){
+  const t=SETSU_DAY[y]; if(t) return t[m-1];
+  // 範囲外は概算値
+  return [6,4,6,5,6,6,7,8,8,8,7,7][m-1];
+}
+function getSetsuMonth(y,m,d){
+  let sm=m; // 節としての暦月
+  if(d < setsuDayOf(y,m)){ sm=m-1; if(sm<1) sm=12; }
+  // 暦月sm → 月支index
+  const monthShi=[ -1, 1,2,3,4,5,6,7,8,9,10,11,0 ]; // 1月節=丑(1),2月節=寅(2)...12月節=子(0)
+  return monthShi[sm];
+}
+function getYearKanshi(y,m,d){
+  let yy=y;
+  if(m<2 || (m===2 && d < setsuDayOf(y,2))) yy=y-1;
+  // 1984年=甲子 を基準
+  let idx=((yy-1984)%60+60)%60;
+  return {kan:idx%10, shi:idx%12, yy};
+}
+function getMonthKan(yearKan, monthShi){
+  // 月支index: 寅=2 が一年の最初の節月
+  // 寅月の月干 = 年干により決まる
+  // 甲己年→丙寅, 乙庚年→戊寅, 丙辛年→庚寅, 丁壬年→壬寅, 戊癸年→甲寅
+  const torakan=[2,4,6,8,0][yearKan%5]; // 寅月の月干
+  // monthShi 寅=2 から順に: 寅,卯,辰,巳,午,未,申,酉,戌,亥,子,丑
+  const order=(monthShi-2+12)%12;
+  return (torakan+order)%10;
+}
+function mainStar(dayKan, targetKan){
+  const dg=KAN_GOGYO[dayKan], di=KAN_INYO[dayKan];
+  const tg=KAN_GOGYO[targetKan], ti=KAN_INYO[targetKan];
+  const same=(di===ti);
+  let rel; // 0比和,1漏,2財,3官,4印
+  if(tg===dg) rel=0;
+  else if(tg===(dg+1)%5) rel=1;      // 自分が生む(漏星=鳳閣/調舒)
+  else if(tg===(dg+2)%5) rel=2;      // 自分が剋す(財星=禄存/司禄)
+  else if(tg===(dg+3)%5) rel=3;      // 自分を剋す(官星=車騎/牽牛) ※(dg+3)が自分を剋す
+  else rel=4;                         // 自分を生む(印星=龍高/玉堂)
+  // rel & 陰陽同異で星確定
+  // 比和: 同→貫索(0) 異→石門(1)
+  // 漏: 同→鳳閣(2) 異→調舒(3)
+  // 財: 同→禄存(4) 異→司禄(5)
+  // 官: 異→車騎(6) 同→牽牛(7)  ※官は剋関係なので同陰陽=牽牛
+  // 印: 同→龍高(8) 異→玉堂(9)
+  const map={
+   0:[0,1],1:[2,3],2:[4,5],4:[8,9]
+  };
+  if(rel===3){ return MAIN_STARS[ same?7:6 ]; }
+  const pair=map[rel];
+  return MAIN_STARS[ same?pair[0]:pair[1] ];
+}
+function subStar(dayKan, targetShi){
+  const start=CHOSEI_START[dayKan];
+  const yang=(KAN_INYO[dayKan]===0); // 陽干=順行,陰干=逆行
+  let pos;
+  if(yang){ pos=((targetShi-start)%12+12)%12; }
+  else    { pos=((start-targetShi)%12+12)%12; }
+  const un=JUNI_UN[pos];
+  return UN_TO_SUB[un];
+}
+function daysFromEpoch(y,m,d){
+  // 1900-01-01 を 0 とする通算日
+  const a=Math.floor((14-m)/12);
+  const yy=y+4800-a;
+  const mm=m+12*a-3;
+  const jdn=d+Math.floor((153*mm+2)/5)+365*yy+Math.floor(yy/4)-Math.floor(yy/100)+Math.floor(yy/400)-32045;
+  const jdn1900=2415021; // 1900-01-01
+  return jdn-jdn1900;
+}
+
+function computeChart(y,m,d){
+  const dnum=daysFromEpoch(y,m,d);
+  const dayKan=((dnum%10)+0+100)%10;
+  const dayShi=((dnum%12)+10+120)%12;
+  const yk=getYearKanshi(y,m,d);
+  const monthShi=getSetsuMonth(y,m,d);
+  const monthKan=getMonthKan(yk.kan, monthShi);
+  const centerStar=mainStar(dayKan, SHI_HONKI[monthShi]);
+  const starN=mainStar(dayKan, yk.kan);
+  const starE=mainStar(dayKan, monthKan);
+  const starW=mainStar(dayKan, SHI_HONKI[dayShi]);
+  const subYoung=subStar(dayKan, yk.shi);
+  const subMid=subStar(dayKan, monthShi);
+  const subOld=subStar(dayKan, dayShi);
+  const gtally=[0,0,0,0,0];
+  gtally[KAN_GOGYO[yk.kan]]++; gtally[KAN_GOGYO[monthKan]]++; gtally[KAN_GOGYO[dayKan]]++;
+  gtally[SHI_GOGYO[yk.shi]]++; gtally[SHI_GOGYO[monthShi]]++; gtally[SHI_GOGYO[dayShi]]++;
+  return {y,m,d,dayKan,dayShi,yk,monthKan,monthShi,
+    centerStar,starN,starE,starW,subYoung,subMid,subOld,gtally};
+}
+</script>
+<script>
+/* ===== リスナー向け 十大主星データ ===== */
+const LISTENER={
+ "貫索星":{hito:"自分のペースで推す一途なマイペースさん",tags:["🏰 マイペース","💪 一途","🐢 長期リスナー向き"],
+  seikaku:"一度好きになったら、流行に流されずずっと応援してくれる一途なタイプ。自分のペースを大事にするので、毎回コメントしなくても心の中でしっかり推しています。頑固な一面もありますが、それは「自分の推しは自分で決める」という芯の強さです。",
+  comment:"コメントは多くないけど、ここぞという時にしっかり残すタイプ。他のリスナーに流されず、自分の言葉で書きます。",
+  sessikata:"無理にコメントを促さず、来てくれた時に「いつもありがとう」と一言添えるだけで十分。マイペースを尊重すると、誰よりも長く推し続けてくれます。"},
+ "石門星":{hito:"リスナー同士の輪を作る社交派さん",tags:["🤝 社交的","🎉 場を盛り上げる","👥 コミュニティの要"],
+  seikaku:"誰とでも仲良くなれる社交家で、リスナー同士の交流を自然に作ってくれる存在。配信の「常連コミュニティ」の中心になりやすく、新規リスナーにも優しく声をかけられるタイプです。",
+  comment:"挨拶や他のリスナーへのレスも多く、コメント欄を温めてくれる存在。場の空気を読んだコメントが上手です。",
+  sessikata:"コミュニティの輪作りを任せると大活躍。「みんなをまとめてくれて助かる」と役割を認めてあげると、ますます場を支えてくれます。"},
+ "鳳閣星":{hito:"楽しいことが大好きな癒し系さん",tags:["🌞 自然体","😄 楽しむ天才","🍀 癒し系"],
+  seikaku:"のびのび自然体で、配信を純粋に「楽しむ」ことにかけては天才的。細かいことは気にせず、面白いものは面白いと素直に笑ってくれる、配信者にとって一番ありがたい存在かもしれません。",
+  comment:"「www」「たのしいw」など明るく素直なコメントが多め。ノリが良く、企画にもすぐ乗ってくれます。",
+  sessikata:"堅い空気より、ゆるく楽しい雰囲気を好みます。一緒にふざけたり、ゆるい雑談で絡むと喜びます。義務感を持たせるのはNG。"},
+ "調舒星":{hito:"感受性豊かで深く刺さる繊細さん",tags:["🎨 感性派","🕯 繊細","💘 深く推す"],
+  seikaku:"感受性がとても豊かで、配信の世界観や言葉のひとつひとつを深く受け取るタイプ。ハマったら「ガチ恋」級に深く推しますが、繊細なので雑に扱われると静かに離れてしまうことも。",
+  comment:"長文の熱いコメントや、感想をしっかり言葉にしたコメントが特徴。マシュマロやお手紙も書いてくれるタイプ。",
+  sessikata:"名前を呼んで丁寧に反応してあげると深く感動します。コメントを雑に流されると傷つきやすいので、拾える時はしっかり拾うこと。"},
+ "禄存星":{hito:"推しに尽くしたい愛情たっぷりさん",tags:["💝 尽くす","🎁 スパチャ気質","🤗 愛されキャラ"],
+  seikaku:"「推しに喜んでほしい」が原動力の、愛情たっぷりのタイプ。ギフトやスパチャ、差し入れなど、目に見える形で応援したい気持ちが強く、リスナー仲間からも好かれるムードメーカーです。",
+  comment:"お祝いコメントやギフトが多め。「おつかれさま」「無理しないでね」など気づかいコメントも得意。",
+  sessikata:"貢いでくれたことより「気持ち」に感謝を伝えるのがコツ。「いつも支えてくれてありがとう」の一言が何よりのご褒美になります。"},
+ "司禄星":{hito:"毎日コツコツ通ってくれる堅実さん",tags:["📅 皆勤賞","🐢 コツコツ","🏠 安心感"],
+  seikaku:"毎回の配信にコツコツ通ってくれる、堅実で誠実なタイプ。派手さはないけれど、気づけばいつもそこにいる「安心感の塊」。長期で応援してくれる、配信の土台のような存在です。",
+  comment:"挨拶コメントを欠かさない皆勤タイプ。「今日も来たよ」「おやすみ」など、習慣のように温かいコメントをくれます。",
+  sessikata:"毎日の積み重ねに気づいて「いつも来てくれて嬉しい」と伝えると、静かに深く喜びます。急な変化より、安定した配信スケジュールを好みます。"},
+ "車騎星":{hito:"ノリと勢いで突っ走る行動派さん",tags:["🏃 行動派","⚡ 反応が速い","🔥 熱い"],
+  seikaku:"考えるより先に動く、ノリと勢いの行動派。配信が始まったら誰より早く駆けつけて、企画にも一番に飛び込んでくれる熱いタイプ。まっすぐで裏表がなく、応援もストレートです。",
+  comment:"反応スピードが速く、勢いのある短文コメントを連投するタイプ。「きたああ」「いくぞ！」など熱量高め。",
+  sessikata:"スピード感のある絡みが好き。リアクション企画やゲーム対戦に誘うと大喜び。まったり長時間より、テンポのいい配信で輝きます。"},
+ "牽牛星":{hito:"礼儀正しく応援してくれる紳士淑女さん",tags:["👔 礼儀正しい","🎯 きっちり","🏅 品がある"],
+  seikaku:"礼儀正しく、節度を持って応援してくれる紳士・淑女タイプ。マナーの悪いリスナーに流されず、配信の品位を守ってくれる存在。責任感が強く、応援の仕方もきちんとしています。",
+  comment:"丁寧な言葉づかいの整ったコメントが特徴。荒れた空気の時も冷静で、模範的なコメントをくれます。",
+  sessikata:"きちんと敬意を持って接すると信頼が深まります。モデレーターなど「役割」を任せると、誇りを持って応えてくれるタイプです。"},
+ "龍高星":{hito:"新しいもの好きな冒険者さん",tags:["🚀 新しもの好き","💡 発想が独特","🌍 視野が広い"],
+  seikaku:"好奇心のかたまりで、新しい企画や珍しいコンテンツに真っ先に食いつく冒険者タイプ。発想がユニークで、コメントから企画のヒントをくれることも。同じことの繰り返しだと飽きやすい一面も。",
+  comment:"「それってこうしたら面白そう」などアイデア系コメントや、鋭いツッコミが得意。質問も多め。",
+  sessikata:"新企画や初挑戦のときに頼りになります。意見を求めると独創的な案をくれるので、「どう思う？」と聞いてみるのが吉。マンネリに一番敏感なタイプ。"},
+ "玉堂星":{hito:"知的に見守ってくれる分析派さん",tags:["🧠 知的","📚 分析派","🦉 静かに見守る"],
+  seikaku:"落ち着いて配信を見守る知的なタイプ。コンテンツの内容をしっかり理解して、的確なコメントをくれる参謀のような存在。感情より論理で動くので、騒がず静かに、でも深く応援してくれます。",
+  comment:"解説系・補足系のコメントが得意。他のリスナーの質問に代わりに答えてくれることも多い頼れる存在。",
+  sessikata:"知識や分析を褒めると喜びます。「詳しいね、助かる」の一言が刺さるタイプ。配信の内容が薄いと静かに離れるので、中身のある話も大切に。"}
+};
+
+/* ===== 相性ロジック（算命学ベース） ===== */
+const KANGO=[[0,5],[1,6],[2,7],[3,8],[4,9]]; // 干合
+const SHIGO=[[0,1],[2,11],[3,10],[4,9],[5,8],[6,7]]; // 支合
+const SANGO=[[8,0,4],[2,6,10],[5,9,1],[11,3,7]]; // 三合
+function aishou(s, l){ // s=配信者chart, l=リスナーchart
+  let score=50; const reasons=[];
+  const sk=s.dayKan, lk=l.dayKan, ss=s.dayShi, ls=l.dayShi;
+  // 干合
+  if(KANGO.some(p=>(p[0]===sk&&p[1]===lk)||(p[1]===sk&&p[0]===lk))){
+    score+=25; reasons.push({t:"運命の干合",d:"日干同士が「干合」の関係。理屈抜きで惹かれ合う、算命学で最も縁が深いとされる組み合わせです。"});
+  } else {
+    const sg=KAN_GOGYO[sk], lg=KAN_GOGYO[lk];
+    if(sg===lg){ score+=10; reasons.push({t:"似た者同士",d:"日干の五行が同じ。感覚が似ていて、言わなくても分かり合える気楽な関係です。"}); }
+    else if(lg===(sg+1)%5){ score+=15; reasons.push({t:"あなたが育てる関係",d:"あなたの気がリスナーさんを生かす「相生」。あなたの配信がこの人の元気の源になります。"}); }
+    else if(sg===(lg+1)%5){ score+=15; reasons.push({t:"あなたが応援される関係",d:"リスナーさんの気があなたを生かす「相生」。この人の応援は、あなたのエネルギーになります。"}); }
+    else { score+=3; reasons.push({t:"刺激し合う関係",d:"五行がぶつかる「相剋」。緊張感はあるけれど、お互いにない部分を刺激し合える関係でもあります。"}); }
+  }
+  // 支合・三合・冲
+  if(SHIGO.some(p=>(p[0]===ss&&p[1]===ls)||(p[1]===ss&&p[0]===ls))){
+    score+=15; reasons.push({t:"支合の絆",d:"日支同士が「支合」。一緒にいて落ち着く、居心地のよい縁です。"});
+  } else if(SANGO.some(g=>g.includes(ss)&&g.includes(ls)&&ss!==ls)){
+    score+=10; reasons.push({t:"三合の仲間",d:"日支が同じ「三合」グループ。目指す方向が似ていて、自然と協力できる縁です。"});
+  } else if(Math.abs(ss-ls)===6){
+    score-=12; reasons.push({t:"冲のスパイス",d:"日支が正反対の「冲」。ぶつかることもあるけれど、その分お互いを強く意識し合う刺激的な縁です。"});
+  }
+  if(s.centerStar===l.centerStar){ score+=5; reasons.push({t:"同じ星",d:"中心星が同じで、根っこの価値観が似ています。"}); }
+  score=Math.max(8,Math.min(99,score));
+  return {score,reasons};
+}
+function aishouKumikata(score, l){
+  const w=LISTENER[l.centerStar];
+  if(score>=80) return "最高の推し関係！"+w.sessikata+" この相性なら、少し特別扱いしても大丈夫。長く支えてくれる大切なリスナーさんです。";
+  if(score>=65) return "とても良い相性。"+w.sessikata;
+  if(score>=45) return "ほどよい距離感の相性。"+w.sessikata+" 無理に距離を詰めず、自然体で接するのがコツです。";
+  return "刺激的な相性。"+w.sessikata+" 反応が読めないこともありますが、それがお互いの個性。淡々と、でも誠実に接するのが一番です。";
+}
+</script>
+
+<script>
+/* ===== 保存 ===== */
+const S_KEY='listener_streamer_v1', L_KEY='listener_members_v1';
+function loadStreamer(){ try{return JSON.parse(localStorage.getItem(S_KEY)||'null');}catch(e){return null;} }
+function loadMembers(){ try{return JSON.parse(localStorage.getItem(L_KEY)||'[]');}catch(e){return [];} }
+function esc(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function saveStreamer(){
+  const name=(document.getElementById('sname').value||'').trim();
+  const y=+document.getElementById('syear').value, m=+document.getElementById('smonth').value, d=+document.getElementById('sday').value;
+  if(!name){ alert('配信者ネームを入力してください。'); return; }
+  localStorage.setItem(S_KEY, JSON.stringify({name,y,m,d}));
+  renderStreamer(); renderList();
+}
+function resetStreamer(){
+  if(!confirm('配信者設定をやり直しますか？')) return;
+  localStorage.removeItem(S_KEY); renderStreamer(); renderList();
+}
+function renderStreamer(){
+  const st=loadStreamer();
+  const set=document.getElementById('streamerSet'), form=document.getElementById('streamerForm');
+  if(st){
+    const o=computeChart(st.y,st.m,st.d);
+    set.innerHTML=`<div class="streamer-badge">🎤 ${esc(st.name)}（${st.y}/${st.m}/${st.d}・${o.centerStar}）
+      <button class="btn sub mini" style="margin-left:auto" onclick="resetStreamer()">変更</button></div>`;
+    set.style.display='block'; form.style.display='none';
+  } else { set.style.display='none'; form.style.display='block'; }
+}
+
+function saveMember(mem){
+  const list=loadMembers();
+  const i=list.findIndex(x=>x.name===mem.name&&x.y===mem.y&&x.m===mem.m&&x.d===mem.d);
+  if(i>=0) list[i]=mem; else list.push(mem);
+  localStorage.setItem(L_KEY, JSON.stringify(list));
+}
+function deleteMember(idx){
+  const list=loadMembers();
+  if(!confirm(list[idx].name+' を名簿から削除しますか？')) return;
+  list.splice(idx,1); localStorage.setItem(L_KEY, JSON.stringify(list)); renderList();
+}
+function viewMember(idx){
+  const m=loadMembers()[idx];
+  const o=computeChart(m.y,m.m,m.d); o.name=m.name;
+  render(o,{y:m.y,m:m.m,d:m.d});
+}
+function renderList(){
+  const list=loadMembers();
+  const card=document.getElementById('listCard'), box=document.getElementById('memberList');
+  if(list.length===0){ card.style.display='none'; return; }
+  card.style.display='block';
+  const st=loadStreamer();
+  const so=st?computeChart(st.y,st.m,st.d):null;
+  box.innerHTML=list.map((m,i)=>{
+    const o=computeChart(m.y,m.m,m.d);
+    const w=LISTENER[o.centerStar];
+    let scoreHtml='';
+    if(so){ const a=aishou(so,o); scoreHtml=`<div class="member-score">💗${a.score}</div>`; }
+    return `<div class="member">
+      <div class="member-main" onclick="viewMember(${i})">
+        <div class="member-name">${esc(m.name)}</div>
+        <div class="member-sub">${m.y}/${m.m}/${m.d}　${w.hito}</div>
+      </div>${scoreHtml}
+      <button class="member-del" onclick="event.stopPropagation();deleteMember(${i})">削除</button>
+    </div>`;
+  }).join('');
+}
+
+/* ===== 診断 ===== */
+function diagnose(save){
+  const name=(document.getElementById('pname').value||'').trim();
+  const y=+document.getElementById('year').value, m=+document.getElementById('month').value, d=+document.getElementById('day').value;
+  if(save){
+    if(!name){ alert('リスナーネームを入力してください。'); return; }
+    saveMember({name,y,m,d}); renderList();
+  }
+  const o=computeChart(y,m,d); o.name=name||'リスナーさん';
+  render(o,{y,m,d});
+}
+
+function render(o,b){
+  const w=LISTENER[o.centerStar];
+  const totalE=SUB_ENERGY[o.subYoung]+SUB_ENERGY[o.subMid]+SUB_ENERGY[o.subOld];
+  let eBadge; if(totalE>=28)eBadge="🔥 超パワフル"; else if(totalE>=20)eBadge="💪 元気いっぱい"; else if(totalE>=13)eBadge="🍃 マイルド"; else eBadge="🌙 繊細";
+
+  // 相性
+  const st=loadStreamer();
+  let aiHtml='';
+  if(st){
+    const so=computeChart(st.y,st.m,st.d);
+    const a=aishou(so,o);
+    const rel=a.reasons.map(r=>`<p style="margin-bottom:6px"><b>✦ ${r.t}</b>：${r.d}</p>`).join('');
+    aiHtml=`
+    <div class="section">
+      <h3>💗 ${esc(st.name)} との相性</h3>
+      <div class="aibox">
+        <div class="aiscore">${a.score}<small> /100</small></div>
+        <div class="airel">${a.score>=80?'運命級の推し！':a.score>=65?'とても良い相性':a.score>=45?'ほどよい相性':'刺激的な相性'}</div>
+        <div class="aitext">${rel}</div>
+      </div>
+      <div class="section">
+        <h3>🎀 この人との付き合い方</h3>
+        <div class="hl-box">${aishouKumikata(a.score,o)}</div>
+      </div>
+    </div>`;
+  }
+
+  const html=`
+  <div class="card">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+      <div style="font-size:21px;font-weight:800">${esc(o.name)}</div>
+      <div style="font-size:12px;color:var(--sub)">${b.y}/${b.m}/${b.d} 生まれ・${o.centerStar}</div>
+    </div>
+    <div class="hitokoto-box">
+      <div class="hitokoto-label">ひとことで言うと</div>
+      <div class="hitokoto-main">${w.hito}</div>
+      <div class="hitokoto-tags">${w.tags.map(t=>`<span class="htag">${t}</span>`).join('')}<span class="htag">${eBadge}</span></div>
+    </div>
+    <div class="section">
+      <h3>🌟 どんなリスナーさん？</h3>
+      <p>${w.seikaku}</p>
+    </div>
+    <div class="section">
+      <h3>💬 コメントの傾向</h3>
+      <p>${w.comment}</p>
+    </div>
+    <div class="section">
+      <h3>🎀 喜ばれる絡み方</h3>
+      <div class="hl-box">${w.sessikata}</div>
+    </div>
+    ${aiHtml}
+  </div>
+  <button class="btn" onclick="backToTop()">別のリスナーを診断する</button>
+  <footer>算命学（生年月日からの性格分析）に基づく簡易診断です。<br>エンタメとして楽しみつつ、リスナーさんとの絆づくりの参考に🎤</footer>`;
+
+  const r=document.getElementById('result');
+  r.innerHTML=html; r.style.display='block';
+  document.getElementById('inputCard').style.display='none';
+  document.getElementById('listCard').style.display='none';
+  document.getElementById('streamerCard').style.display='none';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ===== ランキング ===== */
+function showRanking(){
+  const st=loadStreamer();
+  if(!st){ alert('先に配信者（あなた）の生年月日を登録してください。'); return; }
+  const list=loadMembers();
+  if(list.length===0){ alert('リスナーが登録されていません。'); return; }
+  const so=computeChart(st.y,st.m,st.d);
+  const ranked=list.map((m,i)=>{
+    const o=computeChart(m.y,m.m,m.d);
+    const a=aishou(so,o);
+    return {i,name:m.name,birth:`${m.y}/${m.m}/${m.d}`,hito:LISTENER[o.centerStar].hito,score:a.score};
+  }).sort((a,b)=>b.score-a.score);
+  const items=ranked.map((r,rank)=>{
+    const cls=rank===0?'top1':rank===1?'top2':rank===2?'top3':'';
+    const medal=rank===0?'👑':rank+1;
+    return `<div class="rank-item" onclick="viewMember(${r.i})">
+      <div class="rank-no ${cls}">${medal}</div>
+      <div class="rank-main"><div class="rank-name">${esc(r.name)}</div><div class="rank-sub">${r.hito}</div></div>
+      <div class="rank-score">${r.score}</div>
+    </div>`;
+  }).join('');
+  const html=`
+  <div class="card">
+    <h2>👑 ${esc(st.name)} の推しリスナーランキング</h2>
+    <p class="note" style="margin-bottom:12px">相性スコア順。タップで個別診断が見られます。</p>
+    ${items}
+  </div>
+  <button class="btn" onclick="backToTop()">もどる</button>`;
+  const r=document.getElementById('result');
+  r.innerHTML=html; r.style.display='block';
+  document.getElementById('inputCard').style.display='none';
+  document.getElementById('listCard').style.display='none';
+  document.getElementById('streamerCard').style.display='none';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function backToTop(){
+  document.getElementById('result').style.display='none';
+  document.getElementById('inputCard').style.display='block';
+  document.getElementById('streamerCard').style.display='block';
+  document.getElementById('pname').value='';
+  renderStreamer(); renderList();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ===== 初期化 ===== */
+(function init(){
+  for(const [yid,mid,did] of [['syear','smonth','sday'],['year','month','day']]){
+    const ys=document.getElementById(yid);
+    for(let y=2026;y>=1930;y--){const o=document.createElement('option');o.value=y;o.textContent=y;ys.appendChild(o);}
+    ys.value=1995;
+    const ms=document.getElementById(mid);
+    for(let m=1;m<=12;m++){const o=document.createElement('option');o.value=m;o.textContent=m;ms.appendChild(o);}
+    ms.value=6;
+    const ds=document.getElementById(did);
+    for(let d=1;d<=31;d++){const o=document.createElement('option');o.value=d;o.textContent=d;ds.appendChild(o);}
+    ds.value=15;
+  }
+  renderStreamer(); renderList();
+})();
+</script>
+
+</body>
+</html>
