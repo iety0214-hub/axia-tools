@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#1e2a4a" />
+<title>AXIA 記入例集</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:#f5f6fa;color:#1e2a4a;font-family:'Noto Sans JP',-apple-system,BlinkMacSystemFont,sans-serif;-webkit-font-smoothing:antialiased}
+  body{min-height:100vh;overscroll-behavior-y:contain}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;padding:0}
+  input,textarea,select{font-family:inherit}
+  .mono{font-family:'DM Mono',monospace}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:#c8a94a55;border-radius:4px}
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .spinner { animation: spin 1s linear infinite; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { animation: fadeIn .25s ease-out; }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .slide-up { animation: slideUp .25s ease-out; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+// ===================================
+// 基本設定
+// ===================================
+const API_KEY = 'AIzaSyCsDfyXG_GskBa2bQzWtXpxOIu7c4TPqHM';
+const ROOT_FOLDER_ID = '1CLWLFDwbHv-2HODC89YAIvqm_LoNFW8h';
+const ROOT_NAME = '各種書類 記入例';
+
+const SK_FILTERS = 'axia_kinyurei_filters_v1';
+const SK_RULES   = 'axia_kinyurei_rules_v1';
+
+// ===================================
+// デフォルト：フィルタチップ
+// ===================================
+const DEFAULT_FILTERS = [
+  { id:'f_all',      label:'すべて',     icon:'',   type:'all',       value:'' },
+  { id:'f_folder',   label:'フォルダ',   icon:'📁', type:'mimeFolder', value:'' },
+  { id:'f_pdf',      label:'PDF',        icon:'📄', type:'mimePdf',   value:'' },
+  { id:'f_touki',    label:'登記',       icon:'🏛️', type:'contains',  value:'登記' },
+  { id:'f_tatekan',  label:'タテカン',   icon:'📋', type:'contains',  value:'タテカン' },
+];
+
+// ===================================
+// デフォルト：色分けルール（上から優先）
+// ===================================
+const DEFAULT_RULES = [
+  { id:'r_touki',   label:'登記書類',   match:'登記',     color:'#2563eb', bg:'#eff6ff', badge:'登記' },
+  { id:'r_tatekan', label:'タテカン',   match:'タテカン', color:'#ea580c', bg:'#fff7ed', badge:'ﾀﾃｶﾝ' },
+  { id:'r_keiyaku', label:'契約書',     match:'契約',     color:'#7c3aed', bg:'#f5f3ff', badge:'契約' },
+  { id:'r_hoken',   label:'保険',       match:'保険',     color:'#0d9488', bg:'#f0fdfa', badge:'保険' },
+  { id:'r_kinyu',   label:'記入例',     match:'記入例',   color:'#c8a94a', bg:'#fef9ec', badge:'記入例' },
+];
+
+// ===================================
+// プリセットカラーパレット
+// ===================================
+const COLOR_PRESETS = [
+  { name:'グリーン',   color:'#16a34a', bg:'#f0fdf4' },
+  { name:'レッド',     color:'#dc2626', bg:'#fef2f2' },
+  { name:'パープル',   color:'#7c3aed', bg:'#f5f3ff' },
+  { name:'グレー',     color:'#6b7280', bg:'#f9fafb' },
+  { name:'ゴールド',   color:'#c8a94a', bg:'#fef9ec' },
+  { name:'ブルー',     color:'#2563eb', bg:'#eff6ff' },
+  { name:'オレンジ',   color:'#ea580c', bg:'#fff7ed' },
+  { name:'ピンク',     color:'#db2777', bg:'#fdf2f8' },
+  { name:'ティール',   color:'#0d9488', bg:'#f0fdfa' },
+  { name:'ネイビー',   color:'#1e2a4a', bg:'#eef2f7' },
+];
+
+// ===================================
+// データアクセス層（後でSupabase化）
+// ===================================
+const storage = {
+  loadFilters: () => {
+    try {
+      const raw = localStorage.getItem(SK_FILTERS);
+      if (!raw) return DEFAULT_FILTERS;
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_FILTERS;
+    } catch { return DEFAULT_FILTERS; }
+  },
+  saveFilters: (filters) => {
+    try { localStorage.setItem(SK_FILTERS, JSON.stringify(filters)); } catch {}
+  },
+  loadRules: () => {
+    try {
+      const raw = localStorage.getItem(SK_RULES);
+      if (!raw) return DEFAULT_RULES;
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_RULES;
+    } catch { return DEFAULT_RULES; }
+  },
+  saveRules: (rules) => {
+    try { localStorage.setItem(SK_RULES, JSON.stringify(rules)); } catch {}
+  },
+};
+
+const genId = (p='id') => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2,7)}`;
+
+// ===================================
+// Drive API
+// ===================================
+const DRIVE_API_BASE = 'https://www.googleapis.com/drive/v3';
+
+async function listFolderContents(folderId) {
+  const url = new URL(`${DRIVE_API_BASE}/files`);
+  url.searchParams.set('q', `'${folderId}' in parents and trashed=false`);
+  url.searchParams.set('fields', 'files(id,name,mimeType,modifiedTime,size,webViewLink)');
+  url.searchParams.set('pageSize', '1000');
+  url.searchParams.set('orderBy', 'folder,name');
+  url.searchParams.set('key', API_KEY);
+  url.searchParams.set('supportsAllDrives', 'true');
+  url.searchParams.set('includeItemsFromAllDrives', 'true');
+
+  const res = await fetch(url.toString());
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
+  return data.files || [];
+}
+
+// ===================================
+// ヘルパー
+// ===================================
+const isFolder = (f) => f.mimeType === 'application/vnd.google-apps.folder';
+const isPdf = (f) => f.mimeType === 'application/pdf';
+
+const matchRule = (name, rules) => {
+  for (const r of rules) {
+    if (r.match && name.includes(r.match)) {
+      return { tag: r.badge, color: r.color, bg: r.bg };
+    }
+  }
+  return { tag: null, color: '#1e2a4a', bg: '#f5f6fa' };
+};
+
+const matchFilter = (file, filter) => {
+  switch (filter.type) {
+    case 'all': return true;
+    case 'mimeFolder': return isFolder(file);
+    case 'mimePdf': return isPdf(file);
+    case 'contains': return (file.name || '').includes(filter.value);
+    case 'notContains': return !(file.name || '').includes(filter.value);
+    default: return true;
+  }
+};
+
+const getFileIcon = (file) => {
+  if (isFolder(file)) return '📁';
+  if (isPdf(file)) return '📄';
+  const mt = file.mimeType || '';
+  if (mt.includes('image')) return '🖼️';
+  if (mt.includes('video')) return '🎬';
+  if (mt.includes('spreadsheet') || mt.includes('excel')) return '📊';
+  if (mt.includes('document') || mt.includes('word')) return '📝';
+  if (mt.includes('presentation') || mt.includes('powerpoint')) return '📋';
+  if (mt.includes('zip') || mt.includes('compressed')) return '🗜️';
+  return '📎';
+};
+
+const formatSize = (bytes) => {
+  if (!bytes) return '';
+  const b = Number(bytes);
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+  if (b < 1024 * 1024 * 1024) return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(b / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+};
+
+const formatDate = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const now = new Date();
+  const diffDays = Math.floor((now - d) / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return '今日';
+  if (diffDays === 1) return '昨日';
+  if (diffDays < 7) return `${diffDays}日前`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}週間前`;
+  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+};
+
+// ===================================
+// スタイル
+// ===================================
+const S = {
+  appBg: { minHeight:'100vh', background:'#f5f6fa', paddingBottom:30 },
+  header: {
+    position:'sticky', top:0, zIndex:10,
+    background:'linear-gradient(135deg, #1e2a4a 0%, #2d3e6b 100%)',
+    color:'#fff', padding:'14px 16px 12px',
+    boxShadow:'0 2px 10px rgba(30,42,74,.15)',
+  },
+  headerRow: { display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 },
+  title: { fontSize:17, fontWeight:700, letterSpacing:.5, display:'flex', alignItems:'center', gap:8, minWidth:0, flex:1 },
+  titleText: { whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' },
+  iconBtn: {
+    width:34, height:34, borderRadius:10,
+    background:'rgba(255,255,255,.12)',
+    display:'flex', alignItems:'center', justifyContent:'center',
+    fontSize:16, color:'#fff', flexShrink:0,
+  },
+  iconBtnGroup: { display:'flex', gap:6, flexShrink:0 },
+  searchBar: {
+    width:'100%', marginTop:10,
+    padding:'9px 12px', borderRadius:10,
+    background:'rgba(255,255,255,.95)', color:'#1e2a4a',
+    border:'none', outline:'none', fontSize:14,
+  },
+  breadcrumb: { padding:'10px 16px 4px', display:'flex', alignItems:'center', gap:4, flexWrap:'wrap', fontSize:12, color:'#6b7280' },
+  crumbBtn: { color:'#1e2a4a', fontWeight:600, padding:'2px 4px', textDecoration:'underline' },
+  crumbSep: { color:'#9ca3af' },
+  crumbCurrent: { color:'#6b7280', padding:'2px 4px' },
+  filterBar: { padding:'4px 16px 10px', display:'flex', gap:6, overflowX:'auto', scrollbarWidth:'none' },
+  filterChip: (active) => ({
+    flex:'0 0 auto', padding:'6px 12px', borderRadius:16,
+    fontSize:12, fontWeight:600,
+    background: active ? '#1e2a4a' : '#fff',
+    color: active ? '#fff' : '#6b7280',
+    border: active ? 'none' : '1px solid #e5e7eb',
+    whiteSpace:'nowrap',
+  }),
+  loading: { display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'80px 20px', gap:14, color:'#6b7280', fontSize:13 },
+  spinner: { width:32, height:32, borderRadius:16, border:'3px solid #e5e7eb', borderTopColor:'#c8a94a' },
+  errorBox: { margin:16, padding:14, borderRadius:12, background:'#fef2f2', border:'1px solid #fecaca', color:'#b91c1c', fontSize:13, lineHeight:1.5 },
+  fileList: { padding:'8px 12px', display:'flex', flexDirection:'column', gap:6 },
+  fileCard: (color) => ({
+    background:'#fff', borderRadius:12, padding:'12px 14px',
+    boxShadow:'0 1px 3px rgba(0,0,0,.05), 0 0 0 1px rgba(0,0,0,.03)',
+    display:'flex', alignItems:'center', gap:12,
+    cursor:'pointer',
+    borderLeft:`4px solid ${color}`,
+  }),
+  fileIcon: { fontSize:24, lineHeight:1, flexShrink:0 },
+  fileMain: { flex:1, minWidth:0 },
+  fileName: { fontSize:14, fontWeight:600, color:'#1e2a4a', lineHeight:1.35, wordBreak:'break-word' },
+  fileMeta: { fontSize:11, color:'#9ca3af', marginTop:2, display:'flex', gap:8, flexWrap:'wrap' },
+  fileBadge: (color, bg) => ({
+    fontSize:10, fontWeight:700, padding:'2px 6px', borderRadius:4,
+    background: bg, color, flexShrink:0,
+  }),
+  chevron: { color:'#9ca3af', fontSize:18, flexShrink:0 },
+  emptyState: { textAlign:'center', padding:'60px 20px', color:'#9ca3af', fontSize:13, lineHeight:1.8 },
+  refreshBar: { padding:'8px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:11, color:'#9ca3af' },
+
+  // Modal
+  modalOverlay: {
+    position:'fixed', inset:0, background:'rgba(30,42,74,.5)',
+    display:'flex', alignItems:'flex-end', justifyContent:'center',
+    zIndex:50,
+  },
+  modalBox: {
+    width:'100%', maxWidth:560, maxHeight:'92vh', background:'#fff',
+    borderRadius:'18px 18px 0 0',
+    display:'flex', flexDirection:'column',
+  },
+  modalHeader: {
+    padding:'16px 18px 12px', borderBottom:'1px solid #f3f4f6',
+    display:'flex', justifyContent:'space-between', alignItems:'center',
+  },
+  modalTitle: { fontSize:17, fontWeight:700, color:'#1e2a4a' },
+  modalClose: { fontSize:22, color:'#9ca3af', padding:'0 4px' },
+  modalBody: { flex:1, overflowY:'auto', padding:16 },
+
+  // Settings tabs
+  settingsTabs: { display:'flex', gap:4, padding:'10px 14px 0', background:'#fafbfc', borderBottom:'1px solid #f3f4f6' },
+  tabBtn: (active) => ({
+    padding:'10px 14px', fontSize:13, fontWeight:600,
+    color: active ? '#1e2a4a' : '#6b7280',
+    borderBottom: active ? '2px solid #c8a94a' : '2px solid transparent',
+    marginBottom:-1,
+  }),
+
+  // List items in settings
+  listItem: {
+    background:'#fff', borderRadius:10, padding:'12px 14px',
+    border:'1px solid #f3f4f6', marginBottom:8,
+    display:'flex', alignItems:'center', gap:10,
+  },
+  listItemActions: { display:'flex', gap:4, flexShrink:0 },
+  smallBtn: (variant='default') => ({
+    padding:'6px 10px', fontSize:11, fontWeight:600, borderRadius:6,
+    background: variant === 'danger' ? '#fee2e2' : variant === 'primary' ? '#1e2a4a' : '#f3f4f6',
+    color: variant === 'danger' ? '#b91c1c' : variant === 'primary' ? '#fff' : '#1e2a4a',
+  }),
+
+  // Form
+  label: { fontSize:12, fontWeight:600, color:'#6b7280', marginBottom:6, display:'block' },
+  input: {
+    width:'100%', padding:'10px 12px', borderRadius:8,
+    border:'1px solid #d1d5db', fontSize:14, color:'#1e2a4a',
+    outline:'none', background:'#fff',
+  },
+  select: {
+    width:'100%', padding:'10px 12px', borderRadius:8,
+    border:'1px solid #d1d5db', fontSize:14, color:'#1e2a4a',
+    outline:'none', background:'#fff',
+  },
+
+  // Buttons
+  btnPrimary: { padding:'11px 18px', borderRadius:10, background:'#1e2a4a', color:'#fff', fontSize:14, fontWeight:600 },
+  btnSecondary: { padding:'11px 18px', borderRadius:10, background:'#f3f4f6', color:'#1e2a4a', fontSize:14, fontWeight:600 },
+  btnDanger: { padding:'11px 18px', borderRadius:10, background:'#fee2e2', color:'#b91c1c', fontSize:14, fontWeight:600 },
+  btnAdd: {
+    padding:'12px', borderRadius:10, background:'#fff',
+    border:'2px dashed #d1d5db', color:'#6b7280', fontSize:13, fontWeight:600,
+    width:'100%', marginBottom:8,
+  },
+
+  // Color picker
+  colorGrid: { display:'grid', gridTemplateColumns:'repeat(5, 1fr)', gap:8 },
+  colorChip: (active, color, bg) => ({
+    padding:'10px 6px', borderRadius:10, background: bg,
+    border: active ? `2px solid ${color}` : '2px solid transparent',
+    display:'flex', flexDirection:'column', alignItems:'center', gap:4,
+    cursor:'pointer',
+  }),
+  colorSwatch: (color) => ({
+    width:22, height:22, borderRadius:11, background:color,
+    boxShadow:'0 1px 3px rgba(0,0,0,.15)',
+  }),
+  colorName: { fontSize:9, fontWeight:600 },
+
+  // Preview
+  previewBox: {
+    background:'#f9fafb', borderRadius:10, padding:14, marginTop:14,
+    border:'1px solid #e5e7eb',
+  },
+  previewLabel: { fontSize:11, fontWeight:600, color:'#6b7280', marginBottom:8 },
+
+  // Toast
+  toast: {
+    position:'fixed', bottom:30, left:'50%', transform:'translateX(-50%)',
+    background:'#1e2a4a', color:'#fff', padding:'9px 18px',
+    borderRadius:20, fontSize:12, fontWeight:600,
+    boxShadow:'0 4px 12px rgba(0,0,0,.2)',
+    zIndex:100,
+  },
+};
+
+const Spinner = () => <div className="spinner" style={S.spinner} />;
+
+// ===================================
+// メインアプリ
+// ===================================
+function App() {
+  const [pathStack, setPathStack] = useState([{ id: ROOT_FOLDER_ID, name: ROOT_NAME }]);
+  const [files, setFiles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [search, setSearch] = useState('');
+  const [lastFetch, setLastFetch] = useState(null);
+  const [toast, setToast] = useState('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // 設定（localStorage）
+  const [filters, setFilters] = useState(() => storage.loadFilters());
+  const [rules, setRules] = useState(() => storage.loadRules());
+
+  useEffect(() => { storage.saveFilters(filters); }, [filters]);
+  useEffect(() => { storage.saveRules(rules); }, [rules]);
+
+  const current = pathStack[pathStack.length - 1];
+
+  const fetchCurrent = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await listFolderContents(current.id);
+      setFiles(data);
+      setLastFetch(new Date());
+    } catch (e) {
+      setError(e.message || 'データ取得失敗');
+    } finally {
+      setLoading(false);
+    }
+  }, [current.id]);
+
+  useEffect(() => { fetchCurrent(); }, [fetchCurrent]);
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 1800);
+  };
+
+  // 検索のみ（フォルダ構成をそのまま表示）
+  const filtered = useMemo(() => {
+    let list = files;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter(f => (f.name||'').toLowerCase().includes(q));
+    }
+    return list;
+  }, [files, search]);
+
+  const enterFolder = (folder) => {
+    setPathStack(s => [...s, { id: folder.id, name: folder.name }]);
+    setSearch('');
+    window.scrollTo(0, 0);
+  };
+  const goBack = () => {
+    if (pathStack.length <= 1) return;
+    setPathStack(s => s.slice(0, -1));
+    setSearch('');
+    window.scrollTo(0, 0);
+  };
+  const jumpTo = (idx) => {
+    if (idx >= pathStack.length - 1) return;
+    setPathStack(s => s.slice(0, idx + 1));
+    setSearch('');
+    window.scrollTo(0, 0);
+  };
+  const handleFileClick = (f) => {
+    if (isFolder(f)) enterFolder(f);
+    else {
+      const url = f.webViewLink || `https://drive.google.com/file/d/${f.id}/view`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const folderCount = filtered.filter(isFolder).length;
+  const fileCount = filtered.length - folderCount;
+
+  return (
+    <div style={S.appBg}>
+      <div style={S.header}>
+        <div style={S.headerRow}>
+          {pathStack.length > 1 ? (
+            <button style={S.iconBtn} onClick={goBack} title="戻る">←</button>
+          ) : (
+            <div style={{...S.iconBtn, background:'rgba(255,255,255,.08)'}}>📝</div>
+          )}
+          <div style={S.title}>
+            <span style={S.titleText}>{current.name}</span>
+          </div>
+          <div style={S.iconBtnGroup}>
+            <button style={S.iconBtn} onClick={fetchCurrent} title="更新">
+              <span className={loading ? 'spinner' : ''} style={loading ? {display:'inline-block'} : {}}>↻</span>
+            </button>
+            <button style={S.iconBtn} onClick={() => setSettingsOpen(true)} title="設定">⚙️</button>
+          </div>
+        </div>
+        <input
+          style={S.searchBar}
+          placeholder="🔍 ファイル名で検索"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+      </div>
+
+      {pathStack.length > 1 && (
+        <div style={S.breadcrumb}>
+          {pathStack.map((p, i) => (
+            <React.Fragment key={p.id}>
+              {i > 0 && <span style={S.crumbSep}>/</span>}
+              {i < pathStack.length - 1 ? (
+                <button style={S.crumbBtn} onClick={() => jumpTo(i)}>{p.name}</button>
+              ) : (
+                <span style={S.crumbCurrent}>{p.name}</span>
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      )}
+
+      {lastFetch && !loading && !error && (
+        <div style={S.refreshBar}>
+          <span>最終更新: {lastFetch.toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' })}</span>
+          <span>{folderCount} フォルダ / {fileCount} ファイル</span>
+        </div>
+      )}
+
+      {loading ? (
+        <div style={S.loading}>
+          <Spinner />
+          <div>読み込み中...</div>
+        </div>
+      ) : error ? (
+        <div style={S.errorBox}>
+          <div style={{ fontWeight:700, marginBottom:6 }}>⚠️ エラー</div>
+          <div style={{ fontSize:12, marginBottom:8 }}>{error}</div>
+          <button style={{ marginTop:6, padding:'8px 14px', background:'#1e2a4a', color:'#fff', borderRadius:8, fontSize:12 }} onClick={fetchCurrent}>再試行</button>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div style={S.emptyState}>
+          {files.length === 0 ? (
+            <>
+              <div style={{ fontSize:32, marginBottom:14 }}>📭</div>
+              <div style={{ fontSize:14, fontWeight:700, color:'#1e2a4a', marginBottom:10 }}>フォルダが空に見えるっちゃ</div>
+              <div style={{ fontSize:12, color:'#6b7280', lineHeight:1.7, textAlign:'left', maxWidth:380, margin:'0 auto', padding:'14px 16px', background:'#fef9ec', borderRadius:10, border:'1px solid #f0d77a' }}>
+                <b>確認してほしいこと：</b><br />
+                ① Googleドライブで「各種書類 記入例」を右クリック<br />
+                ② 「共有」をクリック<br />
+                ③ 「<b style={{ color:'#c8a94a' }}>リンクを知っている全員</b>」になっとる？<br /><br />
+                変更したら右上の <b>↻</b> ボタンで再取得！
+              </div>
+            </>
+          ) : '該当するファイルなし'}
+        </div>
+      ) : (
+        <div style={S.fileList} className="fade-in">
+          {filtered.map(f => {
+            const folder = isFolder(f);
+            const meta = matchRule(f.name, rules);
+            return (
+              <div key={f.id} style={S.fileCard(meta.color)} onClick={() => handleFileClick(f)}>
+                <div style={S.fileIcon}>{getFileIcon(f)}</div>
+                <div style={S.fileMain}>
+                  <div style={S.fileName}>{f.name}</div>
+                  <div style={S.fileMeta}>
+                    {!folder && f.size && <span>{formatSize(f.size)}</span>}
+                    {f.modifiedTime && <span>📅 {formatDate(f.modifiedTime)}</span>}
+                  </div>
+                </div>
+                {meta.tag && <div style={S.fileBadge(meta.color, meta.bg)}>{meta.tag}</div>}
+                <div style={S.chevron}>{folder ? '›' : '↗'}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {settingsOpen && (
+        <SettingsModal
+          filters={filters}
+          setFilters={setFilters}
+          rules={rules}
+          setRules={setRules}
+          onClose={() => setSettingsOpen(false)}
+          onToast={showToast}
+        />
+      )}
+
+      {toast && <div style={S.toast}>{toast}</div>}
+    </div>
+  );
+}
+
+// ===================================
+// 設定モーダル
+// ===================================
+function SettingsModal({ filters, setFilters, rules, setRules, onClose, onToast }) {
+  const [tab, setTab] = useState('rules'); // 'rules' | 'misc'
+  const [editing, setEditing] = useState(null); // {kind:'filter'|'rule', data}
+
+  const updateFilter = (id, patch) => {
+    setFilters(fs => fs.map(f => f.id === id ? { ...f, ...patch } : f));
+  };
+  const deleteFilter = (id) => {
+    if (filters.length <= 1) { alert('最低1つは残してね'); return; }
+    if (!confirm('このフィルタを削除する？')) return;
+    setFilters(fs => fs.filter(f => f.id !== id));
+    onToast('削除した');
+  };
+  const moveFilter = (id, dir) => {
+    setFilters(fs => {
+      const idx = fs.findIndex(f => f.id === id);
+      const newIdx = idx + dir;
+      if (newIdx < 0 || newIdx >= fs.length) return fs;
+      const arr = [...fs];
+      [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+      return arr;
+    });
+  };
+  const addFilter = () => {
+    const newF = { id: genId('f'), label:'新規', icon:'', type:'contains', value:'' };
+    setFilters(fs => [...fs, newF]);
+    setEditing({ kind:'filter', data: newF });
+  };
+
+  const updateRule = (id, patch) => {
+    setRules(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r));
+  };
+  const deleteRule = (id) => {
+    if (!confirm('このルールを削除する？')) return;
+    setRules(rs => rs.filter(r => r.id !== id));
+    onToast('削除した');
+  };
+  const moveRule = (id, dir) => {
+    setRules(rs => {
+      const idx = rs.findIndex(r => r.id === id);
+      const newIdx = idx + dir;
+      if (newIdx < 0 || newIdx >= rs.length) return rs;
+      const arr = [...rs];
+      [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+      return arr;
+    });
+  };
+  const addRule = () => {
+    const newR = { id: genId('r'), label:'新規ルール', match:'', color:'#16a34a', bg:'#f0fdf4', badge:'NEW' };
+    setRules(rs => [...rs, newR]);
+    setEditing({ kind:'rule', data: newR });
+  };
+
+  const resetAll = () => {
+    if (!confirm('全部デフォルトに戻す？（フィルタ・ルール両方）')) return;
+    setFilters(DEFAULT_FILTERS);
+    setRules(DEFAULT_RULES);
+    onToast('リセットした');
+  };
+
+  const exportSettings = () => {
+    const data = JSON.stringify({ filters, rules }, null, 2);
+    navigator.clipboard.writeText(data).then(() => onToast('クリップボードにコピー'));
+  };
+
+  return (
+    <div style={S.modalOverlay} onClick={onClose}>
+      <div style={S.modalBox} className="slide-up" onClick={e => e.stopPropagation()}>
+        <div style={S.modalHeader}>
+          <div style={S.modalTitle}>⚙️ 設定</div>
+          <button style={S.modalClose} onClick={onClose}>×</button>
+        </div>
+
+        <div style={S.settingsTabs}>
+          <button style={S.tabBtn(tab==='rules')} onClick={() => setTab('rules')}>🎨 色ルール</button>
+          <button style={S.tabBtn(tab==='misc')} onClick={() => setTab('misc')}>🔧 その他</button>
+        </div>
+
+        <div style={S.modalBody}>
+          {tab === 'rules' && (
+            <RulesTab
+              rules={rules}
+              onEdit={(r) => setEditing({ kind:'rule', data:r })}
+              onDelete={deleteRule}
+              onMove={moveRule}
+              onAdd={addRule}
+            />
+          )}
+          {tab === 'misc' && (
+            <MiscTab
+              onReset={resetAll}
+              onExport={exportSettings}
+              filters={filters}
+              rules={rules}
+            />
+          )}
+        </div>
+
+        {editing?.kind === 'filter' && (
+          <FilterEditModal
+            initial={editing.data}
+            onClose={() => setEditing(null)}
+            onSave={(data) => {
+              updateFilter(editing.data.id, data);
+              setEditing(null);
+              onToast('保存した');
+            }}
+          />
+        )}
+        {editing?.kind === 'rule' && (
+          <RuleEditModal
+            initial={editing.data}
+            onClose={() => setEditing(null)}
+            onSave={(data) => {
+              updateRule(editing.data.id, data);
+              setEditing(null);
+              onToast('保存した');
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ===================================
+// フィルタタブ
+// ===================================
+function FiltersTab({ filters, onEdit, onDelete, onMove, onAdd }) {
+  const typeLabel = (type) => ({
+    all: 'すべて表示',
+    mimeFolder: 'フォルダのみ',
+    mimePdf: 'PDFのみ',
+    contains: '名前に含む',
+    notContains: '名前に含まない',
+  })[type] || type;
+
+  return (
+    <div>
+      <div style={{ fontSize:12, color:'#6b7280', marginBottom:12, lineHeight:1.5 }}>
+        画面上部に表示されるフィルタチップ。左から順に表示されるよ。
+      </div>
+      <button style={S.btnAdd} onClick={onAdd}>＋ フィルタを追加</button>
+      {filters.map((f, i) => (
+        <div key={f.id} style={S.listItem}>
+          <div style={{ fontSize:20, lineHeight:1 }}>{f.icon || '🏷️'}</div>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:14, fontWeight:600, color:'#1e2a4a' }}>{f.label}</div>
+            <div style={{ fontSize:11, color:'#9ca3af', marginTop:2 }}>
+              {typeLabel(f.type)}{f.value ? `: 「${f.value}」` : ''}
+            </div>
+          </div>
+          <div style={S.listItemActions}>
+            <button style={S.smallBtn()} onClick={() => onMove(f.id, -1)} disabled={i===0}>↑</button>
+            <button style={S.smallBtn()} onClick={() => onMove(f.id, 1)} disabled={i===filters.length-1}>↓</button>
+            <button style={S.smallBtn()} onClick={() => onEdit(f)}>編集</button>
+            <button style={S.smallBtn('danger')} onClick={() => onDelete(f.id)}>削除</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ===================================
+// 色ルールタブ
+// ===================================
+function RulesTab({ rules, onEdit, onDelete, onMove, onAdd }) {
+  return (
+    <div>
+      <div style={{ fontSize:12, color:'#6b7280', marginBottom:12, lineHeight:1.5 }}>
+        ファイル名に含まれる文字で色分けするルール。<b>上から順に</b>判定するけん、優先したいルールを上に。
+      </div>
+      <button style={S.btnAdd} onClick={onAdd}>＋ ルールを追加</button>
+      {rules.map((r, i) => (
+        <div key={r.id} style={{
+          ...S.listItem,
+          borderLeft: `4px solid ${r.color}`,
+          background: r.bg,
+        }}>
+          <div style={{ fontSize:14, fontWeight:700, color: r.color, minWidth:30, textAlign:'center' }}>{r.badge}</div>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:14, fontWeight:600, color:'#1e2a4a' }}>{r.label}</div>
+            <div style={{ fontSize:11, color:'#6b7280', marginTop:2 }}>
+              含む: <b style={{ color:'#1e2a4a' }} className="mono">「{r.match}」</b>
+            </div>
+          </div>
+          <div style={S.listItemActions}>
+            <button style={S.smallBtn()} onClick={() => onMove(r.id, -1)} disabled={i===0}>↑</button>
+            <button style={S.smallBtn()} onClick={() => onMove(r.id, 1)} disabled={i===rules.length-1}>↓</button>
+            <button style={S.smallBtn()} onClick={() => onEdit(r)}>編集</button>
+            <button style={S.smallBtn('danger')} onClick={() => onDelete(r.id)}>削除</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ===================================
+// その他タブ
+// ===================================
+function MiscTab({ onReset, onExport, filters, rules }) {
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+      <div>
+        <div style={{ fontSize:12, color:'#6b7280', marginBottom:8 }}>現在の設定</div>
+        <div style={{ ...S.previewBox, marginTop:0 }}>
+          <div style={{ fontSize:12 }}>フィルタ: <b>{filters.length}個</b></div>
+          <div style={{ fontSize:12 }}>色ルール: <b>{rules.length}個</b></div>
+        </div>
+      </div>
+      <button style={S.btnSecondary} onClick={onExport}>📋 設定をコピー（JSON）</button>
+      <button style={S.btnDanger} onClick={onReset}>🔄 全部デフォルトに戻す</button>
+      <div style={{ fontSize:11, color:'#9ca3af', lineHeight:1.6, padding:12, background:'#f9fafb', borderRadius:8 }}>
+        💡 設定はブラウザに保存されるけん、別端末では別設定になるっちゃ。<br />
+        将来Supabase連携すれば全端末同期できる。
+      </div>
+    </div>
+  );
+}
+
+// ===================================
+// フィルタ編集モーダル
+// ===================================
+function FilterEditModal({ initial, onClose, onSave }) {
+  const [label, setLabel] = useState(initial.label || '');
+  const [icon, setIcon] = useState(initial.icon || '');
+  const [type, setType] = useState(initial.type || 'contains');
+  const [value, setValue] = useState(initial.value || '');
+
+  const needsValue = type === 'contains' || type === 'notContains';
+
+  const submit = () => {
+    if (!label.trim()) { alert('ラベル必須っちゃ'); return; }
+    if (needsValue && !value.trim()) { alert('文字列必須っちゃ'); return; }
+    onSave({ label: label.trim(), icon: icon.trim(), type, value: value.trim() });
+  };
+
+  return (
+    <div style={{ ...S.modalOverlay, zIndex:60 }} onClick={onClose}>
+      <div style={S.modalBox} className="slide-up" onClick={e => e.stopPropagation()}>
+        <div style={S.modalHeader}>
+          <div style={S.modalTitle}>🏷️ フィルタ編集</div>
+          <button style={S.modalClose} onClick={onClose}>×</button>
+        </div>
+        <div style={{ ...S.modalBody, display:'flex', flexDirection:'column', gap:14 }}>
+          <div>
+            <label style={S.label}>ラベル *</label>
+            <input style={S.input} value={label} onChange={e => setLabel(e.target.value)} placeholder="例: 物件" />
+          </div>
+          <div>
+            <label style={S.label}>アイコン（絵文字1文字）</label>
+            <input style={S.input} value={icon} onChange={e => setIcon(e.target.value)} placeholder="例: 🏠" maxLength={2} />
+          </div>
+          <div>
+            <label style={S.label}>条件タイプ</label>
+            <select style={S.select} value={type} onChange={e => setType(e.target.value)}>
+              <option value="all">すべて表示</option>
+              <option value="mimeFolder">フォルダのみ</option>
+              <option value="mimePdf">PDFのみ</option>
+              <option value="contains">名前に含む</option>
+              <option value="notContains">名前に含まない</option>
+            </select>
+          </div>
+          {needsValue && (
+            <div>
+              <label style={S.label}>含む文字列 *</label>
+              <input style={S.input} value={value} onChange={e => setValue(e.target.value)} placeholder="例: 物件、◎、決済" />
+            </div>
+          )}
+          <div style={S.previewBox}>
+            <div style={S.previewLabel}>プレビュー</div>
+            <button style={S.filterChip(true)}>
+              {icon} {label || '(ラベル未入力)'}
+            </button>
+          </div>
+        </div>
+        <div style={{ padding:14, borderTop:'1px solid #f3f4f6', display:'flex', gap:8 }}>
+          <button style={{ ...S.btnSecondary, flex:1 }} onClick={onClose}>キャンセル</button>
+          <button style={{ ...S.btnPrimary, flex:1 }} onClick={submit}>保存</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===================================
+// 色ルール編集モーダル
+// ===================================
+function RuleEditModal({ initial, onClose, onSave }) {
+  const [label, setLabel] = useState(initial.label || '');
+  const [match, setMatch] = useState(initial.match || '');
+  const [badge, setBadge] = useState(initial.badge || '');
+  const [color, setColor] = useState(initial.color || '#16a34a');
+  const [bg, setBg] = useState(initial.bg || '#f0fdf4');
+
+  const selectPreset = (preset) => {
+    setColor(preset.color);
+    setBg(preset.bg);
+  };
+
+  const submit = () => {
+    if (!label.trim()) { alert('ラベル必須っちゃ'); return; }
+    if (!match.trim()) { alert('含む文字列必須っちゃ'); return; }
+    onSave({ label: label.trim(), match: match.trim(), badge: badge.trim() || label.trim().slice(0,2), color, bg });
+  };
+
+  // サンプルファイル名（プレビュー用）
+  const sampleName = `テスト物件${match || '?'}サンプル`;
+
+  return (
+    <div style={{ ...S.modalOverlay, zIndex:60 }} onClick={onClose}>
+      <div style={S.modalBox} className="slide-up" onClick={e => e.stopPropagation()}>
+        <div style={S.modalHeader}>
+          <div style={S.modalTitle}>🎨 色ルール編集</div>
+          <button style={S.modalClose} onClick={onClose}>×</button>
+        </div>
+        <div style={{ ...S.modalBody, display:'flex', flexDirection:'column', gap:14 }}>
+          <div>
+            <label style={S.label}>ラベル名 *（管理用）</label>
+            <input style={S.input} value={label} onChange={e => setLabel(e.target.value)} placeholder="例: 注目物件" />
+          </div>
+          <div>
+            <label style={S.label}>含む文字列 *</label>
+            <input style={S.input} value={match} onChange={e => setMatch(e.target.value)} placeholder="例: ◎、決済済み" />
+            <div style={{ fontSize:10, color:'#9ca3af', marginTop:4 }}>
+              ファイル名にこの文字列が含まれてたらこのルールが適用される
+            </div>
+          </div>
+          <div>
+            <label style={S.label}>バッジ表示（短く2〜3文字推奨）</label>
+            <input style={S.input} value={badge} onChange={e => setBadge(e.target.value)} placeholder="例: ◎、済、注目" maxLength={6} />
+          </div>
+          <div>
+            <label style={S.label}>カラープリセット</label>
+            <div style={S.colorGrid}>
+              {COLOR_PRESETS.map(p => (
+                <button key={p.color}
+                  style={S.colorChip(color === p.color, p.color, p.bg)}
+                  onClick={() => selectPreset(p)}
+                >
+                  <div style={S.colorSwatch(p.color)} />
+                  <div style={{ ...S.colorName, color: p.color }}>{p.name}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label style={S.label}>カスタムカラー（上級者向け）</label>
+            <div style={{ display:'flex', gap:8 }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:10, color:'#9ca3af', marginBottom:4 }}>メイン</div>
+                <input type="color" value={color} onChange={e => setColor(e.target.value)} style={{ width:'100%', height:36, borderRadius:6, border:'1px solid #d1d5db' }} />
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:10, color:'#9ca3af', marginBottom:4 }}>背景</div>
+                <input type="color" value={bg} onChange={e => setBg(e.target.value)} style={{ width:'100%', height:36, borderRadius:6, border:'1px solid #d1d5db' }} />
+              </div>
+            </div>
+          </div>
+          <div style={S.previewBox}>
+            <div style={S.previewLabel}>プレビュー</div>
+            <div style={{
+              ...S.fileCard(color),
+              background:'#fff',
+              cursor:'default',
+            }}>
+              <div style={S.fileIcon}>📄</div>
+              <div style={S.fileMain}>
+                <div style={S.fileName}>{sampleName}</div>
+                <div style={S.fileMeta}><span>📅 今日</span></div>
+              </div>
+              {badge && <div style={S.fileBadge(color, bg)}>{badge}</div>}
+              <div style={S.chevron}>↗</div>
+            </div>
+          </div>
+        </div>
+        <div style={{ padding:14, borderTop:'1px solid #f3f4f6', display:'flex', gap:8 }}>
+          <button style={{ ...S.btnSecondary, flex:1 }} onClick={onClose}>キャンセル</button>
+          <button style={{ ...S.btnPrimary, flex:1 }} onClick={submit}>保存</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
