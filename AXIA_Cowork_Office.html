@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AXIA Coworkオフィス</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Zen+Maru+Gothic:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --floor-a:#f4ecd8;
+    --floor-b:#ece0c4;
+    --ink:#2b2440;
+    --ink-soft:#6b6280;
+    --gold:#e8a33d;
+    --gold-dark:#c47f1f;
+    --cream:#fffaf0;
+    --paper:#fffdf8;
+    --danger:#e2694f;
+    --ok:#3fae6a;
+    --warn:#e8a33d;
+    --idle:#9c93b0;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Zen Maru Gothic','M PLUS Rounded 1c',sans-serif;
+    background:
+      repeating-linear-gradient(45deg, var(--floor-a) 0 28px, var(--floor-b) 28px 56px);
+    color:var(--ink);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::-webkit-scrollbar{display:none;}
+  .mono{font-family:'DM Mono',monospace;}
+
+  /* ===== Title chrome ===== */
+  .chrome{
+    max-width:920px;
+    margin:0 auto;
+    padding:14px 14px 90px;
+  }
+  .titlebar{
+    background:var(--ink);
+    border-radius:18px 18px 8px 8px;
+    padding:14px 18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    box-shadow:0 6px 0 rgba(0,0,0,0.15);
+    position:relative;
+  }
+  .titlebar:after{
+    content:'';
+    position:absolute; left:18px; right:18px; bottom:-6px; height:6px;
+    background:var(--gold);
+    border-radius:0 0 6px 6px;
+  }
+  .titlebar h1{
+    font-family:'M PLUS Rounded 1c',sans-serif;
+    font-weight:800;
+    font-size:19px;
+    color:#fff;
+    margin:0;
+    letter-spacing:.02em;
+  }
+  .titlebar .sub{
+    color:#c9c0e0;
+    font-size:11px;
+    margin-top:2px;
+  }
+  .titlebar-emoji{font-size:22px; margin-right:8px;}
+  .titlebar-left{display:flex; align-items:center;}
+
+  /* ===== Toggle ===== */
+  .toolbar{
+    display:flex; gap:10px; align-items:center; justify-content:space-between;
+    margin-top:16px; flex-wrap:wrap;
+  }
+  .segtoggle{
+    display:flex; background:var(--paper); border-radius:999px; padding:4px;
+    box-shadow:0 3px 0 rgba(43,36,64,0.12), inset 0 0 0 2px #fff;
+    gap:2px;
+  }
+  .segtoggle button{
+    border:none; background:transparent; padding:9px 16px; border-radius:999px;
+    font-family:'M PLUS Rounded 1c',sans-serif; font-weight:700; font-size:13px;
+    color:var(--ink-soft); cursor:pointer; transition:all .15s;
+  }
+  .segtoggle button.active{
+    background:var(--ink); color:#fff; box-shadow:0 2px 0 rgba(0,0,0,0.2);
+  }
+  .statchips{display:flex; gap:6px; flex-wrap:wrap;}
+  .chip{
+    font-size:11px; font-weight:700; padding:6px 10px; border-radius:999px;
+    background:#fff; box-shadow:0 2px 0 rgba(43,36,64,0.1);
+    display:flex; align-items:center; gap:4px;
+  }
+
+  /* ===== Office floor ===== */
+  .floor{
+    margin-top:18px;
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(150px,1fr));
+    gap:12px;
+  }
+  .room{
+    position:relative;
+    border-radius:14px;
+    padding:14px 12px 12px;
+    cursor:pointer;
+    min-height:130px;
+    border:3px solid rgba(43,36,64,0.14);
+    box-shadow:0 4px 0 rgba(43,36,64,0.14);
+    transition:transform .12s ease;
+    overflow:hidden;
+  }
+  .room:active{transform:translateY(2px); box-shadow:0 2px 0 rgba(43,36,64,0.14);}
+  .room:before{
+    content:'';
+    position:absolute; top:0; left:14px; right:14px; height:16px;
+    background:rgba(255,255,255,0.55);
+    clip-path:polygon(0 100%, 50% 0, 100% 100%);
+  }
+  .room-label{
+    font-family:'M PLUS Rounded 1c',sans-serif;
+    font-weight:800; font-size:13px;
+    color:var(--ink);
+    display:flex; align-items:center; gap:6px;
+    margin-top:6px;
+  }
+  .room-count{
+    font-family:'DM Mono',monospace; font-size:11px; font-weight:500;
+    background:rgba(255,255,255,0.6); border-radius:8px; padding:1px 7px;
+    margin-left:auto;
+  }
+  .avatars{
+    margin-top:10px;
+    display:flex; flex-wrap:wrap; gap:8px;
+  }
+  .avatar{
+    width:40px; display:flex; flex-direction:column; align-items:center; gap:3px;
+  }
+  .avatar-face{
+    width:34px; height:34px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:17px;
+    background:#fff;
+    position:relative;
+    animation:bob 2.6s ease-in-out infinite;
+  }
+  .avatar:nth-child(2n) .avatar-face{animation-delay:.4s;}
+  .avatar:nth-child(3n) .avatar-face{animation-delay:.9s;}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+  .avatar-face.st-完了{box-shadow:0 0 0 3px var(--ok);}
+  .avatar-face.st-進行中{box-shadow:0 0 0 3px #4f8ef7;}
+  .avatar-face.st-未着手{box-shadow:0 0 0 3px var(--idle);}
+  .avatar-face.st-保留{box-shadow:0 0 0 3px var(--warn);}
+  .avatar-badge{
+    position:absolute; bottom:-3px; right:-3px; font-size:10px;
+    background:#fff; border-radius:50%; width:15px; height:15px;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 1px 2px rgba(0,0,0,0.25);
+  }
+  .avatar-name{
+    font-size:9px; color:var(--ink); text-align:center; line-height:1.15;
+    max-width:40px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .room-empty{
+    margin-top:14px; font-size:11px; color:rgba(43,36,64,0.45); font-weight:500;
+  }
+
+  .roomcolor-0{background:#f6d9a8;} .roomcolor-1{background:#a9d6ef;}
+  .roomcolor-2{background:#d3c2ef;} .roomcolor-3{background:#f3bccb;}
+  .roomcolor-4{background:#f0c6a0;} .roomcolor-5{background:#a9e3c4;}
+  .roomcolor-6{background:#f6e39a;}
+
+  /* ===== FAB ===== */
+  .fab{
+    position:fixed; right:20px; bottom:24px; z-index:40;
+    width:56px; height:56px; border-radius:50%;
+    background:var(--gold); color:#fff; border:none;
+    font-size:26px; box-shadow:0 5px 0 var(--gold-dark);
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .fab:active{transform:translateY(3px); box-shadow:0 2px 0 var(--gold-dark);}
+
+  /* ===== Slide panel ===== */
+  .overlay{
+    position:fixed; inset:0; background:rgba(43,36,64,0.45); z-index:50;
+    display:flex; justify-content:flex-end;
+  }
+  .panel{
+    width:min(420px,100%); background:var(--cream); height:100%;
+    display:flex; flex-direction:column;
+    animation:slidein .18s ease-out;
+  }
+  @keyframes slidein{from{transform:translateX(24px);opacity:0}to{transform:translateX(0);opacity:1}}
+  .panel-head{
+    background:var(--ink); color:#fff; padding:16px 18px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .panel-head h2{font-family:'M PLUS Rounded 1c',sans-serif; font-size:16px; margin:0;}
+  .panel-close{background:transparent; border:none; color:#fff; font-size:20px; cursor:pointer;}
+  .panel-body{flex:1; overflow-y:auto; padding:14px;}
+  .task-card{
+    background:#fff; border-radius:12px; padding:12px; margin-bottom:10px;
+    box-shadow:0 2px 0 rgba(43,36,64,0.1);
+  }
+  .task-card input[type=text], .task-card textarea, .task-card select{
+    width:100%; border:1.5px solid #e8e0cf; border-radius:8px; padding:8px 10px;
+    font-family:'Zen Maru Gothic',sans-serif; font-size:13px; margin-top:6px;
+    background:var(--paper); color:var(--ink);
+  }
+  .task-card textarea{resize:vertical; min-height:44px;}
+  .field-row{display:flex; gap:8px;}
+  .field-row > div{flex:1;}
+  .field-label{font-size:10px; color:var(--ink-soft); font-weight:700; margin-top:8px;}
+  .task-top{display:flex; align-items:center; justify-content:space-between; gap:8px;}
+  .del-btn{
+    border:none; background:#fbe4de; color:var(--danger); font-size:12px; font-weight:700;
+    padding:6px 10px; border-radius:8px; cursor:pointer; white-space:nowrap;
+  }
+  .add-form{
+    background:#fff; border:2px dashed #d8cdb0; border-radius:12px; padding:12px; margin-top:6px;
+  }
+  .add-form input, .add-form select{
+    width:100%; border:1.5px solid #e8e0cf; border-radius:8px; padding:9px 10px;
+    font-size:13px; margin-top:6px; background:var(--paper);
+  }
+  .primary-btn{
+    width:100%; margin-top:10px; border:none; border-radius:10px; padding:10px;
+    background:var(--gold); color:#fff; font-weight:800; font-size:13px; cursor:pointer;
+    box-shadow:0 3px 0 var(--gold-dark);
+  }
+  .primary-btn:active{transform:translateY(2px); box-shadow:0 1px 0 var(--gold-dark);}
+  .ghost-btn{
+    width:100%; margin-top:10px; border:1.5px dashed #c9bfa0; border-radius:10px; padding:10px;
+    background:transparent; color:var(--ink-soft); font-weight:700; font-size:13px; cursor:pointer;
+  }
+  .savepill{
+    position:fixed; top:14px; left:50%; transform:translateX(-50%);
+    background:var(--ink); color:#fff; padding:6px 14px; border-radius:999px;
+    font-size:11px; z-index:80; opacity:0; transition:opacity .25s; pointer-events:none;
+  }
+  .savepill.show{opacity:1;}
+  .empty-state{
+    text-align:center; padding:60px 20px; color:var(--ink-soft);
+  }
+  .empty-state .big{font-size:40px; margin-bottom:8px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+// ══════════════════════════════════════
+// ⚙️ Supabase設定（axia-todoプロジェクト共通）
+// ══════════════════════════════════════
+const SUPABASE_URL  = 'https://zrqdoorolwvjlwuatlkc.supabase.co';
+const SUPABASE_KEY  = 'sb_publishable_qTfps32ER4iHTo_o3zkCEw_HlJdMq_c';
+const TABLE_NAME    = 'axia_cowork_office';
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const STATUS = ['未着手','進行中','完了','保留'];
+const STATUS_FACE = {未着手:'😐', 進行中:'🙂', 完了:'😄', 保留:'😴'};
+const SCHEDULE_TYPES = ['なし','単発','毎日','毎週','毎月'];
+const PRIORITIES = ['高','中','低'];
+
+const SCHEDULE_ROOMS = [
+  {key:'毎日', label:'⏰ 毎日', color:1, icon:'☀️'},
+  {key:'毎週', label:'📅 毎週', color:5, icon:'🗓️'},
+  {key:'毎月', label:'🗂️ 毎月', color:2, icon:'📆'},
+  {key:'単発', label:'📌 単発', color:4, icon:'✏️'},
+  {key:'なし', label:'💤 スケジュールなし', color:6, icon:'—'},
+];
+
+function hashColor(str){
+  let h = 0;
+  for (let i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i)) >>> 0; }
+  return h % 7;
+}
+
+// ══════════════════════════════════════
+// DebouncedInput（blur時コミット方式・Realtime競合対策）
+// ══════════════════════════════════════
+function DebouncedInput({ value, onCommit, as='input', style, placeholder, className }) {
+  const [local, setLocal] = useState(value || '');
+  const focusedRef = useRef(false);
+  const prevValueRef = useRef(value);
+
+  useEffect(() => {
+    if (value !== prevValueRef.current && !focusedRef.current) {
+      setLocal(value || '');
+    }
+    prevValueRef.current = value;
+  }, [value]);
+
+  const commonProps = {
+    value: local,
+    onChange: e => setLocal(e.target.value),
+    onFocus: () => { focusedRef.current = true; },
+    onBlur: () => {
+      focusedRef.current = false;
+      if (local !== (value || '')) onCommit(local);
+    },
+    placeholder,
+    className,
+    style,
+  };
+
+  return as === 'textarea' ? <textarea {...commonProps} /> : <input type="text" {...commonProps} />;
+}
+
+// ══════════════════════════════════════
+// メインApp
+// ══════════════════════════════════════
+function App(){
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState('project'); // 'project' | 'schedule'
+  const [openRoomKey, setOpenRoomKey] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const editingLockRef = useRef(0);
+
+  const showSaved = useCallback(()=>{
+    setSaved(true);
+    setTimeout(()=>setSaved(false), 1200);
+  },[]);
+
+  const loadTasks = useCallback(async () => {
+    const { data, error } = await supabase.from(TABLE_NAME).select('*').order('created_at', {ascending:true});
+    if (!error && data) setTasks(data);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadTasks(); }, [loadTasks]);
+
+  useEffect(() => {
+    const channel = supabase.channel('axia_cowork_office_realtime')
+      .on('postgres_changes', { event:'*', schema:'public', table:TABLE_NAME }, () => {
+        if (Date.now() - editingLockRef.current < 3000) return;
+        loadTasks();
+      }).subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [loadTasks]);
+
+  const updateTask = useCallback((id, patch) => {
+    editingLockRef.current = Date.now();
+    setTasks(ts => ts.map(t => t.id===id ? {...t, ...patch} : t));
+    supabase.from(TABLE_NAME).update(patch).eq('id', id).then(({error})=>{ if(!error) showSaved(); });
+  }, [showSaved]);
+
+  const deleteTask = useCallback((id) => {
+    editingLockRef.current = Date.now();
+    setTasks(ts => ts.filter(t => t.id !== id));
+    supabase.from(TABLE_NAME).delete().eq('id', id).then(()=>showSaved());
+  }, [showSaved]);
+
+  const addTask = useCallback(async (payload) => {
+    editingLockRef.current = Date.now();
+    const { data, error } = await supabase.from(TABLE_NAME).insert(payload).select();
+    if (!error && data) {
+      setTasks(ts => [...ts, ...data]);
+      showSaved();
+    }
+  }, [showSaved]);
+
+  const projectNames = useMemo(() => {
+    const set = new Set();
+    tasks.forEach(t => { if (t.project_name) set.add(t.project_name); });
+    return Array.from(set);
+  }, [tasks]);
+
+  const rooms = useMemo(() => {
+    if (viewMode === 'project') {
+      return projectNames.map(name => ({
+        key: name,
+        label: '🏠 ' + name,
+        color: hashColor(name),
+        tasks: tasks.filter(t => t.project_name === name),
+      })).sort((a,b)=> b.tasks.length - a.tasks.length);
+    } else {
+      return SCHEDULE_ROOMS.map(r => ({
+        key: r.key,
+        label: r.label,
+        color: r.color,
+        tasks: tasks.filter(t => (t.schedule_type || 'なし') === r.key),
+      }));
+    }
+  }, [tasks, viewMode, projectNames]);
+
+  const stats = useMemo(() => {
+    const total = tasks.length;
+    const done = tasks.filter(t=>t.status==='完了').length;
+    const active = tasks.filter(t=>t.status==='進行中').length;
+    return { total, done, active };
+  }, [tasks]);
+
+  const openRoom = rooms.find(r => r.key === openRoomKey) || null;
+
+  return (
+    <div className="chrome">
+      <div className={`savepill ${saved?'show':''}`}>💾 保存しました</div>
+
+      <div className="titlebar">
+        <div className="titlebar-left">
+          <span className="titlebar-emoji">🏢</span>
+          <div>
+            <h1>AXIA Coworkオフィス</h1>
+            <div className="sub">利博さんのタスク可視化ボード</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="toolbar">
+        <div className="segtoggle">
+          <button className={viewMode==='project'?'active':''} onClick={()=>{setViewMode('project'); setOpenRoomKey(null);}}>🏠 プロジェクト別</button>
+          <button className={viewMode==='schedule'?'active':''} onClick={()=>{setViewMode('schedule'); setOpenRoomKey(null);}}>⏰ スケジュール別</button>
+        </div>
+        <div className="statchips">
+          <span className="chip">📋 {stats.total}</span>
+          <span className="chip">🙂 {stats.active}</span>
+          <span className="chip">😄 {stats.done}</span>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="empty-state"><div className="big">🏗️</div>オフィスを準備中...</div>
+      ) : rooms.length === 0 || tasks.length === 0 ? (
+        <div className="empty-state">
+          <div className="big">🌱</div>
+          まだタスクがありません。右下の＋からプロジェクトとタスクを追加してください。
+        </div>
+      ) : (
+        <div className="floor">
+          {rooms.map(room => (
+            <div key={room.key} className={`room roomcolor-${room.color}`} onClick={()=>setOpenRoomKey(room.key)}>
+              <div className="room-label">
+                {room.label}
+                <span className="room-count mono">{room.tasks.filter(t=>t.status==='完了').length}/{room.tasks.length}</span>
+              </div>
+              {room.tasks.length === 0 ? (
+                <div className="room-empty">タスクなし</div>
+              ) : (
+                <div className="avatars">
+                  {room.tasks.slice(0,8).map(t => (
+                    <div className="avatar" key={t.id}>
+                      <div className={`avatar-face st-${t.status||'未着手'}`}>
+                        🤖
+                        {(t.schedule_type && t.schedule_type !== 'なし') && <span className="avatar-badge">⏰</span>}
+                      </div>
+                      <div className="avatar-name">{t.task_name}</div>
+                    </div>
+                  ))}
+                  {room.tasks.length > 8 && (
+                    <div className="avatar">
+                      <div className="avatar-face st-未着手">＋{room.tasks.length-8}</div>
+                      <div className="avatar-name">他</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button className="fab" onClick={()=>setShowAddModal(true)}>＋</button>
+
+      {openRoom && (
+        <RoomPanel
+          room={openRoom}
+          viewMode={viewMode}
+          projectNames={projectNames}
+          onClose={()=>setOpenRoomKey(null)}
+          onUpdate={updateTask}
+          onDelete={deleteTask}
+          onAdd={addTask}
+        />
+      )}
+
+      {showAddModal && (
+        <QuickAddPanel
+          projectNames={projectNames}
+          onClose={()=>setShowAddModal(false)}
+          onAdd={addTask}
+        />
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════
+// タスク1件の編集カード
+// ══════════════════════════════════════
+function TaskCard({ task, viewMode, onUpdate, onDelete }){
+  return (
+    <div className="task-card">
+      <div className="task-top">
+        <DebouncedInput
+          value={task.task_name}
+          onCommit={(v)=>onUpdate(task.id, {task_name:v})}
+          placeholder="タスク名"
+          style={{fontWeight:700, fontSize:14, flex:1}}
+        />
+        <button className="del-btn" onClick={()=>{ if(confirm('このタスクを削除しますか？')) onDelete(task.id); }}>削除</button>
+      </div>
+
+      {viewMode === 'schedule' && (
+        <React.Fragment>
+          <div className="field-label">プロジェクト</div>
+          <DebouncedInput value={task.project_name} onCommit={(v)=>onUpdate(task.id, {project_name:v})} placeholder="プロジェクト名" />
+        </React.Fragment>
+      )}
+
+      <div className="field-row">
+        <div>
+          <div className="field-label">ステータス</div>
+          <select value={task.status||'未着手'} onChange={e=>onUpdate(task.id,{status:e.target.value})}>
+            {STATUS.map(s=><option key={s} value={s}>{STATUS_FACE[s]} {s}</option>)}
+          </select>
+        </div>
+        <div>
+          <div className="field-label">優先度</div>
+          <select value={task.priority||'中'} onChange={e=>onUpdate(task.id,{priority:e.target.value})}>
+            {PRIORITIES.map(p=><option key={p} value={p}>{p}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {viewMode === 'project' && (
+        <React.Fragment>
+          <div className="field-label">スケジュール</div>
+          <select value={task.schedule_type||'なし'} onChange={e=>onUpdate(task.id,{schedule_type:e.target.value})}>
+            {SCHEDULE_TYPES.map(s=><option key={s} value={s}>{s}</option>)}
+          </select>
+        </React.Fragment>
+      )}
+
+      {(task.schedule_type && task.schedule_type !== 'なし') && (
+        <React.Fragment>
+          <div className="field-label">スケジュール詳細（例：毎週金 9:00）</div>
+          <DebouncedInput value={task.schedule_detail} onCommit={(v)=>onUpdate(task.id,{schedule_detail:v})} placeholder="実行タイミング" />
+        </React.Fragment>
+      )}
+
+      <div className="field-label">メモ</div>
+      <DebouncedInput as="textarea" value={task.memo} onCommit={(v)=>onUpdate(task.id,{memo:v})} placeholder="メモ・進捗など" />
+    </div>
+  );
+}
+
+// ══════════════════════════════════════
+// 部屋パネル（既存タスク編集＋その部屋への追加）
+// ══════════════════════════════════════
+function RoomPanel({ room, viewMode, projectNames, onClose, onUpdate, onDelete, onAdd }){
+  const [showAdd, setShowAdd] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newProject, setNewProject] = useState(viewMode === 'project' ? room.key : (projectNames[0]||''));
+
+  const submitAdd = () => {
+    if (!newName.trim()) return;
+    const payload = {
+      task_name: newName.trim(),
+      project_name: viewMode === 'project' ? room.key : (newProject.trim() || '未分類'),
+      schedule_type: viewMode === 'schedule' ? room.key : 'なし',
+      status: '未着手',
+      priority: '中',
+    };
+    onAdd(payload);
+    setNewName('');
+    setShowAdd(false);
+  };
+
+  return (
+    <div className="overlay" onClick={(e)=>{ if(e.target===e.currentTarget) onClose(); }}>
+      <div className="panel">
+        <div className="panel-head">
+          <h2>{room.label}</h2>
+          <button className="panel-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="panel-body">
+          {room.tasks.length === 0 && <div className="empty-state">まだタスクがありません</div>}
+          {room.tasks.map(t => (
+            <TaskCard key={t.id} task={t} viewMode={viewMode} onUpdate={onUpdate} onDelete={onDelete} />
+          ))}
+
+          {showAdd ? (
+            <div className="add-form">
+              <input type="text" placeholder="タスク名" value={newName} onChange={e=>setNewName(e.target.value)} autoFocus />
+              {viewMode === 'schedule' && (
+                <input type="text" list="proj-list" placeholder="プロジェクト名" value={newProject} onChange={e=>setNewProject(e.target.value)} />
+              )}
+              <datalist id="proj-list">
+                {projectNames.map(p=><option key={p} value={p} />)}
+              </datalist>
+              <button className="primary-btn" onClick={submitAdd}>この部屋に追加</button>
+            </div>
+          ) : (
+            <button className="ghost-btn" onClick={()=>setShowAdd(true)}>＋ この部屋にタスクを追加</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════
+// クイック追加（新規プロジェクトもここから作れる）
+// ══════════════════════════════════════
+function QuickAddPanel({ projectNames, onClose, onAdd }){
+  const [project, setProject] = useState('');
+  const [name, setName] = useState('');
+  const [scheduleType, setScheduleType] = useState('なし');
+
+  const submit = () => {
+    if (!project.trim() || !name.trim()) return;
+    onAdd({
+      task_name: name.trim(),
+      project_name: project.trim(),
+      schedule_type: scheduleType,
+      status: '未着手',
+      priority: '中',
+    });
+    onClose();
+  };
+
+  return (
+    <div className="overlay" onClick={(e)=>{ if(e.target===e.currentTarget) onClose(); }}>
+      <div className="panel">
+        <div className="panel-head">
+          <h2>🆕 タスクを追加</h2>
+          <button className="panel-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="panel-body">
+          <div className="add-form">
+            <div className="field-label">プロジェクト名（新規もOK）</div>
+            <input type="text" list="proj-list2" placeholder="例：仕入れ事業部" value={project} onChange={e=>setProject(e.target.value)} autoFocus />
+            <datalist id="proj-list2">
+              {projectNames.map(p=><option key={p} value={p} />)}
+            </datalist>
+            <div className="field-label">タスク名</div>
+            <input type="text" placeholder="例：マイソク選別（週次）" value={name} onChange={e=>setName(e.target.value)} />
+            <div className="field-label">スケジュール</div>
+            <select value={scheduleType} onChange={e=>setScheduleType(e.target.value)}>
+              {SCHEDULE_TYPES.map(s=><option key={s} value={s}>{s}</option>)}
+            </select>
+            <button className="primary-btn" onClick={submit}>追加する</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
