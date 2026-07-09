@@ -170,6 +170,26 @@
     font-size:11px; font-weight:800; color:var(--ink-soft);
     font-family:'M PLUS Rounded 1c',sans-serif;
   }
+  .reorder-btn{
+    border:none; border-radius:999px; padding:9px 14px;
+    background:var(--paper); color:var(--ink-soft);
+    font-family:'M PLUS Rounded 1c',sans-serif; font-weight:700; font-size:12px;
+    cursor:pointer; box-shadow:0 3px 0 rgba(43,36,64,0.12);
+  }
+  .reorder-btn.on{background:var(--gold); color:#fff; box-shadow:0 3px 0 var(--gold-dark);}
+  .room.reordering{animation:wiggle 0.5s ease-in-out infinite; cursor:default;}
+  @keyframes wiggle{0%,100%{transform:rotate(0deg)}25%{transform:rotate(0.4deg)}75%{transform:rotate(-0.4deg)}}
+  .move-controls{
+    position:absolute; top:-14px; right:10px; z-index:6;
+    display:flex; gap:4px;
+  }
+  .move-btn{
+    width:28px; height:28px; border-radius:8px; border:none;
+    background:#fff; color:var(--ink); font-size:12px; font-weight:800;
+    cursor:pointer; box-shadow:0 2px 0 rgba(43,36,64,0.25);
+  }
+  .move-btn:disabled{opacity:0.3; cursor:default;}
+  .move-btn:not(:disabled):active{transform:translateY(1px);}
   .avatars{
     display:flex; flex-wrap:wrap; gap:14px 18px; align-items:flex-end;
   }
@@ -187,6 +207,15 @@
   .avatar-bubble:after{
     content:''; position:absolute; left:50%; bottom:-4px; transform:translateX(-50%);
     border:4px solid transparent; border-top-color:#fff; border-bottom:none;
+  }
+  .avatar-nametag{
+    background:#fff; border-radius:999px; padding:1px 9px;
+    font-family:'M PLUS Rounded 1c',sans-serif;
+    font-size:9px; font-weight:800; color:var(--ink);
+    margin-top:3px;
+    max-width:88px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    box-shadow:0 1.5px 0 rgba(43,36,64,0.18);
+    border:1.5px solid rgba(43,36,64,0.12);
   }
   .avatar-status{
     font-size:8px; font-weight:700; padding:1px 7px; border-radius:999px;
@@ -386,6 +415,9 @@ const ACCESSORIES = [
 ];
 const HAIR_LABELS = ['緑','ピンク','青','紫','茶','金','赤','黒'];
 
+// アバターのデフォルト名プール（タスクごとに自動で別の名前になる）
+const NAME_POOL = ['ハル','ソラ','ユイ','レン','アオイ','ヒナタ','リク','メイ','カイト','サクラ','ツバサ','コハル','ミナト','アカリ','イツキ','ニコ','ダイチ','スミレ','ゲン','モモ'];
+
 // タスクのアバター設定を取得（手動設定 > 自動）
 function getAvatar(task){
   const h = taskHash(task);
@@ -395,6 +427,7 @@ function getAvatar(task){
     shirt:     Number.isInteger(saved.shirt) ? saved.shirt : (h >> 3) % SHIRT_COLORS.length,
     outfit:    saved.outfit || 'shirt',
     accessory: saved.accessory || 'none',
+    name:      saved.name || NAME_POOL[(h >> 5) % NAME_POOL.length],
   };
 }
 
@@ -529,6 +562,12 @@ function DebouncedInput({ value, onCommit, as='input', style, placeholder, class
   return as === 'textarea' ? <textarea {...commonProps} /> : <input type="text" {...commonProps} />;
 }
 
+const SK_ROOM_ORDER = 'axia_cowork_room_order_v1';
+function loadRoomOrder(){
+  try { return JSON.parse(localStorage.getItem(SK_ROOM_ORDER)) || {project:[], schedule:[]}; }
+  catch(e){ return {project:[], schedule:[]}; }
+}
+
 // ══════════════════════════════════════
 // メインApp
 // ══════════════════════════════════════
@@ -539,7 +578,14 @@ function App(){
   const [openRoomKey, setOpenRoomKey] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [reorderMode, setReorderMode] = useState(false);
+  const [roomOrder, setRoomOrder] = useState(loadRoomOrder);
   const editingLockRef = useRef(0);
+
+  const saveRoomOrder = useCallback((next) => {
+    setRoomOrder(next);
+    try { localStorage.setItem(SK_ROOM_ORDER, JSON.stringify(next)); } catch(e){}
+  }, []);
 
   const showSaved = useCallback(()=>{
     setSaved(true);
@@ -594,6 +640,7 @@ function App(){
   const doneTasks = useMemo(() => tasks.filter(t => t.status === '完了'), [tasks]);
 
   const rooms = useMemo(() => {
+    let base;
     if (viewMode === 'project') {
       const dynamicNames = Array.from(new Set(activeTasks.map(t => t.project_name).filter(Boolean)))
         .filter(n => !FIXED_PROJECTS.some(f => f.name === n));
@@ -609,16 +656,35 @@ function App(){
         color: hashColor(name),
         tasks: activeTasks.filter(t => t.project_name === name),
       })).sort((a,b)=> b.tasks.length - a.tasks.length);
-      return [...fixedRooms, ...dynamicRooms];
+      base = [...fixedRooms, ...dynamicRooms];
     } else {
-      return SCHEDULE_ROOMS.map(r => ({
+      base = SCHEDULE_ROOMS.map(r => ({
         key: r.key,
         label: r.label,
         color: r.color,
         tasks: activeTasks.filter(t => (t.schedule_type || 'なし') === r.key),
       }));
     }
-  }, [activeTasks, viewMode]);
+    // 保存済み並び順を適用（未登録の部屋は末尾）
+    const order = roomOrder[viewMode] || [];
+    base.sort((a,b) => {
+      const ia = order.indexOf(a.key), ib = order.indexOf(b.key);
+      if (ia === -1 && ib === -1) return 0;
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
+    return base;
+  }, [activeTasks, viewMode, roomOrder]);
+
+  const moveRoom = useCallback((key, dir) => {
+    const keys = rooms.map(r => r.key);
+    const i = keys.indexOf(key);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= keys.length) return;
+    [keys[i], keys[j]] = [keys[j], keys[i]];
+    saveRoomOrder({ ...roomOrder, [viewMode]: keys });
+  }, [rooms, roomOrder, viewMode, saveRoomOrder]);
 
   const breakRoom = useMemo(() => ({
     key: '__break__',
@@ -655,10 +721,15 @@ function App(){
           <button className={viewMode==='project'?'active':''} onClick={()=>{setViewMode('project'); setOpenRoomKey(null);}}>🏠 プロジェクト別</button>
           <button className={viewMode==='schedule'?'active':''} onClick={()=>{setViewMode('schedule'); setOpenRoomKey(null);}}>⏰ スケジュール別</button>
         </div>
-        <div className="statchips">
-          <span className="chip">📋 {stats.total}</span>
-          <span className="chip">🙂 {stats.active}</span>
-          <span className="chip">😄 {stats.done}</span>
+        <div style={{display:'flex', gap:8, alignItems:'center'}}>
+          <button className={`reorder-btn ${reorderMode?'on':''}`} onClick={()=>setReorderMode(m=>!m)}>
+            {reorderMode ? '✅ 並び替え完了' : '🔀 部屋を並び替え'}
+          </button>
+          <div className="statchips">
+            <span className="chip">📋 {stats.total}</span>
+            <span className="chip">🙂 {stats.active}</span>
+            <span className="chip">😄 {stats.done}</span>
+          </div>
         </div>
       </div>
 
@@ -674,8 +745,12 @@ function App(){
       ) : (
         <React.Fragment>
           <div className="floor">
-            {rooms.map(room => (
-              <RoomView key={room.key} room={room} isBreak={false} onOpen={()=>setOpenRoomKey(room.key)} />
+            {rooms.map((room, idx) => (
+              <RoomView key={room.key} room={room} isBreak={false}
+                onOpen={()=>{ if(!reorderMode) setOpenRoomKey(room.key); }}
+                reorderMode={reorderMode}
+                canLeft={idx > 0} canRight={idx < rooms.length-1}
+                onMove={(dir)=>moveRoom(room.key, dir)} />
             ))}
           </div>
           <div className="corridor"><span>🚪 廊下</span></div>
@@ -711,22 +786,31 @@ function App(){
 // ══════════════════════════════════════
 // 部屋の表示（作業部屋・休憩部屋共通）
 // ══════════════════════════════════════
-function RoomView({ room, isBreak, onOpen }){
+function RoomView({ room, isBreak, onOpen, reorderMode, canLeft, canRight, onMove }){
   const max = isBreak ? 16 : 8;
   return (
-    <div className={`room ${isBreak ? 'room-break' : 'roomcolor-'+room.color}`} onClick={onOpen}>
+    <div className={`room ${isBreak ? 'room-break' : 'roomcolor-'+room.color} ${reorderMode?'reordering':''}`} onClick={onOpen}>
       <div className="room-plaque">
         {room.label}
         <span className="room-count">{room.tasks.filter(t=>t.status==='完了').length}/{room.tasks.length}</span>
       </div>
+      {reorderMode && !isBreak && (
+        <div className="move-controls" onClick={e=>e.stopPropagation()}>
+          <button className="move-btn" disabled={!canLeft} onClick={()=>onMove(-1)}>◀</button>
+          <button className="move-btn" disabled={!canRight} onClick={()=>onMove(1)}>▶</button>
+        </div>
+      )}
       <div className="room-inner">
         {room.tasks.length === 0 ? (
           <div className="room-empty">{isBreak ? '完了タスクが増えるとここに集まります' : 'タスクなし'}</div>
         ) : (
           <div className="avatars">
-            {room.tasks.slice(0, max).map(t => (
+            {room.tasks.slice(0, max).map(t => {
+              const av = getAvatar(t);
+              return (
               <div className="avatar" key={t.id}>
                 <div className="avatar-bubble">{t.task_name}</div>
+                <div className="avatar-nametag">{av.name}</div>
                 <div className={`avatar-status st-${t.status||'未着手'}`}>{STATUS_BUBBLE[t.status]||'⏸ 待機中'}</div>
                 <div className="avatar-figure">
                   {t.priority === '高' && <span className="avatar-badge-left">⭐</span>}
@@ -734,7 +818,8 @@ function RoomView({ room, isBreak, onOpen }){
                   <PixelWorker task={t} resting={isBreak} />
                 </div>
               </div>
-            ))}
+              );
+            })}
             {room.tasks.length > max && (
               <div className="avatar">
                 <div className="avatar-bubble">＋{room.tasks.length - max}件</div>
@@ -773,6 +858,13 @@ function TaskCard({ task, viewMode, onUpdate, onDelete }){
           <PixelWorker task={task} resting={false} />
         </div>
         <div className="avatar-controls">
+          <div className="field-label">なまえ</div>
+          <DebouncedInput
+            value={av.name}
+            onCommit={(v)=>setAvatar({name: v || av.name})}
+            placeholder="アバターの名前"
+            style={{fontWeight:700}}
+          />
           <div className="field-label">髪色</div>
           <div className="swatch-row">
             {HAIR_COLORS.map((c,i)=>(
