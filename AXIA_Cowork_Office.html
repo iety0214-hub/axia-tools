@@ -179,6 +179,18 @@
   .roomcolor-4{background:#f0c6a0;} .roomcolor-5{background:#a9e3c4;}
   .roomcolor-6{background:#f6e39a;}
 
+  .room-break{
+    background:linear-gradient(135deg,#cfeede,#bfe6d6);
+    border:3px dashed rgba(63,174,106,0.4);
+  }
+  .room-break:before{background:rgba(255,255,255,0.7);}
+  .idle-banner{
+    margin-top:14px; background:#fff; border-radius:12px; padding:10px 14px;
+    display:flex; align-items:center; gap:10px; box-shadow:0 2px 0 rgba(43,36,64,0.1);
+    font-size:12px; color:var(--ink-soft); font-weight:600;
+  }
+  .idle-banner .face{font-size:22px; animation:bob 2.6s ease-in-out infinite;}
+
   /* ===== FAB ===== */
   .fab{
     position:fixed; right:20px; bottom:24px; z-index:40;
@@ -379,23 +391,35 @@ function App(){
     return Array.from(set);
   }, [tasks]);
 
+  const activeTasks = useMemo(() => tasks.filter(t => t.status !== '完了'), [tasks]);
+  const doneTasks = useMemo(() => tasks.filter(t => t.status === '完了'), [tasks]);
+
   const rooms = useMemo(() => {
+    let base;
     if (viewMode === 'project') {
-      return projectNames.map(name => ({
+      const names = Array.from(new Set(activeTasks.map(t => t.project_name).filter(Boolean)));
+      base = names.map(name => ({
         key: name,
         label: '🏠 ' + name,
         color: hashColor(name),
-        tasks: tasks.filter(t => t.project_name === name),
+        tasks: activeTasks.filter(t => t.project_name === name),
       })).sort((a,b)=> b.tasks.length - a.tasks.length);
     } else {
-      return SCHEDULE_ROOMS.map(r => ({
+      base = SCHEDULE_ROOMS.map(r => ({
         key: r.key,
         label: r.label,
         color: r.color,
-        tasks: tasks.filter(t => (t.schedule_type || 'なし') === r.key),
+        tasks: activeTasks.filter(t => (t.schedule_type || 'なし') === r.key),
       }));
     }
-  }, [tasks, viewMode, projectNames]);
+    base.push({
+      key: '__break__',
+      label: '☕ 休憩部屋',
+      color: 'break',
+      tasks: doneTasks,
+    });
+    return base;
+  }, [activeTasks, doneTasks, viewMode]);
 
   const stats = useMemo(() => {
     const total = tasks.length;
@@ -432,6 +456,13 @@ function App(){
         </div>
       </div>
 
+      {!loading && stats.active === 0 && stats.total > 0 && (
+        <div className="idle-banner">
+          <span className="face">😌</span>
+          今は進行中のタスクなし。オフィスはのんびりモードです。
+        </div>
+      )}
+
       {loading ? (
         <div className="empty-state"><div className="big">🏗️</div>オフィスを準備中...</div>
       ) : rooms.length === 0 || tasks.length === 0 ? (
@@ -442,13 +473,13 @@ function App(){
       ) : (
         <div className="floor">
           {rooms.map(room => (
-            <div key={room.key} className={`room roomcolor-${room.color}`} onClick={()=>setOpenRoomKey(room.key)}>
+            <div key={room.key} className={`room ${room.color==='break' ? 'room-break' : 'roomcolor-'+room.color}`} onClick={()=>setOpenRoomKey(room.key)}>
               <div className="room-label">
                 {room.label}
                 <span className="room-count mono">{room.tasks.filter(t=>t.status==='完了').length}/{room.tasks.length}</span>
               </div>
               {room.tasks.length === 0 ? (
-                <div className="room-empty">タスクなし</div>
+                <div className="room-empty">{room.key==='__break__' ? '完了タスクが増えるとここに集まります' : 'タスクなし'}</div>
               ) : (
                 <div className="avatars">
                   {room.tasks.slice(0,8).map(t => (
@@ -593,7 +624,11 @@ function RoomPanel({ room, viewMode, projectNames, onClose, onUpdate, onDelete, 
             <TaskCard key={t.id} task={t} viewMode={viewMode} onUpdate={onUpdate} onDelete={onDelete} />
           ))}
 
-          {showAdd ? (
+          {room.key === '__break__' ? (
+            <div className="room-empty" style={{marginTop:14}}>
+              休憩部屋はタスクを「完了」にすると自動的に集まる場所です。直接タスクは追加できません。
+            </div>
+          ) : showAdd ? (
             <div className="add-form">
               <input type="text" placeholder="タスク名" value={newName} onChange={e=>setNewName(e.target.value)} autoFocus />
               {viewMode === 'schedule' && (
