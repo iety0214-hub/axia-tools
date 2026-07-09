@@ -40,9 +40,9 @@
 
   /* ===== Title chrome ===== */
   .chrome{
-    max-width:920px;
+    max-width:1600px;
     margin:0 auto;
-    padding:14px 14px 90px;
+    padding:14px 24px 90px;
   }
   .titlebar{
     background:var(--ink);
@@ -105,15 +105,15 @@
   .floor{
     margin-top:18px;
     display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(150px,1fr));
-    gap:12px;
+    grid-template-columns:repeat(auto-fit, minmax(230px,1fr));
+    gap:16px;
   }
   .room{
     position:relative;
     border-radius:14px;
     padding:14px 12px 12px;
     cursor:pointer;
-    min-height:130px;
+    min-height:170px;
     border:3px solid rgba(43,36,64,0.14);
     box-shadow:0 4px 0 rgba(43,36,64,0.14);
     transition:transform .12s ease;
@@ -139,40 +139,53 @@
     margin-left:auto;
   }
   .avatars{
-    margin-top:10px;
-    display:flex; flex-wrap:wrap; gap:8px;
+    margin-top:12px;
+    display:flex; flex-wrap:wrap; gap:12px;
   }
   .avatar{
-    width:40px; display:flex; flex-direction:column; align-items:center; gap:3px;
+    width:48px; display:flex; flex-direction:column; align-items:center; gap:3px;
   }
-  .avatar-face{
-    width:34px; height:34px; border-radius:50%;
-    display:flex; align-items:center; justify-content:center;
-    font-size:17px;
-    background:#fff;
+  .avatar-figure{
     position:relative;
+    display:flex; flex-direction:column; align-items:center;
     animation:bob 2.6s ease-in-out infinite;
   }
-  .avatar:nth-child(2n) .avatar-face{animation-delay:.4s;}
-  .avatar:nth-child(3n) .avatar-face{animation-delay:.9s;}
-  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-  .avatar-face.st-完了{box-shadow:0 0 0 3px var(--ok);}
-  .avatar-face.st-進行中{box-shadow:0 0 0 3px #4f8ef7;}
-  .avatar-face.st-未着手{box-shadow:0 0 0 3px var(--idle);}
-  .avatar-face.st-保留{box-shadow:0 0 0 3px var(--warn);}
+  .avatar:nth-child(2n) .avatar-figure{animation-delay:.4s;}
+  .avatar:nth-child(3n) .avatar-figure{animation-delay:.9s;}
+  .avatar-head{
+    width:22px; height:22px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px;
+    background:#ffe0c2;
+    position:relative; z-index:2;
+    margin-bottom:-5px;
+  }
+  .avatar-head.st-完了{box-shadow:0 0 0 2.5px var(--ok);}
+  .avatar-head.st-進行中{box-shadow:0 0 0 2.5px #4f8ef7;}
+  .avatar-head.st-未着手{box-shadow:0 0 0 2.5px var(--idle);}
+  .avatar-head.st-保留{box-shadow:0 0 0 2.5px var(--warn);}
+  .avatar-body{
+    width:32px; height:28px;
+    border-radius:12px 12px 7px 7px;
+    box-shadow:inset 0 -4px 0 rgba(0,0,0,0.08);
+  }
   .avatar-badge{
-    position:absolute; bottom:-3px; right:-3px; font-size:10px;
+    position:absolute; bottom:22px; right:-4px; font-size:10px;
     background:#fff; border-radius:50%; width:15px; height:15px;
     display:flex; align-items:center; justify-content:center;
-    box-shadow:0 1px 2px rgba(0,0,0,0.25);
+    box-shadow:0 1px 2px rgba(0,0,0,0.25); z-index:3;
+  }
+  .avatar-badge-left{
+    position:absolute; top:-4px; left:-4px; font-size:11px; z-index:3;
   }
   .avatar-name{
     font-size:9px; color:var(--ink); text-align:center; line-height:1.15;
-    max-width:40px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    max-width:48px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
   .room-empty{
     margin-top:14px; font-size:11px; color:rgba(43,36,64,0.45); font-weight:500;
   }
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 
   .roomcolor-0{background:#f6d9a8;} .roomcolor-1{background:#a9d6ef;}
   .roomcolor-2{background:#d3c2ef;} .roomcolor-3{background:#f3bccb;}
@@ -300,6 +313,24 @@ function hashColor(str){
 }
 
 // ══════════════════════════════════════
+// 常設プロジェクト部屋（タスクが0件でも常に表示）
+// ══════════════════════════════════════
+const FIXED_PROJECTS = [
+  {name:'仕入れ事業部', color:0},
+  {name:'業務',         color:5},
+  {name:'家原個室',     color:2},
+];
+
+// アバターの見た目バリエーション（タスクIDから安定して決定・全身シルエット用の色）
+const AVATAR_COLORS = ['#f2a154','#5b8def','#9b6bd6','#e8638c','#3fae6a','#e0b23e','#4fb8c4','#c96a4e'];
+function avatarColor(task){
+  const key = String(task.task_name || task.id || '');
+  let h = 0;
+  for (let i=0;i<key.length;i++){ h = (h*17 + key.charCodeAt(i)) >>> 0; }
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+// ══════════════════════════════════════
 // DebouncedInput（blur時コミット方式・Realtime競合対策）
 // ══════════════════════════════════════
 function DebouncedInput({ value, onCommit, as='input', style, placeholder, className }) {
@@ -386,7 +417,7 @@ function App(){
   }, [showSaved]);
 
   const projectNames = useMemo(() => {
-    const set = new Set();
+    const set = new Set(FIXED_PROJECTS.map(f => f.name));
     tasks.forEach(t => { if (t.project_name) set.add(t.project_name); });
     return Array.from(set);
   }, [tasks]);
@@ -397,13 +428,21 @@ function App(){
   const rooms = useMemo(() => {
     let base;
     if (viewMode === 'project') {
-      const names = Array.from(new Set(activeTasks.map(t => t.project_name).filter(Boolean)));
-      base = names.map(name => ({
+      const dynamicNames = Array.from(new Set(activeTasks.map(t => t.project_name).filter(Boolean)))
+        .filter(n => !FIXED_PROJECTS.some(f => f.name === n));
+      const fixedRooms = FIXED_PROJECTS.map(f => ({
+        key: f.name,
+        label: '🏠 ' + f.name,
+        color: f.color,
+        tasks: activeTasks.filter(t => t.project_name === f.name),
+      }));
+      const dynamicRooms = dynamicNames.map(name => ({
         key: name,
         label: '🏠 ' + name,
         color: hashColor(name),
         tasks: activeTasks.filter(t => t.project_name === name),
       })).sort((a,b)=> b.tasks.length - a.tasks.length);
+      base = [...fixedRooms, ...dynamicRooms];
     } else {
       base = SCHEDULE_ROOMS.map(r => ({
         key: r.key,
@@ -465,11 +504,6 @@ function App(){
 
       {loading ? (
         <div className="empty-state"><div className="big">🏗️</div>オフィスを準備中...</div>
-      ) : rooms.length === 0 || tasks.length === 0 ? (
-        <div className="empty-state">
-          <div className="big">🌱</div>
-          まだタスクがありません。右下の＋からプロジェクトとタスクを追加してください。
-        </div>
       ) : (
         <div className="floor">
           {rooms.map(room => (
@@ -484,16 +518,21 @@ function App(){
                 <div className="avatars">
                   {room.tasks.slice(0,8).map(t => (
                     <div className="avatar" key={t.id}>
-                      <div className={`avatar-face st-${t.status||'未着手'}`}>
-                        🤖
+                      <div className="avatar-figure">
+                        {t.priority === '高' && <span className="avatar-badge-left">⭐</span>}
                         {(t.schedule_type && t.schedule_type !== 'なし') && <span className="avatar-badge">⏰</span>}
+                        <div className={`avatar-head st-${t.status||'未着手'}`}>{STATUS_FACE[t.status]||'😐'}</div>
+                        <div className="avatar-body" style={{background: avatarColor(t)}}></div>
                       </div>
                       <div className="avatar-name">{t.task_name}</div>
                     </div>
                   ))}
                   {room.tasks.length > 8 && (
                     <div className="avatar">
-                      <div className="avatar-face st-未着手">＋{room.tasks.length-8}</div>
+                      <div className="avatar-figure">
+                        <div className="avatar-head st-未着手">＋{room.tasks.length-8}</div>
+                        <div className="avatar-body" style={{background:'#c9c0e0'}}></div>
+                      </div>
                       <div className="avatar-name">他</div>
                     </div>
                   )}
