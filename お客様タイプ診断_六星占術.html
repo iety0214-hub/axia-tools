@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>お客様タイプ診断｜キャバ嬢のための六星占術</title>
+<style>
+  :root{
+    --bg:#fff6fa;
+    --card:#ffffff;
+    --ink:#52394a;
+    --sub:#b18ba0;
+    --line:#f5dce8;
+    --blue:#e85a9b;
+    --blue-soft:#ffe8f2;
+    --violet:#c99a3d;
+    --violet-soft:#fbf1dc;
+    --yellow:#ffc93d;
+    --yellow-soft:#fff6dc;
+    --pink:#ff6b9d;
+    --shadow:0 6px 24px rgba(232,90,155,.12);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:"Hiragino Kaku Gothic ProN","Meiryo",sans-serif;
+    background:linear-gradient(160deg,#fff6fa 0%,#fdf3f7 55%,#fdf7ea 100%);
+    color:var(--ink);line-height:1.8;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:50px;min-height:100vh;
+  }
+  .wrap{max-width:680px;margin:0 auto;padding:0 16px;}
+  header{text-align:center;padding:34px 16px 22px;}
+  header .mark{
+    display:inline-block;font-size:12px;letter-spacing:.25em;color:#fff;
+    background:linear-gradient(90deg,var(--blue),var(--violet));
+    border-radius:20px;padding:5px 16px;margin-bottom:12px;font-weight:700;
+  }
+  header h1{
+    font-size:26px;font-weight:800;letter-spacing:.05em;
+    background:linear-gradient(90deg,var(--blue),var(--violet));
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  }
+  header .lead{font-size:13px;color:var(--sub);margin-top:10px;line-height:1.7;}
+  .card{
+    background:var(--card);border:1.5px solid var(--line);border-radius:20px;
+    box-shadow:var(--shadow);padding:22px 20px;margin-bottom:18px;
+  }
+  .card h2{
+    font-size:15px;letter-spacing:.06em;color:var(--blue);
+    margin-bottom:16px;font-weight:800;display:flex;align-items:center;gap:8px;
+  }
+  label{display:block;font-size:13px;color:var(--sub);margin-bottom:6px;font-weight:700;}
+  .row{display:flex;gap:10px;}
+  .row > div{flex:1;}
+  select,input{
+    width:100%;font-size:16px;padding:11px 12px;
+    border:1.5px solid var(--line);border-radius:12px;
+    background:#fffbfd;color:var(--ink);font-family:inherit;
+  }
+  select:focus,input:focus{outline:none;border-color:var(--blue);background:#fff;}
+  .btn{
+    width:100%;margin-top:16px;padding:14px;
+    font-size:16px;font-weight:800;letter-spacing:.08em;color:#fff;
+    background:linear-gradient(90deg,var(--blue),var(--violet));
+    border:none;border-radius:14px;cursor:pointer;
+    box-shadow:0 4px 14px rgba(232,90,155,.3);transition:opacity .2s;
+  }
+  .btn:active{opacity:.8;}
+  .btn.sub{background:#fff;color:var(--blue);border:2px solid var(--blue);box-shadow:none;margin-top:10px;}
+  .btn.mini{width:auto;padding:9px 16px;font-size:13px;margin-top:0;border-radius:10px;}
+  #result{display:none;}
+  .note{font-size:11px;color:var(--sub);margin-top:8px;line-height:1.6;}
+  .streamer-badge{
+    background:var(--yellow-soft);border:1.5px solid var(--yellow);
+    border-radius:12px;padding:10px 14px;font-size:13px;font-weight:700;
+    display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;
+  }
+  .member{
+    display:flex;align-items:center;gap:8px;
+    border:1.5px solid var(--line);border-radius:14px;
+    padding:12px 14px;margin-bottom:9px;background:#fffbfd;
+  }
+  .member-main{flex:1;cursor:pointer;}
+  .member-name{font-size:15px;font-weight:800;}
+  .member-sub{font-size:12px;color:var(--sub);margin-top:2px;}
+  .member-score{
+    flex:0 0 auto;font-size:13px;font-weight:800;
+    background:var(--blue-soft);color:var(--blue);border-radius:20px;padding:5px 12px;
+  }
+  .member-del{
+    flex:0 0 auto;font-size:12px;color:var(--sub);
+    background:#fff;border:1.5px solid var(--line);border-radius:10px;
+    padding:6px 10px;cursor:pointer;
+  }
+  .star-badge{
+    display:inline-block;font-size:15px;font-weight:800;color:#fff;
+    background:linear-gradient(90deg,var(--blue),var(--violet));
+    border-radius:20px;padding:6px 18px;margin-bottom:10px;
+  }
+  .hitokoto-box{
+    background:linear-gradient(135deg,var(--blue-soft),var(--violet-soft));
+    border:2px solid var(--blue);border-radius:18px;
+    padding:18px 15px;margin-bottom:14px;text-align:center;
+  }
+  .hitokoto-label{font-size:11px;letter-spacing:.2em;color:var(--blue);font-weight:800;margin-bottom:6px;}
+  .hitokoto-main{font-size:19px;font-weight:800;line-height:1.5;}
+  .hitokoto-tags{margin-top:10px;display:flex;justify-content:center;gap:6px;flex-wrap:wrap;}
+  .htag{font-size:12px;font-weight:700;background:#fff;border:1.5px solid var(--line);border-radius:20px;padding:4px 11px;}
+  .section{margin-top:20px;}
+  .section h3{font-size:14px;color:var(--blue);font-weight:800;margin-bottom:8px;display:flex;align-items:center;gap:7px;}
+  .section p{font-size:14px;margin-bottom:8px;}
+  .unki-box{
+    border-radius:14px;padding:13px 14px;margin-top:8px;
+    font-size:13.5px;line-height:1.7;
+    background:var(--blue-soft);border:1.5px solid var(--blue);
+  }
+  .unki-box.satsu{background:#ffe9ec;border-color:var(--pink);}
+  .unki-name{font-weight:800;font-size:15px;}
+  .aibox{
+    background:linear-gradient(135deg,var(--violet-soft),var(--blue-soft));
+    border:2px solid var(--violet);border-radius:18px;
+    padding:18px 16px;margin-top:8px;text-align:center;
+  }
+  .aiscore{
+    font-size:44px;font-weight:800;line-height:1.2;
+    background:linear-gradient(90deg,var(--blue),var(--violet));
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  }
+  .aiscore small{font-size:18px;}
+  .airel{font-size:14px;font-weight:800;color:var(--violet);margin-top:4px;}
+  .aitext{font-size:13.5px;margin-top:10px;text-align:left;line-height:1.75;}
+  .rank-item{
+    display:flex;align-items:center;gap:10px;
+    border:1.5px solid var(--line);border-radius:14px;
+    padding:12px 14px;margin-bottom:9px;background:#fffbfd;cursor:pointer;
+  }
+  .rank-no{
+    flex:0 0 34px;height:34px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:15px;color:#fff;
+    background:linear-gradient(135deg,var(--blue),var(--violet));
+  }
+  .rank-no.top1{background:linear-gradient(135deg,#ffd93d,#ff9a3d);font-size:17px;}
+  .rank-no.top2{background:linear-gradient(135deg,#c0c8d8,#9aa8c0);}
+  .rank-no.top3{background:linear-gradient(135deg,#e8a87c,#cd7f32);}
+  .rank-main{flex:1;}
+  .rank-name{font-size:15px;font-weight:800;}
+  .rank-sub{font-size:11px;color:var(--sub);}
+  .rank-score{font-size:18px;font-weight:800;color:var(--blue);}
+  .hl-box{
+    background:var(--yellow-soft);border:1.5px solid var(--yellow);
+    border-radius:14px;padding:14px;font-size:14px;line-height:1.75;
+  }
+  footer{text-align:center;font-size:11px;color:var(--sub);margin-top:24px;line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="mark">FOR CAST ✦ 六星占術</div>
+    <h1>お客様タイプ診断</h1>
+    <p class="lead">生年月日で、お客様の運命星・性格・お金の使い方・あなたとの相性がまるわかり。<br>大殺界チェックと本命客ランキングつき💄</p>
+  </header>
+
+  <div class="card" id="streamerCard">
+    <h2>💄 まずはあなた（キャスト）の設定</h2>
+    <div id="streamerSet" style="display:none"></div>
+    <div id="streamerForm">
+      <label>源氏名（ニックネーム可）</label>
+      <input type="text" id="sname" placeholder="例：あおい" maxlength="20">
+      <div class="row" style="margin-top:12px">
+        <div><label>年</label><select id="syear"></select></div>
+        <div><label>月</label><select id="smonth"></select></div>
+        <div><label>日</label><select id="sday"></select></div>
+      </div>
+      <button class="btn" onclick="saveStreamer()">この名前で登録</button>
+      <p class="note">※ 相性診断・ランキングはこの生年月日が基準になります。</p>
+    </div>
+  </div>
+
+  <div class="card" id="inputCard">
+    <h2>🥂 お客様を登録して診断</h2>
+    <label>お客様の名前（ニックネーム可）</label>
+    <input type="text" id="pname" placeholder="例：田中社長" maxlength="20">
+    <div class="row" style="margin-top:12px">
+      <div><label>年</label><select id="year"></select></div>
+      <div><label>月</label><select id="month"></select></div>
+      <div><label>日</label><select id="day"></select></div>
+    </div>
+    <button class="btn" onclick="diagnose(true)">診断してお客様リストに追加</button>
+    <button class="btn sub" onclick="diagnose(false)">登録せず診断だけ</button>
+  </div>
+
+  <div class="card" id="listCard" style="display:none">
+    <h2>📋 お客様リスト</h2>
+    <div id="memberList"></div>
+    <button class="btn" onclick="showRanking()">👑 本命客ランキングを見る</button>
+  </div>
+
+  <div id="result"></div>
+</div>
+<script>
+/* ===== 六星占術エンジン ===== */
+function daysFromEpoch(y,m,d){
+  const a=Math.floor((14-m)/12);
+  const yy=y+4800-a;
+  const mm=m+12*a-3;
+  const jdn=d+Math.floor((153*mm+2)/5)+365*yy+Math.floor(yy/4)-Math.floor(yy/100)+Math.floor(yy/400)-32045;
+  return jdn-2415021; // 1900-01-01=0(甲戌)
+}
+const STAR_NAMES=["土星人","金星人","火星人","天王星人","木星人","水星人"];
+const ETO=["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
+const PHASES=["種子","緑生","立花","健弱","達成","乱気","再会","財成","安定","陰影","停止","減退"];
+const PHASE_DESC={
+ "種子":"新しいことを始めるのに最高の年。スタートの運気。",
+ "緑生":"始めたことが芽を出す成長の年。土台づくりに◎。",
+ "立花":"努力が花開く絶好調の年。人気運・注目運も高め。",
+ "健弱":"小殺界。体調と無理に注意しつつ、ペースを守る年。",
+ "達成":"目標が実る収穫の年。ここまでの成果が形になる。",
+ "乱気":"心が揺らぎやすい年。大きな決断より現状維持が吉。",
+ "再会":"努力や縁が復活する年。再スタートに向く。",
+ "財成":"金運・実りの年。頑張りがお金や形になって返る。",
+ "安定":"心穏やかに過ごせる安定の年。足場を固めるのに◎。",
+ "陰影":"大殺界1年目。新しい挑戦は控えめに、守りの年。",
+ "停止":"大殺界2年目（中心）。焦らず休むことが最善の年。",
+ "減退":"大殺界3年目（出口）。無理せず、次の種まき準備を。"
+};
+function rokuseiChart(y,m,d){
+  const dnum=daysFromEpoch(y,m,d);
+  const N=(((dnum+10)%60)+60)%60+1;      // 星数=生日の干支番号(甲子=1)
+  const star=Math.floor((N-1)/10);        // 0土星..5水星
+  const yb=(((y-4)%12)+12)%12;             // 生年の十二支(暦年・節分調整なし)
+  const plus=[0,2,4,6,8,10].includes(yb);
+  const pol=plus?"＋":"−";
+  const stopBranch=plus?((10-2*star)+12)%12:((10-2*star)+13)%12; // 停止の支
+  const reigou=(yb===stopBranch);           // 霊合星人
+  const seed=(stopBranch+2)%12;             // 種子の支
+  return {N,star,starName:STAR_NAMES[star],pol,typeName:STAR_NAMES[star]+"（"+pol+"）",reigou,yb,seed};
+}
+function unkiOf(chart, year){
+  const by=(((year-4)%12)+12)%12;
+  const idx=(by-chart.seed+12)%12;
+  const phase=PHASES[idx];
+  return {phase,desc:PHASE_DESC[phase],daisatsu:idx>=9,shousatsu:(idx===3)};
+}
+
+/* ===== リスナー向け 運命星データ ===== */
+const LISTENER={
+ "土星人":{hito:"一途に通い続ける誠実な本命候補さん",tags:["🪨 一途","🤵 誠実","🐢 長期の太客候補"],
+  seikaku:"真面目で義理堅く、一度「この子」と決めたら浮気せずに長く通い続けるタイプ。派手さはないけれど、約束は必ず守り、決めた曜日・決めたペースで安定して来てくれます。頑固な面はありますが、それは信念の強さ。裏切らない誠実さはお客様の中でもトップクラスです。",
+  comment:"通い方は堅実そのもの。無茶な使い方はしないけれど、毎回きちんと予算を決めて安定的に使ってくれます。ボトルも見栄ではなく「あなたのため」に入れるタイプ。信頼が深まるほど、記念日やイベントでしっかり応えてくれます。",
+  sessikata:"誠実さには誠実さで返すのが鉄則。営業っぽい駆け引きや嘘はすぐ見抜かれて一発アウト。連絡はマメすぎなくていいので、約束したことを必ず守ること。「覚えていてくれた」が一番刺さるタイプです。",
+  pm:{ "＋":"＋の人は理想が高く、応援もストイック。「俺が支える」という男気を見せたいタイプなので、頼りにすると喜びます。",
+      "−":"−の人は想いを表に出さない分、心の中の一途さは誰よりも深いタイプ。急かさずじっくり信頼を育てて。"}},
+ "金星人":{hito:"派手に楽しむ気分屋な遊び上手さん",tags:["🍾 華やか","🎉 ノリ最高","🎈 気分屋"],
+  seikaku:"明るくノリがよく、その場にいるだけで卓が華やぐ遊び上手。楽しいことが大好きで、盛り上がった勢いでシャンパンを開けてくれる太っ腹な一面も。ただし気分屋なので、ハマるときは週何回も来るのに、飽きるとパタッと来なくなる自由さも金星人らしさです。",
+  comment:"お金の使い方は気分次第で振れ幅大。楽しい夜は財布のひもが一気にゆるみ、イベントやお祭りごとに強い。ただ「義務感」を感じた瞬間に冷めるので、太客として安定させるには「いつ来ても楽しい」が絶対条件です。",
+  sessikata:"束縛と重い営業は絶対NG。「来ないと寂しい」より「来たら最高に楽しい」を作るのがコツ。ノリのいい返しと、イベントでの盛り上げ上手なあなたを見せると、気分の波ごと味方につけられます。",
+  pm:{ "＋":"＋の人は派手好きの陽キャタイプ。周りを連れて団体で来てくれる広告塔にもなってくれます。",
+      "−":"−の人は上品な遊び方をするスマート系。騒ぐより、センスのいい会話と空間を楽しむタイプです。"}},
+ "火星人":{hito:"心を開くと深い、ミステリアスな一匹狼さん",tags:["🔮 ミステリアス","🥃 静かに飲む","💘 ハマると深い"],
+  seikaku:"独自の世界観を持つ、ちょっとミステリアスな一匹狼タイプ。人見知りで最初は口数少なく、団体より一人でふらっと来る派。ただし心を開いた相手にはとことん深く、指名替えなど絶対しない一途な本命客に化けます。直感が鋭く、営業トークの嘘は敏感に見抜きます。",
+  comment:"広く浅くではなく、狭く深く使うタイプ。気に入った店・気に入った子にだけ集中投資します。ハマるまでは様子見が長いですが、一度本命認定されると、他の店には行かなくなる最強の固定客になります。",
+  sessikata:"距離を詰めすぎないのが最大のコツ。質問攻めよりも聞き役に回り、その人の世界観に興味を持つこと。「あなたにだけ話すんだけど」という特別感の演出が一番刺さります。焦らず長期戦で。",
+  pm:{ "＋":"＋の人は個性が外に出るタイプで、趣味やこだわりの話をし始めたら心を開いたサイン。",
+      "−":"−の人は神秘性が強く、何を考えているか読みにくいですが、通ってくれている時点で好意の証拠です。"}},
+ "天王星人":{hito:"情にほだされて通う、人情派の癒され客さん",tags:["🤗 人情家","💛 愛され","🍀 マイペース"],
+  seikaku:"楽天的でマイペース、そして何より情に厚い愛されキャラ。「店」より「人」につくタイプで、あなたの頑張りや人柄にほだされて通ってくれます。おっとりして憎めない性格で、スタッフや他のキャストからも好かれる、お店にとってもありがたいお客様です。",
+  comment:"お金の使い方は「情」ベース。あなたが困っていたり頑張っていたりすると「応援したい」で財布がゆるむタイプ。逆にビジネスライクな営業をされると急に冷めます。誕生日やイベントは「あなたのため」なら頑張ってくれます。",
+  sessikata:"感情の共有が一番の絆づくり。嬉しかったこと・大変だったことを素直に話すと、家族のように寄り添ってくれます。「あなたがいると安心する」という居場所感を作るのがコツ。損得抜きの一言が深く刺さります。",
+  pm:{ "＋":"＋の人は人懐っこさ全開で、すぐ常連の顔に。店全体のムードメーカーにもなってくれます。",
+      "−":"−の人は控えめな優しさタイプ。目立たないけど、あなたのピンチには黙って駆けつけてくれる義理堅さがあります。"}},
+ "木星人":{hito:"財布のひもは固いが信頼したら長い、堅実紳士さん",tags:["🌳 堅実","🧐 見る目シビア","🤝 信頼重視"],
+  seikaku:"落ち着いた大人の雰囲気を持つ、堅実でしっかり者のお客様。財布のひもは固く、店やキャストを見る目もシビア。ただし「この子は信頼できる」と認めたら、義理堅く長〜く通ってくれる安定株です。負けず嫌いなので、他の客と張り合うと意外な爆発力も。",
+  comment:"コスパ意識が高く、無駄遣いはしないタイプ。その分、信頼関係ができてからの安定感は抜群で、毎月きちんと通ってくれる「読める太客」になります。無理に高いボトルを勧めると一気に警戒されるので注意。",
+  sessikata:"誠実で無理のない営業が唯一の正解。売り込みより「あなたと話すのが楽しい」を積み重ねること。相談ごとを持ちかけて頼ると、放っておけなくなるタイプ。長期目線でコツコツ信頼貯金を。",
+  pm:{ "＋":"＋の人は意見をはっきり言う頼れる兄貴タイプ。頼りにされることに喜びを感じます。",
+      "−":"−の人は多くを語らない静かな紳士。派手さはないけど、気づけば一番長く通ってくれているタイプです。"}},
+ "水星人":{hito:"駆け引き上手でクールな頭脳派さん",tags:["🧊 クール","♟ 駆け引き好き","💬 会話の質重視"],
+  seikaku:"頭の回転が速く、会話のキャッチボールを何より楽しむクールな頭脳派。ベタベタした接客より、ウィットに富んだ会話や知的なやりとりを求めます。ドライに見えて、実は「面白い」と認めた相手にだけ通い続ける目利きタイプ。駆け引きも遊びのうちと心得ています。",
+  comment:"お金の使い方は合理的でスマート。感情で散財はしませんが、「この時間には価値がある」と判断すれば躊躇なく使います。営業LINEもテンプレ感があると即読み飛ばされるので、質で勝負するタイプです。",
+  sessikata:"知的な会話とテンポのいい切り返しが最大の武器。あえて即レスしない、少し謎を残すなど、駆け引きを楽しむ余裕を見せると効果的。「あなたと話すと頭の回転が上がる」と思わせたら勝ちです。",
+  pm:{ "＋":"＋の人は切れ味鋭い会話派。大人の余裕で軽口を楽しむタイプなので、対等に打ち返して。",
+      "−":"−の人は静かな知性派。口数は少なめでも、会話の中身はしっかり聞いていて、浅い返しは見抜かれます。"}}
+};
+
+/* ===== 相性ロジック（六星占術ベース） ===== */
+function aishou(s,l){ // s=配信者chart, l=リスナーchart
+  let score=50; const reasons=[];
+  const ss=s.star, ls=l.star;
+  const opposite=(ss+3)%6===ls;
+  if(opposite){
+    score+=20; reasons.push({t:"運命の対極ペア",d:`${s.starName}と${l.starName}は六星占術で対になる特別な関係。正反対だからこそ強く惹かれ合い、お互いにない魅力を補い合える縁です。`});
+  } else if(ss===ls){
+    score+=8; reasons.push({t:"同じ星の同志",d:`同じ${s.starName}同士。価値観やツボが似ていて、説明しなくても分かり合える気楽な関係です。`});
+  } else {
+    const dist=Math.min((ls-ss+6)%6,(ss-ls+6)%6);
+    if(dist===1){ score+=13; reasons.push({t:"支え合う隣の星",d:"運命星の並びが隣同士。テンポが近く、自然と応援し合える相性です。"}); }
+    else { score+=6; reasons.push({t:"ほどよい距離の星",d:"つかず離れずの心地よい距離感を保てる組み合わせ。安定した長い縁になりやすい相性です。"}); }
+  }
+  if(s.pol===l.pol){ score+=8; reasons.push({t:"同じ極性（"+s.pol+"）",d:"陰陽が同じで、ノリとテンポがぴったり。一緒に盛り上がりやすい組み合わせです。"}); }
+  else { score+=5; reasons.push({t:"陰陽の補い合い",d:"陰陽が逆で、お互いのペースの違いがちょうどいい刺激に。凸凹を補い合える組み合わせです。"}); }
+  // 星数の縁(細かい変化)
+  const d=Math.abs(s.N-l.N), dc=Math.min(d,60-d);
+  score+=Math.round((30-dc)/10)-1;
+  if(l.reigou){ reasons.push({t:"霊合星人",d:`このお客様は霊合星人。${l.starName}に加えて対極の星の性質も併せ持つ、奥深い二面性の持ち主です。`}); }
+  score=Math.max(8,Math.min(99,score));
+  return {score,reasons};
+}
+function aishouKumikata(score,l){
+  const w=LISTENER[l.starName];
+  if(score>=80) return "運命級の相性！"+w.sessikata+" この相性なら思い切って本命営業してOK。長くあなたを支えてくれる最重要のお客様です。";
+  if(score>=65) return "とても良い相性。本命候補として大事にしたい相手です。"+w.sessikata;
+  if(score>=45) return "ほどよい距離感の相性。"+w.sessikata+" 無理に距離を詰めず、自然体の接客で長く通ってもらうのがコツです。";
+  return "刺激的な相性。"+w.sessikata+" 反応が読めないこともありますが、深追いせず誠実な接客を続けるのが一番です。";
+}
+</script>
+
+<script>
+/* ===== 保存 ===== */
+const S_KEY='kyaba_cast_v1', L_KEY='kyaba_members_v1';
+function loadStreamer(){ try{return JSON.parse(localStorage.getItem(S_KEY)||'null');}catch(e){return null;} }
+function loadMembers(){ try{return JSON.parse(localStorage.getItem(L_KEY)||'[]');}catch(e){return [];} }
+function esc(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function saveStreamer(){
+  const name=(document.getElementById('sname').value||'').trim();
+  const y=+document.getElementById('syear').value, m=+document.getElementById('smonth').value, d=+document.getElementById('sday').value;
+  if(!name){ alert('源氏名を入力してください。'); return; }
+  localStorage.setItem(S_KEY, JSON.stringify({name,y,m,d}));
+  renderStreamer(); renderList();
+}
+function resetStreamer(){
+  if(!confirm('配信者設定をやり直しますか？')) return;
+  localStorage.removeItem(S_KEY); renderStreamer(); renderList();
+}
+function renderStreamer(){
+  const st=loadStreamer();
+  const set=document.getElementById('streamerSet'), form=document.getElementById('streamerForm');
+  if(st){
+    const c=rokuseiChart(st.y,st.m,st.d);
+    const u=unkiOf(c,new Date().getFullYear());
+    const satsu=u.daisatsu?'⚠️大殺界':u.phase;
+    set.innerHTML=`<div class="streamer-badge">🎤 ${esc(st.name)}（${c.typeName}${c.reigou?'・霊合星人':''}）今年：${satsu}
+      <button class="btn sub mini" style="margin-left:auto" onclick="resetStreamer()">変更</button></div>`;
+    set.style.display='block'; form.style.display='none';
+  } else { set.style.display='none'; form.style.display='block'; }
+}
+function saveMember(mem){
+  const list=loadMembers();
+  const i=list.findIndex(x=>x.name===mem.name&&x.y===mem.y&&x.m===mem.m&&x.d===mem.d);
+  if(i>=0) list[i]=mem; else list.push(mem);
+  localStorage.setItem(L_KEY, JSON.stringify(list));
+}
+function deleteMember(idx){
+  const list=loadMembers();
+  if(!confirm(list[idx].name+' をリストから削除しますか？')) return;
+  list.splice(idx,1); localStorage.setItem(L_KEY, JSON.stringify(list)); renderList();
+}
+function viewMember(idx){
+  const m=loadMembers()[idx];
+  const c=rokuseiChart(m.y,m.m,m.d); c.name=m.name;
+  render(c,{y:m.y,m:m.m,d:m.d});
+}
+function renderList(){
+  const list=loadMembers();
+  const card=document.getElementById('listCard'), box=document.getElementById('memberList');
+  if(list.length===0){ card.style.display='none'; return; }
+  card.style.display='block';
+  const st=loadStreamer();
+  const sc=st?rokuseiChart(st.y,st.m,st.d):null;
+  box.innerHTML=list.map((m,i)=>{
+    const c=rokuseiChart(m.y,m.m,m.d);
+    let scoreHtml='';
+    if(sc){ const a=aishou(sc,c); scoreHtml=`<div class="member-score">💗${a.score}</div>`; }
+    return `<div class="member">
+      <div class="member-main" onclick="viewMember(${i})">
+        <div class="member-name">${esc(m.name)}</div>
+        <div class="member-sub">${m.y}/${m.m}/${m.d}　${c.typeName}${c.reigou?'・霊合':''}</div>
+      </div>${scoreHtml}
+      <button class="member-del" onclick="event.stopPropagation();deleteMember(${i})">削除</button>
+    </div>`;
+  }).join('');
+}
+
+/* ===== 診断 ===== */
+function diagnose(save){
+  const name=(document.getElementById('pname').value||'').trim();
+  const y=+document.getElementById('year').value, m=+document.getElementById('month').value, d=+document.getElementById('day').value;
+  if(save){
+    if(!name){ alert('お客様の名前を入力してください。'); return; }
+    saveMember({name,y,m,d}); renderList();
+  }
+  const c=rokuseiChart(y,m,d); c.name=name||'お客様';
+  render(c,{y,m,d});
+}
+
+function render(c,b){
+  const w=LISTENER[c.starName];
+  const nowY=new Date().getFullYear();
+  const u=unkiOf(c,nowY);
+
+  // 相性
+  const st=loadStreamer();
+  let aiHtml='';
+  if(st){
+    const sc=rokuseiChart(st.y,st.m,st.d);
+    const a=aishou(sc,c);
+    const rel=a.reasons.map(r=>`<p style="margin-bottom:6px"><b>✦ ${r.t}</b>：${r.d}</p>`).join('');
+    aiHtml=`
+    <div class="section">
+      <h3>💗 ${esc(st.name)} との相性</h3>
+      <div class="aibox">
+        <div class="aiscore">${a.score}<small> /100</small></div>
+        <div class="airel">${a.score>=80?'運命級の推し！':a.score>=65?'とても良い相性':a.score>=45?'ほどよい相性':'刺激的な相性'}</div>
+        <div class="aitext">${rel}</div>
+      </div>
+      <div class="section">
+        <h3>🎀 この人への営業のコツ</h3>
+        <div class="hl-box">${aishouKumikata(a.score,c)}</div>
+      </div>
+    </div>`;
+  }
+
+  const html=`
+  <div class="card">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      <div style="font-size:21px;font-weight:800">${esc(c.name)}</div>
+      <div style="font-size:12px;color:var(--sub)">${b.y}/${b.m}/${b.d} 生まれ</div>
+    </div>
+    <div style="text-align:center"><span class="star-badge">${c.typeName}${c.reigou?'　✦霊合星人✦':''}</span></div>
+    <div class="hitokoto-box">
+      <div class="hitokoto-label">ひとことで言うと</div>
+      <div class="hitokoto-main">${w.hito}</div>
+      <div class="hitokoto-tags">${w.tags.map(t=>`<span class="htag">${t}</span>`).join('')}</div>
+    </div>
+    <div class="section">
+      <h3>🌟 どんなお客様？</h3>
+      <p>${w.seikaku}</p>
+      <p style="font-size:13px;color:var(--sub)">${w.pm[c.pol]}</p>
+      ${c.reigou?`<p style="font-size:13px;color:var(--sub)">さらに霊合星人なので、対極の星（${STAR_NAMES[(c.star+3)%6]}）の性質も併せ持つ、奥深いタイプです。</p>`:''}
+    </div>
+    <div class="section">
+      <h3>💴 通い方・お金の傾向</h3>
+      <p>${w.comment}</p>
+    </div>
+    <div class="section">
+      <h3>🍾 刺さる接客・営業</h3>
+      <div class="hl-box">${w.sessikata}</div>
+    </div>
+    <div class="section">
+      <h3>📅 ${nowY}年の運気</h3>
+      <div class="unki-box${u.daisatsu?' satsu':''}">
+        <span class="unki-name">${u.phase}</span>${u.daisatsu?'（⚠️大殺界）':u.shousatsu?'（小殺界）':''}<br>${u.desc}
+        ${u.daisatsu?'<br>今年は運気が低めの時期。無理な営業は逆効果の時期。そっと寄り添う連絡が一番刺さります。':''}
+      </div>
+    </div>
+    ${aiHtml}
+  </div>
+  <button class="btn" onclick="backToTop()">別のお客様を診断する</button>
+  <footer>六星占術（生年月日からの性格・運気分析）に基づく簡易診断です。<br>エンタメとして楽しみつつ、お客様との関係づくりの参考に💄</footer>`;
+
+  const r=document.getElementById('result');
+  r.innerHTML=html; r.style.display='block';
+  document.getElementById('inputCard').style.display='none';
+  document.getElementById('listCard').style.display='none';
+  document.getElementById('streamerCard').style.display='none';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ===== ランキング ===== */
+function showRanking(){
+  const st=loadStreamer();
+  if(!st){ alert('先にあなた（キャスト）の生年月日を登録してください。'); return; }
+  const list=loadMembers();
+  if(list.length===0){ alert('お客様が登録されていません。'); return; }
+  const sc=rokuseiChart(st.y,st.m,st.d);
+  const ranked=list.map((m,i)=>{
+    const c=rokuseiChart(m.y,m.m,m.d);
+    const a=aishou(sc,c);
+    return {i,name:m.name,type:c.typeName+(c.reigou?'・霊合':''),hito:LISTENER[c.starName].hito,score:a.score};
+  }).sort((a,b)=>b.score-a.score);
+  const items=ranked.map((r,rank)=>{
+    const cls=rank===0?'top1':rank===1?'top2':rank===2?'top3':'';
+    const medal=rank===0?'👑':rank+1;
+    return `<div class="rank-item" onclick="viewMember(${r.i})">
+      <div class="rank-no ${cls}">${medal}</div>
+      <div class="rank-main"><div class="rank-name">${esc(r.name)}</div><div class="rank-sub">${r.type}｜${r.hito}</div></div>
+      <div class="rank-score">${r.score}</div>
+    </div>`;
+  }).join('');
+  const html=`
+  <div class="card">
+    <h2>👑 ${esc(st.name)} の本命客ランキング</h2>
+    <p class="note" style="margin-bottom:12px">相性スコア順（本命にすべきお客様順）。タップで個別診断が見られます。</p>
+    ${items}
+  </div>
+  <button class="btn" onclick="backToTop()">もどる</button>`;
+  const r=document.getElementById('result');
+  r.innerHTML=html; r.style.display='block';
+  document.getElementById('inputCard').style.display='none';
+  document.getElementById('listCard').style.display='none';
+  document.getElementById('streamerCard').style.display='none';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function backToTop(){
+  document.getElementById('result').style.display='none';
+  document.getElementById('inputCard').style.display='block';
+  document.getElementById('streamerCard').style.display='block';
+  document.getElementById('pname').value='';
+  renderStreamer(); renderList();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ===== 初期化 ===== */
+(function init(){
+  for(const [yid,mid,did] of [['syear','smonth','sday'],['year','month','day']]){
+    const ys=document.getElementById(yid);
+    for(let y=2026;y>=1930;y--){const o=document.createElement('option');o.value=y;o.textContent=y;ys.appendChild(o);}
+    ys.value=1995;
+    const ms=document.getElementById(mid);
+    for(let m=1;m<=12;m++){const o=document.createElement('option');o.value=m;o.textContent=m;ms.appendChild(o);}
+    ms.value=6;
+    const ds=document.getElementById(did);
+    for(let d=1;d<=31;d++){const o=document.createElement('option');o.value=d;o.textContent=d;ds.appendChild(o);}
+    ds.value=15;
+  }
+  renderStreamer(); renderList();
+})();
+</script>
+
+</body>
+</html>
