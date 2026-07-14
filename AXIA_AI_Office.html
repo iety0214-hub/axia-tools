@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AXIA AI社員オフィス</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Zen+Maru+Gothic:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --floor-a:#f4ecd8;
+    --floor-b:#ece0c4;
+    --ink:#2b2440;
+    --ink-soft:#6b6280;
+    --gold:#e8a33d;
+    --gold-dark:#c47f1f;
+    --cream:#fffaf0;
+    --paper:#fffdf8;
+    --danger:#e2694f;
+    --ok:#3fae6a;
+    --warn:#e8a33d;
+    --idle:#9c93b0;
+    --sky-a:#fdf1da;
+    --sky-b:#f7ddb0;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Zen Maru Gothic','M PLUS Rounded 1c',sans-serif;
+    background:linear-gradient(180deg,var(--sky-a) 0%, var(--sky-b) 260px, var(--floor-a) 260px);
+    color:var(--ink);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::-webkit-scrollbar{display:none;}
+  .mono{font-family:'DM Mono',monospace;}
+
+  .chrome{max-width:1400px; margin:0 auto; padding:14px 16px 40px;}
+
+  /* ===== HUD ===== */
+  .hud{
+    background:var(--ink);
+    border-radius:18px 18px 8px 8px;
+    padding:14px 20px;
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;
+    box-shadow:0 6px 0 rgba(0,0,0,0.15);
+    position:relative;
+  }
+  .hud:after{content:'';position:absolute;left:18px;right:18px;bottom:-6px;height:6px;background:var(--gold);border-radius:0 0 6px 6px;}
+  .hud h1{font-family:'M PLUS Rounded 1c',sans-serif; font-weight:800; font-size:18px; color:#fff; margin:0;}
+  .hud .sub{color:#c9c0e0; font-size:10.5px; margin-top:2px;}
+  .hud-left{display:flex; align-items:center; gap:10px;}
+  .hud-emoji{font-size:24px;}
+  .hud-chips{display:flex; gap:6px; flex-wrap:wrap;}
+  .hud-chip{
+    font-size:11px; font-weight:700; padding:6px 11px; border-radius:999px;
+    background:rgba(255,255,255,0.1); color:#fff; display:flex; align-items:center; gap:5px;
+  }
+  .hud-chip b{font-family:'DM Mono',monospace; font-weight:500;}
+  .dot{width:7px;height:7px;border-radius:50%; display:inline-block;}
+
+  /* ===== Layout ===== */
+  .main-layout{display:flex; gap:18px; margin-top:22px; align-items:flex-start;}
+  .floor-wrap{flex:1; min-width:0;}
+  .side-col{width:280px; flex-shrink:0; display:flex; flex-direction:column; gap:14px;}
+  @media (max-width:920px){
+    .main-layout{flex-direction:column;}
+    .side-col{width:100%;}
+  }
+
+  /* ===== Isometric floor ===== */
+  .floor-scroll{
+    overflow-x:auto; overflow-y:visible; border-radius:16px;
+    background:radial-gradient(ellipse at 50% 20%, #fff7e6 0%, var(--floor-a) 55%, var(--floor-b) 100%);
+    box-shadow:inset 0 0 0 3px rgba(43,36,64,0.1), 0 6px 0 rgba(43,36,64,0.1);
+    padding:150px 10px 60px;
+  }
+  .floor{
+    position:relative;
+    width:560px; height:300px;
+    margin:0 auto;
+  }
+  .desk-tile{
+    position:absolute; width:168px; height:96px;
+    left:50%; top:0;
+    clip-path:polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+    background:linear-gradient(160deg,#fff8e8,var(--floor-b));
+    filter:drop-shadow(0 8px 0 rgba(43,36,64,0.10)) drop-shadow(0 14px 10px rgba(43,36,64,0.10));
+    transition:filter .15s;
+  }
+  .desk-tile.special{background:linear-gradient(160deg,#fff2cf,#f3d68f);}
+  .desk-tile.vacant{background:repeating-linear-gradient(135deg,#efe7d2 0 10px,#e6dcc0 10px 20px); opacity:.75;}
+  .desk-tile-inner{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    clip-path:polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+    border:2px solid rgba(43,36,64,0.14);
+  }
+  .desk-plate{
+    position:absolute; top:8px; left:50%; transform:translateX(-50%);
+    font-family:'M PLUS Rounded 1c',sans-serif; font-weight:800; font-size:10px;
+    color:var(--ink-soft); letter-spacing:.02em; white-space:nowrap;
+  }
+
+  .desk-slot{position:absolute; width:168px; height:96px; left:50%; top:0;}
+  .desk-occupant{
+    position:absolute; left:50%; bottom:38%; transform:translateX(-50%);
+    display:flex; flex-direction:column; align-items:center; z-index:2;
+    cursor:pointer;
+  }
+  .desk-occupant .fig{transform:scale(1.55); transform-origin:bottom center;}
+  .desk-occupant .fig.working{animation:bob 1.6s ease-in-out infinite;}
+  @keyframes bob{0%,100%{transform:scale(1.55) translateY(0);}50%{transform:scale(1.55) translateY(-3px);}}
+
+  .bubble{
+    position:absolute; bottom:100%; left:50%; transform:translateX(-50%);
+    margin-bottom:8px;
+    background:#fff; border-radius:11px; padding:6px 10px;
+    font-size:10.5px; font-weight:500; color:var(--ink);
+    box-shadow:0 3px 0 rgba(43,36,64,0.15);
+    white-space:nowrap; max-width:150px; overflow:hidden; text-overflow:ellipsis;
+    opacity:0; pointer-events:none; transition:opacity .15s;
+  }
+  .desk-occupant:hover .bubble, .desk-occupant.always .bubble{opacity:1;}
+  .bubble:after{
+    content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%);
+    border:5px solid transparent; border-top-color:#fff;
+  }
+  .nametag{
+    margin-top:2px;
+    background:var(--ink); color:#fff; font-size:10px; font-weight:800;
+    font-family:'M PLUS Rounded 1c',sans-serif;
+    padding:2px 9px; border-radius:999px; white-space:nowrap;
+    display:flex; align-items:center; gap:4px;
+  }
+  .status-pip{width:6px;height:6px;border-radius:50%;}
+  .vacant-sign{
+    font-size:10px; color:var(--ink-soft); font-weight:700; text-align:center; line-height:1.4;
+  }
+
+  /* ===== Side panels ===== */
+  .panel{
+    background:var(--paper); border-radius:14px; padding:14px 16px;
+    box-shadow:0 4px 0 rgba(43,36,64,0.08);
+  }
+  .panel h2{
+    font-family:'M PLUS Rounded 1c',sans-serif; font-size:13px; font-weight:800; margin:0 0 10px;
+    display:flex; align-items:center; gap:6px; color:var(--ink);
+  }
+  .log-list{display:flex; flex-direction:column; gap:7px; max-height:260px; overflow-y:auto;}
+  .log-item{font-size:11px; color:var(--ink-soft); line-height:1.5; border-left:3px solid var(--gold); padding-left:8px;}
+  .log-item b{color:var(--ink);}
+  .log-time{font-family:'DM Mono',monospace; font-size:9.5px; color:#a89ec4; margin-right:4px;}
+  .log-empty{font-size:11px; color:var(--ink-soft); opacity:.7;}
+
+  .throne-panel{
+    background:linear-gradient(160deg,#2b2440,#3a3158);
+    border-radius:14px; padding:16px;
+    box-shadow:0 4px 0 rgba(0,0,0,0.2);
+    color:#fff;
+  }
+  .throne-panel h2{color:#fff; margin-bottom:8px;}
+  .throne-panel .desc{font-size:10.5px; color:#c9c0e0; margin-bottom:12px; line-height:1.5;}
+  .throne-select, .throne-input{
+    width:100%; border:none; border-radius:9px; padding:9px 10px; font-size:12.5px;
+    font-family:'Zen Maru Gothic',sans-serif; margin-bottom:8px; outline:none;
+    background:rgba(255,255,255,0.92); color:var(--ink);
+  }
+  .throne-btn{
+    width:100%; border:none; border-radius:9px; padding:10px; font-size:12.5px; font-weight:800;
+    font-family:'M PLUS Rounded 1c',sans-serif; cursor:pointer;
+    background:var(--gold); color:#2b2440;
+    box-shadow:0 3px 0 var(--gold-dark);
+  }
+  .throne-btn:active{transform:translateY(2px); box-shadow:0 1px 0 var(--gold-dark);}
+  .throne-btn:disabled{opacity:.5; cursor:default;}
+  .throne-toast{font-size:10.5px; color:#9be8a8; margin-top:8px; min-height:14px;}
+
+  .legend{display:flex; flex-wrap:wrap; gap:6px;}
+  .legend .chip{
+    font-size:10px; font-weight:700; padding:4px 9px; border-radius:999px;
+    background:#fff; box-shadow:0 2px 0 rgba(43,36,64,0.08); display:flex; align-items:center; gap:4px;
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useMemo } = React;
+
+// ══════════════════════════════════════
+// Supabase設定（axia-todoプロジェクト共通・axia_cowork_officeテーブル）
+// ══════════════════════════════════════
+const SUPABASE_URL = 'https://zrqdoorolwvjlwuatlkc.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_qTfps32ER4iHTo_o3zkCEw_HlJdMq_c';
+const TABLE_NAME = 'axia_cowork_office';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const STATUS_BUBBLE = {未着手:'⏸ 待機中', 進行中:'💭 作業中...', 完了:'✅ 完了！', 保留:'💤 保留中'};
+const STATUS_COLOR  = {未着手:'#9c93b0', 進行中:'#4f8ef7', 完了:'#3fae6a', 保留:'#e8a33d'};
+
+const HAIR_COLORS  = ['#3fae6a','#f06292','#5b8def','#8e5bd6','#7a4e2d','#e8c34a','#d35b4e','#3a3a4a'];
+const SHIRT_COLORS = ['#4f8ef7','#e8638c','#3fae6a','#e0b23e','#8e5bd6','#4fb8c4','#c96a4e','#5a6acf'];
+
+function taskHash(task){
+  const key = String(task.task_name || task.id || '');
+  let h = 0;
+  for (let i=0;i<key.length;i++){ h = (h*17 + key.charCodeAt(i)) >>> 0; }
+  return h;
+}
+function getAvatar(task){
+  const h = taskHash(task);
+  const saved = task.avatar || {};
+  return {
+    hair:      Number.isInteger(saved.hair) ? saved.hair : h % HAIR_COLORS.length,
+    shirt:     Number.isInteger(saved.shirt) ? saved.shirt : (h >> 3) % SHIRT_COLORS.length,
+    outfit:    saved.outfit || 'shirt',
+    accessory: saved.accessory || 'none',
+    name:      saved.name || '',
+  };
+}
+
+// ピクセルアート風：デスクに座るキャラクター（既存AXIA_Cowork_Officeと同一デザイン）
+function PixelWorker({ task, resting }){
+  const av = getAvatar(task);
+  const hair  = HAIR_COLORS[av.hair];
+  const shirt = SHIRT_COLORS[av.shirt];
+  const eyesClosed = resting || task.status === '保留';
+  const isSuit = av.outfit === 'suit';
+  const isHoodie = av.outfit === 'hoodie';
+  const isVest = av.outfit === 'vest';
+  const bodyColor = isSuit ? '#2e3350' : shirt;
+  return (
+    <svg width="72" height="64" viewBox="0 0 36 32" shapeRendering="crispEdges" style={{display:'block'}}>
+      <rect x="12" y="2"  width="12" height="3" fill={hair}/>
+      <rect x="11" y="4"  width="3"  height="5" fill={hair}/>
+      <rect x="22" y="4"  width="3"  height="5" fill={hair}/>
+      {av.accessory === 'cap' && (
+        <React.Fragment>
+          <rect x="11" y="1" width="14" height="3" fill="#d35b4e"/>
+          <rect x="23" y="3" width="5"  height="2" fill="#d35b4e"/>
+        </React.Fragment>
+      )}
+      <rect x="13" y="5"  width="10" height="7" fill="#ffd9b3"/>
+      {eyesClosed ? (
+        <React.Fragment>
+          <rect x="15" y="8" width="2" height="1" fill="#5a4632"/>
+          <rect x="19" y="8" width="2" height="1" fill="#5a4632"/>
+        </React.Fragment>
+      ) : (
+        <React.Fragment>
+          <rect x="15" y="7" width="2" height="2" fill="#3a3028"/>
+          <rect x="19" y="7" width="2" height="2" fill="#3a3028"/>
+        </React.Fragment>
+      )}
+      {av.accessory === 'glasses' && (
+        <React.Fragment>
+          <rect x="14" y="7" width="4" height="2.6" fill="none" stroke="#2e3350" strokeWidth="0.7"/>
+          <rect x="18.5" y="7" width="4" height="2.6" fill="none" stroke="#2e3350" strokeWidth="0.7"/>
+          <rect x="18" y="8" width="0.8" height="0.8" fill="#2e3350"/>
+        </React.Fragment>
+      )}
+      {av.accessory === 'headphones' && (
+        <React.Fragment>
+          <rect x="12" y="1" width="12" height="1.4" fill="#2e3350"/>
+          <rect x="11" y="5" width="2.5" height="4" fill="#2e3350"/>
+          <rect x="22.5" y="5" width="2.5" height="4" fill="#2e3350"/>
+        </React.Fragment>
+      )}
+      <rect x="17" y="10" width="2" height="1" fill="#d08c6a"/>
+      {isHoodie && <rect x="11" y="11" width="14" height="2.5" fill={shirt} opacity="0.75"/>}
+      <rect x="12" y="12" width="12" height="7" fill={bodyColor}/>
+      {isSuit && (
+        <React.Fragment>
+          <rect x="16" y="12" width="4" height="4" fill="#fff"/>
+          <rect x="17.3" y="12" width="1.4" height="5" fill="#c0392b"/>
+        </React.Fragment>
+      )}
+      {isVest && (
+        <React.Fragment>
+          <rect x="13.5" y="12" width="2" height="7" fill="#f5a623"/>
+          <rect x="20.5" y="12" width="2" height="7" fill="#f5a623"/>
+        </React.Fragment>
+      )}
+      {isHoodie && (
+        <React.Fragment>
+          <rect x="15" y="16" width="6" height="2.5" fill="rgba(0,0,0,0.15)"/>
+          <rect x="16.5" y="12" width="0.8" height="3" fill="#fff" opacity="0.8"/>
+          <rect x="18.7" y="12" width="0.8" height="3" fill="#fff" opacity="0.8"/>
+        </React.Fragment>
+      )}
+      <rect x="10" y="13" width="2" height="5" fill={bodyColor}/>
+      <rect x="24" y="13" width="2" height="5" fill={bodyColor}/>
+      <rect x="10" y="18" width="2" height="2" fill="#ffd9b3"/>
+      <rect x="24" y="18" width="2" height="2" fill="#ffd9b3"/>
+      <rect x="5"  y="20" width="26" height="2" fill="#c89b6a"/>
+      <rect x="6"  y="22" width="24" height="8" fill="#b8895a"/>
+      <rect x="8"  y="23" width="8"  height="5" fill="#a5764a"/>
+      <rect x="19" y="15" width="9" height="6" fill="#3a3a4a"/>
+      <rect x="20" y="16" width="7" height="4" fill={resting ? '#555566' : '#8fd4ff'}/>
+      <rect x="22" y="21" width="3" height="1" fill="#3a3a4a"/>
+    </svg>
+  );
+}
+
+// ══════════════════════════════════════
+// デスクの配置（アイソメトリック座標: col, row）
+// ══════════════════════════════════════
+const DESK_LAYOUT = {
+  3: { col:0, row:0, plate:'宅建学習' },
+  5: { col:1, row:0, plate:'社長室', special:true },
+  4: { col:2, row:0, plate:'経理' },
+  1: { col:0, row:1, plate:'仕入れ（マイソク）' },
+  2: { col:2, row:1, plate:'仕入れ（契約書）' },
+  7: { col:0, row:2, plate:'採用HR' },
+  6: { col:1, row:2, plate:'業務・総務' },
+  8: { col:2, row:2, plate:'営業部（近日）', vacant:true },
+};
+const TILE_W = 168, TILE_H = 96;
+function isoStyle(col, row, w, h){
+  const cx = (col - row) * (TILE_W/2);
+  const cy = (col + row) * (TILE_H/2);
+  return { left:`calc(50% + ${cx}px - ${w/2}px)`, top:`${cy}px` };
+}
+
+function timeNow(){
+  const d = new Date();
+  return d.toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
+}
+
+function App(){
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [log, setLog] = useState([]);
+  const [selectedId, setSelectedId] = useState('');
+  const [instruction, setInstruction] = useState('');
+  const [toast, setToast] = useState('');
+  const [sending, setSending] = useState(false);
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+
+  useEffect(() => {
+    let mounted = true;
+    supabase.from(TABLE_NAME).select('*').order('id').then(({data, error}) => {
+      if (!mounted) return;
+      if (!error && data) setRows(data);
+      setLoading(false);
+    });
+
+    const channel = supabase.channel('ai-office-live')
+      .on('postgres_changes', { event:'*', schema:'public', table:TABLE_NAME }, (payload) => {
+        setRows(prev => {
+          if (payload.eventType === 'DELETE') return prev.filter(r => r.id !== payload.old.id);
+          const exists = prev.some(r => r.id === payload.new.id);
+          if (exists) return prev.map(r => r.id === payload.new.id ? payload.new : r);
+          return [...prev, payload.new].sort((a,b)=>a.id-b.id);
+        });
+
+        if (payload.eventType === 'UPDATE') {
+          const before = payload.old || {};
+          const after = payload.new || {};
+          const name = (after.avatar && after.avatar.name) || after.project_name;
+          const changedStatus = before.status !== after.status;
+          const changedMemo = before.memo !== after.memo;
+          if (changedStatus || changedMemo) {
+            const msg = changedMemo && after.memo
+              ? `${name}：「${after.memo}」`
+              : `${name}：${STATUS_BUBBLE[after.status] || after.status}`;
+            setLog(prev => [{ time: timeNow(), msg }, ...prev].slice(0, 30));
+          }
+        }
+      })
+      .subscribe();
+
+    return () => { mounted = false; supabase.removeChannel(channel); };
+  }, []);
+
+  const deskIds = Object.keys(DESK_LAYOUT).map(Number);
+  const rowsById = useMemo(() => {
+    const m = {};
+    rows.forEach(r => { m[r.id] = r; });
+    return m;
+  }, [rows]);
+
+  const counts = useMemo(() => {
+    const c = { 進行中:0, 未着手:0, 保留:0, 完了:0 };
+    rows.forEach(r => { if (c[r.status] !== undefined) c[r.status]++; });
+    return c;
+  }, [rows]);
+
+  const selectableEmployees = deskIds
+    .filter(id => !DESK_LAYOUT[id].vacant)
+    .map(id => ({ id, name: (rowsById[id] && rowsById[id].avatar && rowsById[id].avatar.name) || DESK_LAYOUT[id].plate }));
+
+  const sendInstruction = async () => {
+    if (!selectedId || !instruction.trim()) return;
+    setSending(true);
+    setToast('');
+    const { error } = await supabase.from(TABLE_NAME)
+      .update({ memo: instruction.trim(), status:'進行中' })
+      .eq('id', Number(selectedId));
+    setSending(false);
+    if (error) { setToast('送信失敗：' + error.message); return; }
+    setToast('指示を送ったばい');
+    setInstruction('');
+  };
+
+  return (
+    <div className="chrome">
+      <div className="hud">
+        <div className="hud-left">
+          <span className="hud-emoji">🏢</span>
+          <div>
+            <h1>AXIA AI社員オフィス</h1>
+            <div className="sub">axia_cowork_office と Realtime連携中{loading ? '（読み込み中…）' : ''}</div>
+          </div>
+        </div>
+        <div className="hud-chips">
+          <span className="hud-chip"><span className="dot" style={{background:STATUS_COLOR.進行中}}/>作業中<b>{counts.進行中}</b></span>
+          <span className="hud-chip"><span className="dot" style={{background:STATUS_COLOR.未着手}}/>待機<b>{counts.未着手}</b></span>
+          <span className="hud-chip"><span className="dot" style={{background:STATUS_COLOR.保留}}/>保留<b>{counts.保留}</b></span>
+          <span className="hud-chip"><span className="dot" style={{background:STATUS_COLOR.完了}}/>完了<b>{counts.完了}</b></span>
+        </div>
+      </div>
+
+      <div className="main-layout">
+        <div className="floor-wrap">
+          <div className="floor-scroll">
+            <div className="floor">
+              {deskIds.map(id => {
+                const layout = DESK_LAYOUT[id];
+                const row = rowsById[id];
+                const pos = isoStyle(layout.col, layout.row, TILE_W, TILE_H);
+                const status = row ? row.status : '未着手';
+                const av = row ? getAvatar(row) : null;
+                const bubbleText = row ? (row.memo || row.task_name) : '';
+                return (
+                  <div key={id} style={{position:'relative', zIndex: layout.row*10 + layout.col}}>
+                    <div className={`desk-tile ${layout.special?'special':''} ${layout.vacant?'vacant':''}`} style={pos}>
+                      <div className="desk-tile-inner"></div>
+                      <div className="desk-plate">{layout.plate}</div>
+                    </div>
+                    <div className="desk-slot" style={pos}>
+                      {layout.vacant || !row ? (
+                        <div className="desk-occupant always" style={{bottom:'42%'}}>
+                          <div className="vacant-sign">💺<br/>募集中</div>
+                        </div>
+                      ) : (
+                        <div className="desk-occupant always" onClick={() => setSelectedId(String(id))}>
+                          <div className="bubble">{bubbleText}</div>
+                          <div className={`fig ${status==='進行中'?'working':''}`}>
+                            <PixelWorker task={row} resting={status==='保留'} />
+                          </div>
+                          <div className="nametag">
+                            <span className="status-pip" style={{background:STATUS_COLOR[status]}}/>
+                            {av.name || layout.plate}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="side-col">
+          <div className="throne-panel">
+            <h2>👑 とし（社長）の間</h2>
+            <div className="desc">指示を出すと該当のAI社員の状況が「作業中」に切り替わって、吹き出しに指示内容が出るばい。</div>
+            <select className="throne-select" value={selectedId} onChange={e=>setSelectedId(e.target.value)}>
+              <option value="">— 誰に指示する？ —</option>
+              {selectableEmployees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+            </select>
+            <input className="throne-input" placeholder="例：NET4.5%以上だけ選別して"
+              value={instruction} onChange={e=>setInstruction(e.target.value)}
+              onKeyDown={e=>{ if(e.key==='Enter') sendInstruction(); }} />
+            <button className="throne-btn" disabled={sending || !selectedId || !instruction.trim()} onClick={sendInstruction}>
+              {sending ? '送信中…' : '指示を出す'}
+            </button>
+            <div className="throne-toast">{toast}</div>
+          </div>
+
+          <div className="panel">
+            <h2>📋 活動ログ</h2>
+            <div className="log-list">
+              {log.length === 0 && <div className="log-empty">まだ動きなし。指示を出すか、Supabase側で更新すると流れてくるばい。</div>}
+              {log.map((l,i) => (
+                <div className="log-item" key={i}><span className="log-time">{l.time}</span>{l.msg}</div>
+              ))}
+            </div>
+          </div>
+
+          <div className="panel">
+            <h2>🗂 部署一覧</h2>
+            <div className="legend">
+              {deskIds.map(id => (
+                <span className="chip" key={id}>{DESK_LAYOUT[id].plate}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
