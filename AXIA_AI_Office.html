@@ -3,514 +3,1052 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>AXIA AI社員オフィス</title>
+<title>AXIA AI社員オフィス 3D</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Zen+Maru+Gothic:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&family=Zen+Maru+Gothic:wght@400;500;700&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>
-  :root{
-    --floor-a:#f4ecd8;
-    --floor-b:#ece0c4;
-    --ink:#2b2440;
-    --ink-soft:#6b6280;
-    --gold:#e8a33d;
-    --gold-dark:#c47f1f;
-    --cream:#fffaf0;
-    --paper:#fffdf8;
-    --danger:#e2694f;
-    --ok:#3fae6a;
-    --warn:#e8a33d;
-    --idle:#9c93b0;
-    --sky-a:#fdf1da;
-    --sky-b:#f7ddb0;
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
   }
+}
+</script>
+<style>
+  :root{ --ink:#2b2440; --ink-soft:#6b6280; --gold:#e8a33d; --gold-dark:#c47f1f; --paper:#fffdf8; }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;}
   body{
     font-family:'Zen Maru Gothic','M PLUS Rounded 1c',sans-serif;
-    background:linear-gradient(180deg,var(--sky-a) 0%, var(--sky-b) 260px, var(--floor-a) 260px);
-    color:var(--ink);
-    min-height:100vh;
-    -webkit-font-smoothing:antialiased;
+    background:linear-gradient(180deg,#fdf1da 0%, #f3e6cd 100%);
+    color:var(--ink); min-height:100vh; -webkit-font-smoothing:antialiased;
   }
   ::-webkit-scrollbar{display:none;}
-  .mono{font-family:'DM Mono',monospace;}
+  .chrome{max-width:100%; margin:0 auto; padding:10px 14px 18px;}
 
-  .chrome{max-width:1400px; margin:0 auto; padding:14px 16px 40px;}
-
-  /* ===== HUD ===== */
   .hud{
-    background:var(--ink);
-    border-radius:18px 18px 8px 8px;
-    padding:14px 20px;
+    background:var(--ink); border-radius:18px 18px 8px 8px; padding:14px 20px;
     display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;
-    box-shadow:0 6px 0 rgba(0,0,0,0.15);
-    position:relative;
+    box-shadow:0 6px 0 rgba(0,0,0,0.15); position:relative;
   }
   .hud:after{content:'';position:absolute;left:18px;right:18px;bottom:-6px;height:6px;background:var(--gold);border-radius:0 0 6px 6px;}
   .hud h1{font-family:'M PLUS Rounded 1c',sans-serif; font-weight:800; font-size:18px; color:#fff; margin:0;}
   .hud .sub{color:#c9c0e0; font-size:10.5px; margin-top:2px;}
   .hud-left{display:flex; align-items:center; gap:10px;}
-  .hud-emoji{font-size:24px;}
   .hud-chips{display:flex; gap:6px; flex-wrap:wrap;}
-  .hud-chip{
-    font-size:11px; font-weight:700; padding:6px 11px; border-radius:999px;
-    background:rgba(255,255,255,0.1); color:#fff; display:flex; align-items:center; gap:5px;
-  }
-  .hud-chip b{font-family:'DM Mono',monospace; font-weight:500;}
+  .hud-chip{font-size:11px; font-weight:700; padding:6px 11px; border-radius:999px;
+    background:rgba(255,255,255,0.1); color:#fff; display:flex; align-items:center; gap:5px;}
+  .hud-chip b{font-family:'DM Mono',monospace; font-weight:400;}
   .dot{width:7px;height:7px;border-radius:50%; display:inline-block;}
 
-  /* ===== Layout ===== */
-  .main-layout{display:flex; gap:18px; margin-top:22px; align-items:flex-start;}
-  .floor-wrap{flex:1; min-width:0;}
-  .side-col{width:280px; flex-shrink:0; display:flex; flex-direction:column; gap:14px;}
+  .main-layout{display:flex; gap:16px; margin-top:14px; align-items:flex-start;}
+  .stage-wrap{flex:1; min-width:0;}
+  .side-col{width:310px; flex-shrink:0; display:flex; flex-direction:column; gap:14px;}
   @media (max-width:920px){
     .main-layout{flex-direction:column;}
     .side-col{width:100%;}
+    .stage-wrap{width:100%; flex:none;}
+    #stage{height:60vh; max-height:560px;}
   }
 
-  /* ===== Isometric floor ===== */
-  .floor-scroll{
-    overflow-x:auto; overflow-y:visible; border-radius:16px;
-    background:radial-gradient(ellipse at 50% 20%, #fff7e6 0%, var(--floor-a) 55%, var(--floor-b) 100%);
+  #stage{
+    position:relative; width:100%; height:calc(100vh - 150px); min-height:420px;
+    border-radius:16px; overflow:hidden;
+    background:linear-gradient(180deg,#fffaf0,#f0e5cf);
     box-shadow:inset 0 0 0 3px rgba(43,36,64,0.1), 0 6px 0 rgba(43,36,64,0.1);
-    padding:150px 10px 60px;
+    touch-action:none;
   }
-  .floor{
-    position:relative;
-    width:560px; height:300px;
-    margin:0 auto;
-  }
-  .desk-tile{
-    position:absolute; width:168px; height:96px;
-    left:50%; top:0;
-    clip-path:polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
-    background:linear-gradient(160deg,#fff8e8,var(--floor-b));
-    filter:drop-shadow(0 8px 0 rgba(43,36,64,0.10)) drop-shadow(0 14px 10px rgba(43,36,64,0.10));
-    transition:filter .15s;
-  }
-  .desk-tile.special{background:linear-gradient(160deg,#fff2cf,#f3d68f);}
-  .desk-tile.vacant{background:repeating-linear-gradient(135deg,#efe7d2 0 10px,#e6dcc0 10px 20px); opacity:.75;}
-  .desk-tile-inner{
-    position:absolute; inset:0;
-    display:flex; align-items:center; justify-content:center;
-    clip-path:polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
-    border:2px solid rgba(43,36,64,0.14);
-  }
-  .desk-plate{
-    position:absolute; top:8px; left:50%; transform:translateX(-50%);
-    font-family:'M PLUS Rounded 1c',sans-serif; font-weight:800; font-size:10px;
-    color:var(--ink-soft); letter-spacing:.02em; white-space:nowrap;
-  }
+  #stage canvas{display:block; width:100%; height:100%;}
+  .label-layer{position:absolute; inset:0; pointer-events:none; overflow:hidden;}
 
-  .desk-slot{position:absolute; width:168px; height:96px; left:50%; top:0;}
-  .desk-occupant{
-    position:absolute; left:50%; bottom:38%; transform:translateX(-50%);
-    display:flex; flex-direction:column; align-items:center; z-index:2;
-    cursor:pointer;
-  }
-  .desk-occupant .fig{transform:scale(1.55); transform-origin:bottom center;}
-  .desk-occupant .fig.working{animation:bob 1.6s ease-in-out infinite;}
-  @keyframes bob{0%,100%{transform:scale(1.55) translateY(0);}50%{transform:scale(1.55) translateY(-3px);}}
-
-  .bubble{
-    position:absolute; bottom:100%; left:50%; transform:translateX(-50%);
-    margin-bottom:8px;
-    background:#fff; border-radius:11px; padding:6px 10px;
-    font-size:10.5px; font-weight:500; color:var(--ink);
-    box-shadow:0 3px 0 rgba(43,36,64,0.15);
-    white-space:nowrap; max-width:150px; overflow:hidden; text-overflow:ellipsis;
-    opacity:0; pointer-events:none; transition:opacity .15s;
-  }
-  .desk-occupant:hover .bubble, .desk-occupant.always .bubble{opacity:1;}
-  .bubble:after{
-    content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%);
-    border:5px solid transparent; border-top-color:#fff;
-  }
-  .nametag{
-    margin-top:2px;
-    background:var(--ink); color:#fff; font-size:10px; font-weight:800;
+  .tag{
+    background:var(--ink); color:#fff; font-size:10.5px; font-weight:800;
     font-family:'M PLUS Rounded 1c',sans-serif;
-    padding:2px 9px; border-radius:999px; white-space:nowrap;
+    padding:3px 9px; border-radius:999px; white-space:nowrap;
     display:flex; align-items:center; gap:4px;
+    box-shadow:0 2px 5px rgba(0,0,0,0.22);
   }
-  .status-pip{width:6px;height:6px;border-radius:50%;}
-  .vacant-sign{
-    font-size:10px; color:var(--ink-soft); font-weight:700; text-align:center; line-height:1.4;
+  .tag.selected{background:var(--gold); color:#2b2440;}
+  .tag .pip{width:6px;height:6px;border-radius:50%;}
+  .tag.vacant{background:rgba(255,255,255,.9); color:var(--ink-soft); box-shadow:0 2px 5px rgba(0,0,0,.12);}
+  .tag.zone{background:rgba(255,255,255,.92); color:var(--ink-soft); font-size:10px;}
+
+  .bub{
+    background:#fff; color:var(--ink); border-radius:11px; padding:5px 10px;
+    font-size:10.5px; font-weight:500; white-space:nowrap;
+    max-width:170px; overflow:hidden; text-overflow:ellipsis;
+    box-shadow:0 3px 8px rgba(43,36,64,0.22); position:relative;
+  }
+  .bub:after{content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%);
+    border:5px solid transparent; border-top-color:#fff;}
+
+  .hint{
+    position:absolute; left:12px; bottom:10px; z-index:3;
+    font-size:10px; font-weight:700; color:var(--ink-soft);
+    background:rgba(255,255,255,0.85); padding:5px 10px; border-radius:999px;
+    box-shadow:0 2px 5px rgba(43,36,64,0.1);
+  }
+  #stage:fullscreen{
+    height:100vh; width:100vw; border-radius:0; padding:0;
+    background:linear-gradient(180deg,#fffaf0,#f0e5cf);
+  }
+  #stage:fullscreen canvas{border-radius:0;}
+  .cam-btns{position:absolute; right:12px; top:12px; z-index:3; display:flex; gap:6px;}
+  .cam-btn{
+    border:none; background:rgba(255,255,255,0.9); color:var(--ink);
+    font-family:'M PLUS Rounded 1c',sans-serif; font-weight:800; font-size:10.5px;
+    padding:6px 10px; border-radius:999px; cursor:pointer;
+    box-shadow:0 2px 5px rgba(43,36,64,0.15);
+  }
+  .cam-btn.on{background:var(--gold); color:#2b2440;}
+  .loading{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:700; color:var(--ink-soft); z-index:4;
+    background:linear-gradient(180deg,#fffaf0,#f0e5cf);
   }
 
-  /* ===== Side panels ===== */
-  .panel{
-    background:var(--paper); border-radius:14px; padding:14px 16px;
-    box-shadow:0 4px 0 rgba(43,36,64,0.08);
-  }
-  .panel h2{
-    font-family:'M PLUS Rounded 1c',sans-serif; font-size:13px; font-weight:800; margin:0 0 10px;
-    display:flex; align-items:center; gap:6px; color:var(--ink);
-  }
-  .log-list{display:flex; flex-direction:column; gap:7px; max-height:260px; overflow-y:auto;}
+  .panel{background:var(--paper); border-radius:14px; padding:14px 16px; box-shadow:0 4px 0 rgba(43,36,64,0.08);}
+  .panel h2{font-family:'M PLUS Rounded 1c',sans-serif; font-size:13px; font-weight:800; margin:0 0 10px; display:flex; align-items:center; gap:6px;}
+  .log-list{display:flex; flex-direction:column; gap:7px; max-height:240px; overflow-y:auto;}
   .log-item{font-size:11px; color:var(--ink-soft); line-height:1.5; border-left:3px solid var(--gold); padding-left:8px;}
-  .log-item b{color:var(--ink);}
   .log-time{font-family:'DM Mono',monospace; font-size:9.5px; color:#a89ec4; margin-right:4px;}
   .log-empty{font-size:11px; color:var(--ink-soft); opacity:.7;}
+  .rule{font-size:10.5px; color:var(--ink-soft); line-height:1.7;}
+  .rule b{color:var(--ink);}
 
-  .throne-panel{
-    background:linear-gradient(160deg,#2b2440,#3a3158);
-    border-radius:14px; padding:16px;
-    box-shadow:0 4px 0 rgba(0,0,0,0.2);
-    color:#fff;
-  }
-  .throne-panel h2{color:#fff; margin-bottom:8px;}
-  .throne-panel .desc{font-size:10.5px; color:#c9c0e0; margin-bottom:12px; line-height:1.5;}
-  .throne-select, .throne-input{
+  .throne{background:linear-gradient(160deg,#2b2440,#3a3158); border-radius:14px; padding:16px; color:#fff; box-shadow:0 4px 0 rgba(0,0,0,0.2);}
+  .throne h2{font-family:'M PLUS Rounded 1c',sans-serif; font-size:13px; font-weight:800; margin:0 0 8px; color:#fff;}
+  .throne .desc{font-size:10.5px; color:#c9c0e0; margin-bottom:12px; line-height:1.5;}
+  .throne select, .throne input{
     width:100%; border:none; border-radius:9px; padding:9px 10px; font-size:12.5px;
     font-family:'Zen Maru Gothic',sans-serif; margin-bottom:8px; outline:none;
     background:rgba(255,255,255,0.92); color:var(--ink);
   }
-  .throne-btn{
+  .throne button{
     width:100%; border:none; border-radius:9px; padding:10px; font-size:12.5px; font-weight:800;
     font-family:'M PLUS Rounded 1c',sans-serif; cursor:pointer;
-    background:var(--gold); color:#2b2440;
-    box-shadow:0 3px 0 var(--gold-dark);
+    background:var(--gold); color:#2b2440; box-shadow:0 3px 0 var(--gold-dark);
   }
-  .throne-btn:active{transform:translateY(2px); box-shadow:0 1px 0 var(--gold-dark);}
-  .throne-btn:disabled{opacity:.5; cursor:default;}
-  .throne-toast{font-size:10.5px; color:#9be8a8; margin-top:8px; min-height:14px;}
-
-  .legend{display:flex; flex-wrap:wrap; gap:6px;}
-  .legend .chip{
-    font-size:10px; font-weight:700; padding:4px 9px; border-radius:999px;
-    background:#fff; box-shadow:0 2px 0 rgba(43,36,64,0.08); display:flex; align-items:center; gap:4px;
-  }
+  .throne button:active{transform:translateY(2px); box-shadow:0 1px 0 var(--gold-dark);}
+  .throne button:disabled{opacity:.5;}
+  .toast{font-size:10.5px; color:#9be8a8; margin-top:8px; min-height:14px;}
 </style>
 </head>
 <body>
-<div id="root"></div>
-<script type="text/babel">
-const { useState, useEffect, useRef, useMemo } = React;
-
-// ══════════════════════════════════════
-// Supabase設定（axia-todoプロジェクト共通・axia_cowork_officeテーブル）
-// ══════════════════════════════════════
-const SUPABASE_URL = 'https://zrqdoorolwvjlwuatlkc.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_qTfps32ER4iHTo_o3zkCEw_HlJdMq_c';
-const TABLE_NAME = 'axia_cowork_office';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-const STATUS_BUBBLE = {未着手:'⏸ 待機中', 進行中:'💭 作業中...', 完了:'✅ 完了！', 保留:'💤 保留中'};
-const STATUS_COLOR  = {未着手:'#9c93b0', 進行中:'#4f8ef7', 完了:'#3fae6a', 保留:'#e8a33d'};
-
-const HAIR_COLORS  = ['#3fae6a','#f06292','#5b8def','#8e5bd6','#7a4e2d','#e8c34a','#d35b4e','#3a3a4a'];
-const SHIRT_COLORS = ['#4f8ef7','#e8638c','#3fae6a','#e0b23e','#8e5bd6','#4fb8c4','#c96a4e','#5a6acf'];
-
-function taskHash(task){
-  const key = String(task.task_name || task.id || '');
-  let h = 0;
-  for (let i=0;i<key.length;i++){ h = (h*17 + key.charCodeAt(i)) >>> 0; }
-  return h;
-}
-function getAvatar(task){
-  const h = taskHash(task);
-  const saved = task.avatar || {};
-  return {
-    hair:      Number.isInteger(saved.hair) ? saved.hair : h % HAIR_COLORS.length,
-    shirt:     Number.isInteger(saved.shirt) ? saved.shirt : (h >> 3) % SHIRT_COLORS.length,
-    outfit:    saved.outfit || 'shirt',
-    accessory: saved.accessory || 'none',
-    name:      saved.name || '',
-  };
-}
-
-// ピクセルアート風：デスクに座るキャラクター（既存AXIA_Cowork_Officeと同一デザイン）
-function PixelWorker({ task, resting }){
-  const av = getAvatar(task);
-  const hair  = HAIR_COLORS[av.hair];
-  const shirt = SHIRT_COLORS[av.shirt];
-  const eyesClosed = resting || task.status === '保留';
-  const isSuit = av.outfit === 'suit';
-  const isHoodie = av.outfit === 'hoodie';
-  const isVest = av.outfit === 'vest';
-  const bodyColor = isSuit ? '#2e3350' : shirt;
-  return (
-    <svg width="72" height="64" viewBox="0 0 36 32" shapeRendering="crispEdges" style={{display:'block'}}>
-      <rect x="12" y="2"  width="12" height="3" fill={hair}/>
-      <rect x="11" y="4"  width="3"  height="5" fill={hair}/>
-      <rect x="22" y="4"  width="3"  height="5" fill={hair}/>
-      {av.accessory === 'cap' && (
-        <React.Fragment>
-          <rect x="11" y="1" width="14" height="3" fill="#d35b4e"/>
-          <rect x="23" y="3" width="5"  height="2" fill="#d35b4e"/>
-        </React.Fragment>
-      )}
-      <rect x="13" y="5"  width="10" height="7" fill="#ffd9b3"/>
-      {eyesClosed ? (
-        <React.Fragment>
-          <rect x="15" y="8" width="2" height="1" fill="#5a4632"/>
-          <rect x="19" y="8" width="2" height="1" fill="#5a4632"/>
-        </React.Fragment>
-      ) : (
-        <React.Fragment>
-          <rect x="15" y="7" width="2" height="2" fill="#3a3028"/>
-          <rect x="19" y="7" width="2" height="2" fill="#3a3028"/>
-        </React.Fragment>
-      )}
-      {av.accessory === 'glasses' && (
-        <React.Fragment>
-          <rect x="14" y="7" width="4" height="2.6" fill="none" stroke="#2e3350" strokeWidth="0.7"/>
-          <rect x="18.5" y="7" width="4" height="2.6" fill="none" stroke="#2e3350" strokeWidth="0.7"/>
-          <rect x="18" y="8" width="0.8" height="0.8" fill="#2e3350"/>
-        </React.Fragment>
-      )}
-      {av.accessory === 'headphones' && (
-        <React.Fragment>
-          <rect x="12" y="1" width="12" height="1.4" fill="#2e3350"/>
-          <rect x="11" y="5" width="2.5" height="4" fill="#2e3350"/>
-          <rect x="22.5" y="5" width="2.5" height="4" fill="#2e3350"/>
-        </React.Fragment>
-      )}
-      <rect x="17" y="10" width="2" height="1" fill="#d08c6a"/>
-      {isHoodie && <rect x="11" y="11" width="14" height="2.5" fill={shirt} opacity="0.75"/>}
-      <rect x="12" y="12" width="12" height="7" fill={bodyColor}/>
-      {isSuit && (
-        <React.Fragment>
-          <rect x="16" y="12" width="4" height="4" fill="#fff"/>
-          <rect x="17.3" y="12" width="1.4" height="5" fill="#c0392b"/>
-        </React.Fragment>
-      )}
-      {isVest && (
-        <React.Fragment>
-          <rect x="13.5" y="12" width="2" height="7" fill="#f5a623"/>
-          <rect x="20.5" y="12" width="2" height="7" fill="#f5a623"/>
-        </React.Fragment>
-      )}
-      {isHoodie && (
-        <React.Fragment>
-          <rect x="15" y="16" width="6" height="2.5" fill="rgba(0,0,0,0.15)"/>
-          <rect x="16.5" y="12" width="0.8" height="3" fill="#fff" opacity="0.8"/>
-          <rect x="18.7" y="12" width="0.8" height="3" fill="#fff" opacity="0.8"/>
-        </React.Fragment>
-      )}
-      <rect x="10" y="13" width="2" height="5" fill={bodyColor}/>
-      <rect x="24" y="13" width="2" height="5" fill={bodyColor}/>
-      <rect x="10" y="18" width="2" height="2" fill="#ffd9b3"/>
-      <rect x="24" y="18" width="2" height="2" fill="#ffd9b3"/>
-      <rect x="5"  y="20" width="26" height="2" fill="#c89b6a"/>
-      <rect x="6"  y="22" width="24" height="8" fill="#b8895a"/>
-      <rect x="8"  y="23" width="8"  height="5" fill="#a5764a"/>
-      <rect x="19" y="15" width="9" height="6" fill="#3a3a4a"/>
-      <rect x="20" y="16" width="7" height="4" fill={resting ? '#555566' : '#8fd4ff'}/>
-      <rect x="22" y="21" width="3" height="1" fill="#3a3a4a"/>
-    </svg>
-  );
-}
-
-// ══════════════════════════════════════
-// デスクの配置（アイソメトリック座標: col, row）
-// ══════════════════════════════════════
-const DESK_LAYOUT = {
-  3: { col:0, row:0, plate:'宅建学習' },
-  5: { col:1, row:0, plate:'社長室', special:true },
-  4: { col:2, row:0, plate:'経理' },
-  1: { col:0, row:1, plate:'仕入れ（マイソク）' },
-  2: { col:2, row:1, plate:'仕入れ（契約書）' },
-  7: { col:0, row:2, plate:'採用HR' },
-  6: { col:1, row:2, plate:'業務・総務' },
-  8: { col:2, row:2, plate:'営業部（近日）', vacant:true },
-};
-const TILE_W = 168, TILE_H = 96;
-function isoStyle(col, row, w, h){
-  const cx = (col - row) * (TILE_W/2);
-  const cy = (col + row) * (TILE_H/2);
-  return { left:`calc(50% + ${cx}px - ${w/2}px)`, top:`${cy}px` };
-}
-
-function timeNow(){
-  const d = new Date();
-  return d.toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
-}
-
-function App(){
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [log, setLog] = useState([]);
-  const [selectedId, setSelectedId] = useState('');
-  const [instruction, setInstruction] = useState('');
-  const [toast, setToast] = useState('');
-  const [sending, setSending] = useState(false);
-  const rowsRef = useRef(rows);
-  rowsRef.current = rows;
-
-  useEffect(() => {
-    let mounted = true;
-    supabase.from(TABLE_NAME).select('*').order('id').then(({data, error}) => {
-      if (!mounted) return;
-      if (!error && data) setRows(data);
-      setLoading(false);
-    });
-
-    const channel = supabase.channel('ai-office-live')
-      .on('postgres_changes', { event:'*', schema:'public', table:TABLE_NAME }, (payload) => {
-        setRows(prev => {
-          if (payload.eventType === 'DELETE') return prev.filter(r => r.id !== payload.old.id);
-          const exists = prev.some(r => r.id === payload.new.id);
-          if (exists) return prev.map(r => r.id === payload.new.id ? payload.new : r);
-          return [...prev, payload.new].sort((a,b)=>a.id-b.id);
-        });
-
-        if (payload.eventType === 'UPDATE') {
-          const before = payload.old || {};
-          const after = payload.new || {};
-          const name = (after.avatar && after.avatar.name) || after.project_name;
-          const changedStatus = before.status !== after.status;
-          const changedMemo = before.memo !== after.memo;
-          if (changedStatus || changedMemo) {
-            const msg = changedMemo && after.memo
-              ? `${name}：「${after.memo}」`
-              : `${name}：${STATUS_BUBBLE[after.status] || after.status}`;
-            setLog(prev => [{ time: timeNow(), msg }, ...prev].slice(0, 30));
-          }
-        }
-      })
-      .subscribe();
-
-    return () => { mounted = false; supabase.removeChannel(channel); };
-  }, []);
-
-  const deskIds = Object.keys(DESK_LAYOUT).map(Number);
-  const rowsById = useMemo(() => {
-    const m = {};
-    rows.forEach(r => { m[r.id] = r; });
-    return m;
-  }, [rows]);
-
-  const counts = useMemo(() => {
-    const c = { 進行中:0, 未着手:0, 保留:0, 完了:0 };
-    rows.forEach(r => { if (c[r.status] !== undefined) c[r.status]++; });
-    return c;
-  }, [rows]);
-
-  const selectableEmployees = deskIds
-    .filter(id => !DESK_LAYOUT[id].vacant)
-    .map(id => ({ id, name: (rowsById[id] && rowsById[id].avatar && rowsById[id].avatar.name) || DESK_LAYOUT[id].plate }));
-
-  const sendInstruction = async () => {
-    if (!selectedId || !instruction.trim()) return;
-    setSending(true);
-    setToast('');
-    const { error } = await supabase.from(TABLE_NAME)
-      .update({ memo: instruction.trim(), status:'進行中' })
-      .eq('id', Number(selectedId));
-    setSending(false);
-    if (error) { setToast('送信失敗：' + error.message); return; }
-    setToast('指示を送ったばい');
-    setInstruction('');
-  };
-
-  return (
-    <div className="chrome">
-      <div className="hud">
-        <div className="hud-left">
-          <span className="hud-emoji">🏢</span>
-          <div>
-            <h1>AXIA AI社員オフィス</h1>
-            <div className="sub">axia_cowork_office と Realtime連携中{loading ? '（読み込み中…）' : ''}</div>
-          </div>
-        </div>
-        <div className="hud-chips">
-          <span className="hud-chip"><span className="dot" style={{background:STATUS_COLOR.進行中}}/>作業中<b>{counts.進行中}</b></span>
-          <span className="hud-chip"><span className="dot" style={{background:STATUS_COLOR.未着手}}/>待機<b>{counts.未着手}</b></span>
-          <span className="hud-chip"><span className="dot" style={{background:STATUS_COLOR.保留}}/>保留<b>{counts.保留}</b></span>
-          <span className="hud-chip"><span className="dot" style={{background:STATUS_COLOR.完了}}/>完了<b>{counts.完了}</b></span>
-        </div>
+<div class="chrome">
+  <div class="hud">
+    <div class="hud-left">
+      <span style="font-size:24px">🏢</span>
+      <div>
+        <h1>AXIA AI社員オフィス <span style="font-size:11px;color:var(--gold)">3D</span></h1>
+        <div class="sub" id="sub">axia_cowork_office と Realtime連携中</div>
       </div>
+    </div>
+    <div class="hud-chips" id="chips"></div>
+  </div>
 
-      <div className="main-layout">
-        <div className="floor-wrap">
-          <div className="floor-scroll">
-            <div className="floor">
-              {deskIds.map(id => {
-                const layout = DESK_LAYOUT[id];
-                const row = rowsById[id];
-                const pos = isoStyle(layout.col, layout.row, TILE_W, TILE_H);
-                const status = row ? row.status : '未着手';
-                const av = row ? getAvatar(row) : null;
-                const bubbleText = row ? (row.memo || row.task_name) : '';
-                return (
-                  <div key={id} style={{position:'relative', zIndex: layout.row*10 + layout.col}}>
-                    <div className={`desk-tile ${layout.special?'special':''} ${layout.vacant?'vacant':''}`} style={pos}>
-                      <div className="desk-tile-inner"></div>
-                      <div className="desk-plate">{layout.plate}</div>
-                    </div>
-                    <div className="desk-slot" style={pos}>
-                      {layout.vacant || !row ? (
-                        <div className="desk-occupant always" style={{bottom:'42%'}}>
-                          <div className="vacant-sign">💺<br/>募集中</div>
-                        </div>
-                      ) : (
-                        <div className="desk-occupant always" onClick={() => setSelectedId(String(id))}>
-                          <div className="bubble">{bubbleText}</div>
-                          <div className={`fig ${status==='進行中'?'working':''}`}>
-                            <PixelWorker task={row} resting={status==='保留'} />
-                          </div>
-                          <div className="nametag">
-                            <span className="status-pip" style={{background:STATUS_COLOR[status]}}/>
-                            {av.name || layout.plate}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        <div className="side-col">
-          <div className="throne-panel">
-            <h2>👑 とし（社長）の間</h2>
-            <div className="desc">指示を出すと該当のAI社員の状況が「作業中」に切り替わって、吹き出しに指示内容が出るばい。</div>
-            <select className="throne-select" value={selectedId} onChange={e=>setSelectedId(e.target.value)}>
-              <option value="">— 誰に指示する？ —</option>
-              {selectableEmployees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-            </select>
-            <input className="throne-input" placeholder="例：NET4.5%以上だけ選別して"
-              value={instruction} onChange={e=>setInstruction(e.target.value)}
-              onKeyDown={e=>{ if(e.key==='Enter') sendInstruction(); }} />
-            <button className="throne-btn" disabled={sending || !selectedId || !instruction.trim()} onClick={sendInstruction}>
-              {sending ? '送信中…' : '指示を出す'}
-            </button>
-            <div className="throne-toast">{toast}</div>
-          </div>
-
-          <div className="panel">
-            <h2>📋 活動ログ</h2>
-            <div className="log-list">
-              {log.length === 0 && <div className="log-empty">まだ動きなし。指示を出すか、Supabase側で更新すると流れてくるばい。</div>}
-              {log.map((l,i) => (
-                <div className="log-item" key={i}><span className="log-time">{l.time}</span>{l.msg}</div>
-              ))}
-            </div>
-          </div>
-
-          <div className="panel">
-            <h2>🗂 部署一覧</h2>
-            <div className="legend">
-              {deskIds.map(id => (
-                <span className="chip" key={id}>{DESK_LAYOUT[id].plate}</span>
-              ))}
-            </div>
-          </div>
+  <div class="main-layout">
+    <div class="stage-wrap">
+      <div id="stage">
+        <div class="loading" id="loading">3Dオフィスを読み込み中…</div>
+        <div class="label-layer" id="labels"></div>
+        <div class="hint">ドラッグで回転 / ピンチでズーム / 社員をタップで選択</div>
+        <div class="cam-btns">
+          <button class="cam-btn on" id="btnSpin">自動回転 ON</button>
+          <button class="cam-btn" id="btnReset">視点リセット</button>
+          <button class="cam-btn" id="btnFull">全画面</button>
         </div>
       </div>
     </div>
+
+    <div class="side-col">
+      <div class="throne">
+        <h2>🗣 くろへ指示</h2>
+        <div class="desc">くろが受けて担当の社員に振るばい。指示された社員は席に戻って作業を始めるっちゃ。</div>
+        <select id="who"><option value="">— 誰に指示する？ —</option></select>
+        <input id="msg" placeholder="例：NET4.5%以上だけ選別して">
+        <button id="send" disabled>指示を出す</button>
+        <div class="toast" id="toast"></div>
+      </div>
+
+      <div class="panel">
+        <h2>🚶 社員の行動ルール</h2>
+        <div class="rule">
+          <b>進行中</b> … 席に着いて作業（腕が動く）<br>
+          <b>未着手</b> … 社内をうろうろ歩き回る<br>
+          <b>保留・完了</b> … 休憩室のソファでひと休み<br>
+          <b>活動ログ</b> … 奥の壁掛けモニターに表示
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+/* ═══════════ Supabase ═══════════ */
+const SUPABASE_URL = 'https://zrqdoorolwvjlwuatlkc.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_qTfps32ER4iHTo_o3zkCEw_HlJdMq_c';
+const TABLE = 'axia_cowork_office';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const STATUS_COLOR = {未着手:'#9c93b0', 進行中:'#4f8ef7', 完了:'#3fae6a', 保留:'#e8a33d'};
+const HAIR  = ['#3fae6a','#f06292','#5b8def','#8e5bd6','#7a4e2d','#e8c34a','#d35b4e','#3a3a4a'];
+const SHIRT = ['#4f8ef7','#e8638c','#3fae6a','#e0b23e','#8e5bd6','#4fb8c4','#c96a4e','#5a6acf'];
+
+/* ═══════════ レイアウト定義 ═══════════ */
+const DESKS = {
+  3:{col:0,row:0,plate:'宅建学習'},
+  4:{col:2,row:0,plate:'経理'},
+  1:{col:0,row:1,plate:'仕入れ（マイソク）'},
+  2:{col:2,row:1,plate:'仕入れ（契約書）'},
+  7:{col:0,row:2,plate:'採用HR'},
+  6:{col:2,row:2,plate:'業務・総務'},
+  // 社長席：休憩室と同じ右列に、横向き（オフィス側を向く）で配置
+  5:{plate:'社長席', solo:{
+       x: 6.9, z: -3.6, rotY: -Math.PI/2,
+       seat:     { x: 7.8, z: -3.6 },
+       approach: { x: 7.8, z: -5.5 },
+     }},
+};
+const SPACING = 3.4;
+const gridX = c => (c - 1) * SPACING;
+const gridZ = r => (r - 1) * SPACING;
+
+// 通路のZライン（机の間の空きレーン）。行の「後ろ側」から席に入る。
+const AISLE_Z   = [-5.5, -2.15, 1.25, 5.0];
+const AISLE_X   = [-5.2, -1.7, 0, 1.7, 5.2];
+const LANES_X   = [-5.2, -1.7, 0, 1.7];           // 縦に移動できる（机が無い）列
+const ROW_BACK_Z = { 0:-5.5, 1:-2.15, 2:1.25 };   // 各行の背後の通路
+
+// 休憩室（右手のオープンラウンジ）
+const LOUNGE_LANE_X = 6.0;                        // ソファ手前の縦通路
+const SOFA_SEATS = [
+  { x: 6.9, z: -1.05 },
+  { x: 6.9, z:  0.0  },
+  { x: 6.9, z:  1.05 },
+];
+
+const V3 = (x, z) => new THREE.Vector3(x, 0, z);
+
+const deskSeat = id => {
+  const d = DESKS[id];
+  return d.solo ? V3(d.solo.seat.x, d.solo.seat.z)
+                : V3(gridX(d.col), gridZ(d.row) - 0.9);
+};
+const deskApproach = id => {
+  const d = DESKS[id];
+  return d.solo ? V3(d.solo.approach.x, d.solo.approach.z)
+                : V3(gridX(d.col), ROW_BACK_Z[d.row]);
+};
+const seatYaw = id => {
+  const d = DESKS[id];
+  return d.solo ? Math.PI + d.solo.rotY : Math.PI;   // 机（+z）を向く姿勢＋机の回転
+};
+
+const WAYPOINTS = [];
+AISLE_X.forEach(x => AISLE_Z.forEach(z => WAYPOINTS.push(V3(x, z))));
+
+/* ═══════════ Scene ═══════════ */
+const stage = document.getElementById('stage');
+const labelLayer = document.getElementById('labels');
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#fdf5e6');
+
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+const HOME = new THREE.Vector3(8.5, 7.6, 10.5);
+camera.position.copy(HOME);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.appendChild(renderer.domElement);
+
+const labelRenderer = new CSS2DRenderer({ element: labelLayer });
+labelRenderer.domElement.style.position = 'absolute';
+labelRenderer.domElement.style.top = '0';
+labelRenderer.domElement.style.pointerEvents = 'none';
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.enablePan = false;
+controls.minDistance = 7;
+controls.maxDistance = 24;
+controls.minPolarAngle = 0.25;
+controls.maxPolarAngle = Math.PI/2 - 0.12;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.5;
+controls.target.set(1.1, 0.9, 0);
+
+scene.add(new THREE.HemisphereLight('#ffffff', '#e3d3b0', 0.95));
+const sun = new THREE.DirectionalLight('#fff3dc', 1.15);
+sun.position.set(6, 12, 6);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024,1024);
+sun.shadow.camera.left = -13; sun.shadow.camera.right = 13;
+sun.shadow.camera.top = 13;  sun.shadow.camera.bottom = -13;
+sun.shadow.bias = -0.0006;
+scene.add(sun);
+scene.add(new THREE.AmbientLight('#ffffff', 0.28));
+
+/* 床（右にラウンジ分を延長） */
+const floor = new THREE.Mesh(
+  new THREE.BoxGeometry(15.5, 0.4, 12.8),
+  new THREE.MeshLambertMaterial({ color:'#f3e7cf' })
+);
+floor.position.set(1.1, -0.2, 0);
+floor.receiveShadow = true;
+scene.add(floor);
+
+/* 社長席のラグ（ラウンジと同じ幅に揃える） */
+const rug = new THREE.Mesh(
+  new THREE.BoxGeometry(3.6, 0.06, 2.8),
+  new THREE.MeshLambertMaterial({ color:'#f5dfa4' })
+);
+rug.position.set(6.4, 0.03, -3.7);
+rug.receiveShadow = true;
+scene.add(rug);
+
+/* ═══════════ 休憩室 ═══════════ */
+function buildLounge(){
+  const g = new THREE.Group();
+
+  const loungeRug = new THREE.Mesh(
+    new THREE.BoxGeometry(3.6, 0.05, 4.4),
+    new THREE.MeshLambertMaterial({ color:'#efe0c2' })
   );
+  loungeRug.position.set(6.4, 0.025, 0);
+  loungeRug.receiveShadow = true;
+  g.add(loungeRug);
+
+  const fabric = new THREE.MeshLambertMaterial({ color:'#8e7fb8' });
+  const base = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.45, 3.3), fabric);
+  base.position.set(6.95, 0.225, 0); base.castShadow = true; base.receiveShadow = true; g.add(base);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.75, 3.3), fabric);
+  back.position.set(7.62, 0.6, 0); back.castShadow = true; g.add(back);
+  const armA = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.62, 0.24), fabric);
+  armA.position.set(6.95, 0.5, -1.65); armA.castShadow = true; g.add(armA);
+  const armB = armA.clone(); armB.position.z = 1.65; g.add(armB);
+
+  // ローテーブル（縦通路 x=6.0 にかからない位置）
+  const tableMat = new THREE.MeshLambertMaterial({ color:'#c89b6a' });
+  const tTop = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.09, 1.9), tableMat);
+  tTop.position.set(5.2, 0.42, 0); tTop.castShadow = true; g.add(tTop);
+  const legGeo = new THREE.BoxGeometry(0.08, 0.42, 0.08);
+  const legMat = new THREE.MeshLambertMaterial({ color:'#a5764a' });
+  [[-0.34,-0.8],[0.34,-0.8],[-0.34,0.8],[0.34,0.8]].forEach(([dx,dz])=>{
+    const l = new THREE.Mesh(legGeo, legMat);
+    l.position.set(5.2+dx, 0.21, dz); g.add(l);
+  });
+
+  // コーヒーカップ
+  const cupMat = new THREE.MeshLambertMaterial({ color:'#ffffff' });
+  [-0.5, 0.35].forEach(dz => {
+    const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.06,0.14,10), cupMat);
+    cup.position.set(5.2, 0.53, dz); cup.castShadow = true; g.add(cup);
+  });
+
+  // 観葉植物（通路の外側）
+  const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.17,0.34,10),
+    new THREE.MeshLambertMaterial({ color:'#c96a4e' }));
+  pot.position.set(7.7, 0.17, 2.6); pot.castShadow = true; g.add(pot);
+  const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8),
+    new THREE.MeshLambertMaterial({ color:'#5aa96a' }));
+  leaf.position.set(7.7, 0.62, 2.6); leaf.castShadow = true; g.add(leaf);
+
+  scene.add(g);
+
+  const zoneEl = document.createElement('div');
+  zoneEl.className = 'tag zone';
+  zoneEl.textContent = '☕ 休憩室';
+  const zoneObj = new CSS2DObject(zoneEl);
+  zoneObj.position.set(6.4, 1.7, 2.9);
+  scene.add(zoneObj);
+}
+buildLounge();
+
+/* ═══════════ 奥の壁 ＋ 活動ログ大型モニター ═══════════ */
+const wall = new THREE.Mesh(
+  new THREE.BoxGeometry(12.6, 6.2, 0.25),
+  new THREE.MeshLambertMaterial({ color:'#fffaf0' })
+);
+wall.position.set(0, 3.1, -6.2);
+wall.receiveShadow = true;
+wall.castShadow = true;
+scene.add(wall);
+
+// ログ描画用キャンバス
+const LOG_W = 1280, LOG_H = 640;
+const logCanvas = document.createElement('canvas');
+logCanvas.width = LOG_W; logCanvas.height = LOG_H;
+const lg = logCanvas.getContext('2d');
+const logTexture = new THREE.CanvasTexture(logCanvas);
+logTexture.colorSpace = THREE.SRGBColorSpace;
+
+// モニター本体（ベゼル＋画面）
+const bezel = new THREE.Mesh(
+  new THREE.BoxGeometry(9.0, 4.9, 0.16),
+  new THREE.MeshLambertMaterial({ color:'#2b2440' })
+);
+bezel.position.set(0, 3.35, -6.1);
+bezel.castShadow = true;
+scene.add(bezel);
+
+const logScreen = new THREE.Mesh(
+  new THREE.PlaneGeometry(8.55, 4.5),
+  new THREE.MeshBasicMaterial({ map: logTexture })
+);
+logScreen.position.set(0, 3.35, -6.01);
+scene.add(logScreen);
+
+// 画面下のスタンドライト風ライン
+const bar = new THREE.Mesh(
+  new THREE.BoxGeometry(9.0, 0.1, 0.18),
+  new THREE.MeshBasicMaterial({ color:'#e8a33d' })
+);
+bar.position.set(0, 0.78, -6.1);
+scene.add(bar);
+
+const logs = [];
+function wrapText(text, maxWidth){
+  const out = [];
+  let line = '';
+  for (const ch of text){
+    if (lg.measureText(line + ch).width > maxWidth && line){ out.push(line); line = ch; }
+    else line += ch;
+  }
+  if (line) out.push(line);
+  return out;
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+function drawLog(){
+  // 背景
+  lg.fillStyle = '#1c1733';
+  lg.fillRect(0, 0, LOG_W, LOG_H);
+
+  // ヘッダー
+  lg.fillStyle = '#e8a33d';
+  lg.fillRect(0, 0, LOG_W, 88);
+  lg.fillStyle = '#2b2440';
+  lg.font = 'bold 48px "M PLUS Rounded 1c", sans-serif';
+  lg.textBaseline = 'middle';
+  lg.fillText('活動ログ', 36, 46);
+  lg.font = '26px "DM Mono", monospace';
+  lg.fillText('AXIA AI OFFICE — LIVE', 300, 48);
+
+  if (!logs.length){
+    lg.fillStyle = '#6b6280';
+    lg.font = '32px "Zen Maru Gothic", sans-serif';
+    lg.fillText('まだ動きなし。指示を出すと ここに流れるばい。', 36, 168);
+    logTexture.needsUpdate = true;
+    return;
+  }
+
+  let y = 142;
+  for (const l of logs){
+    if (y > LOG_H - 44) break;
+
+    lg.font = '27px "DM Mono", monospace';
+    lg.fillStyle = '#8d84ad';
+    lg.fillText(l.time, 36, y);
+
+    lg.font = 'bold 34px "M PLUS Rounded 1c", sans-serif';
+    lg.fillStyle = '#e8a33d';
+    lg.fillText(l.name, 150, y);
+    const nameW = lg.measureText(l.name).width;
+
+    lg.font = '31px "Zen Maru Gothic", sans-serif';
+    lg.fillStyle = '#f4f0ff';
+    const startX = 150 + nameW + 20;
+    const lines = wrapText(l.text, LOG_W - startX - 36);
+    lines.slice(0, 2).forEach((line, i) => {
+      lg.fillText(line, i === 0 ? startX : 150, y + i * 38);
+    });
+    y += 38 * Math.min(lines.length, 2) + 26;
+  }
+  logTexture.needsUpdate = true;
+}
+
+function pushLog(name, text){
+  const time = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
+  logs.unshift({ time, name, text });
+  if (logs.length > 12) logs.pop();
+  drawLog();
+}
+drawLog();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawLog);   // フォント読込後に描き直す
+
+/* ═══════════ パーツ ═══════════ */
+function makeDesk(){
+  const g = new THREE.Group();
+  const woodTop = new THREE.MeshLambertMaterial({ color:'#c89b6a' });
+  const woodLeg = new THREE.MeshLambertMaterial({ color:'#a5764a' });
+
+  const top = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.12, 1.1), woodTop);
+  top.position.y = 0.78; top.castShadow = true; top.receiveShadow = true; g.add(top);
+
+  const legGeo = new THREE.BoxGeometry(0.12, 0.78, 0.12);
+  [[-0.9,-0.45],[0.9,-0.45],[-0.9,0.45],[0.9,0.45]].forEach(([x,z])=>{
+    const l = new THREE.Mesh(legGeo, woodLeg);
+    l.position.set(x, 0.39, z); l.castShadow = true; g.add(l);
+  });
+
+  const stand = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.22, 0.1),
+    new THREE.MeshLambertMaterial({ color:'#3a3a4a' }));
+  stand.position.set(0.45, 0.95, 0); g.add(stand);
+  const screenBack = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.58, 0.06),
+    new THREE.MeshLambertMaterial({ color:'#3a3a4a' }));
+  screenBack.position.set(0.45, 1.35, 0); screenBack.castShadow = true; g.add(screenBack);
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.78, 0.46),
+    new THREE.MeshBasicMaterial({ color:'#8fd4ff' }));
+  screen.position.set(0.45, 1.35, -0.035);
+  screen.rotation.y = Math.PI;      // 画面は社員側（-z）を向く
+  g.add(screen);
+
+  const paper = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.02, 0.3),
+    new THREE.MeshLambertMaterial({ color:'#ffffff' }));
+  paper.position.set(-0.5, 0.85, 0.2); paper.rotation.y = 0.2; g.add(paper);
+
+  g.userData.screen = screen;
+  return g;
+}
+
+function makeChair(){
+  const g = new THREE.Group();
+  const m = new THREE.MeshLambertMaterial({ color:'#6b6280' });
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.1, 0.6), m);
+  seat.position.y = 0.46; seat.castShadow = true; g.add(seat);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.62, 0.1), m);
+  back.position.set(0, 0.8, 0.28); back.castShadow = true; g.add(back);
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.46,8),
+    new THREE.MeshLambertMaterial({ color:'#3a3a4a' }));
+  pole.position.y = 0.23; g.add(pole);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.34,0.06,10),
+    new THREE.MeshLambertMaterial({ color:'#3a3a4a' }));
+  base.position.y = 0.04; g.add(base);
+  return g;
+}
+
+/* AI社員（座り／立ちの2ポーズを切り替え可能） */
+function makeWorker(hairColor, shirtColor){
+  const g = new THREE.Group();
+  const skin  = new THREE.MeshLambertMaterial({ color:'#ffd9b3' });
+  const shirt = new THREE.MeshLambertMaterial({ color: shirtColor });
+  const hair  = new THREE.MeshLambertMaterial({ color: hairColor });
+  const dark  = new THREE.MeshLambertMaterial({ color:'#2e3350' });
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.62, 0.42), shirt);
+  body.position.y = 0.86; body.castShadow = true; g.add(body);
+
+  const armGeo = new THREE.BoxGeometry(0.15, 0.15, 0.5);
+  const armL = new THREE.Mesh(armGeo, shirt); armL.castShadow = true; g.add(armL);
+  const armR = new THREE.Mesh(armGeo, shirt); armR.castShadow = true; g.add(armR);
+  const handGeo = new THREE.BoxGeometry(0.15, 0.14, 0.14);
+  const handL = new THREE.Mesh(handGeo, skin); g.add(handL);
+  const handR = new THREE.Mesh(handGeo, skin); g.add(handR);
+
+  const legGeo = new THREE.BoxGeometry(0.2, 0.16, 0.5);
+  const legL = new THREE.Mesh(legGeo, dark); legL.castShadow = true; g.add(legL);
+  const legR = new THREE.Mesh(legGeo, dark); legR.castShadow = true; g.add(legR);
+
+  const headG = new THREE.Group();
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.46, 0.44), skin);
+  head.castShadow = true; headG.add(head);
+  const hairTop = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.16, 0.48), hair);
+  hairTop.position.y = 0.25; hairTop.castShadow = true; headG.add(hairTop);
+  const hairBack = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.3, 0.1), hair);
+  hairBack.position.set(0, 0.06, 0.2); headG.add(hairBack);
+  const eyeGeo = new THREE.BoxGeometry(0.07, 0.09, 0.03);
+  const eyeMat = new THREE.MeshBasicMaterial({ color:'#3a3028' });
+  const eyeL = new THREE.Mesh(eyeGeo, eyeMat); eyeL.position.set(-0.12, 0.02, -0.225); headG.add(eyeL);
+  const eyeR = new THREE.Mesh(eyeGeo, eyeMat); eyeR.position.set( 0.12, 0.02, -0.225); headG.add(eyeR);
+  headG.position.y = 1.42;
+  g.add(headG);
+
+  g.userData = { head: headG, armL, armR, handL, handR, legL, legR };
+  setPose(g, true);
+  return g;
+}
+
+/* 座り姿勢 / 立ち姿勢の切り替え */
+function setPose(w, sitting){
+  const u = w.userData;
+  if (sitting){
+    u.armL.rotation.x = 0; u.armL.position.set(-0.36, 0.92, -0.22);
+    u.armR.rotation.x = 0; u.armR.position.set( 0.36, 0.92, -0.22);
+    u.handL.position.set(-0.36, 0.92, -0.5);
+    u.handR.position.set( 0.36, 0.92, -0.5);
+    u.legL.rotation.x = 0; u.legL.position.set(-0.16, 0.5, -0.22);
+    u.legR.rotation.x = 0; u.legR.position.set( 0.16, 0.5, -0.22);
+  } else {
+    u.armL.rotation.x = -Math.PI/2; u.armL.position.set(-0.36, 0.85, 0);
+    u.armR.rotation.x = -Math.PI/2; u.armR.position.set( 0.36, 0.85, 0);
+    u.handL.position.set(-0.36, 0.55, 0);
+    u.handR.position.set( 0.36, 0.55, 0);
+    u.legL.rotation.x = -Math.PI/2; u.legL.position.set(-0.16, 0.25, 0);
+    u.legR.rotation.x = -Math.PI/2; u.legR.position.set( 0.16, 0.25, 0);
+  }
+  w.userData.sitting = sitting;
+}
+
+/* 進行方向 d を向くときの rotation.y（モデルの正面は -z） */
+const yawTo = (dx, dz) => Math.atan2(-dx, -dz);
+const YAW_DESK  = yawTo(0, 1);        // 机（+z）を向く
+const yawToward = (from, to) => yawTo(to.x - from.x, to.z - from.z);
+
+/* ═══════════ 生成 ═══════════ */
+const A = {};          // id → アバター情報
+const pickables = [];
+
+Object.keys(DESKS).forEach(k => {
+  const id = Number(k);
+  const cfg = DESKS[id];
+
+  // 机と椅子（固定）
+  const dg = new THREE.Group();
+  if (cfg.solo){
+    dg.position.set(cfg.solo.x, 0, cfg.solo.z);
+    dg.rotation.y = cfg.solo.rotY;
+  } else {
+    dg.position.set(gridX(cfg.col), 0, gridZ(cfg.row));
+  }
+  const desk = makeDesk();
+  dg.add(desk);
+  const chair = makeChair();
+  chair.position.set(0, 0, -1.05);
+  chair.rotation.y = Math.PI;
+  dg.add(chair);
+  scene.add(dg);
+
+  // 社員（シーン直下＝世界座標で自由に動ける）
+  const worker = makeWorker('#7a4e2d', '#4f8ef7');
+  worker.position.copy(deskSeat(id));
+  worker.rotation.y = seatYaw(id);
+  worker.userData.deskId = id;
+  scene.add(worker);
+  pickables.push(worker);
+
+  const tagEl = document.createElement('div');
+  tagEl.className = 'tag';
+  tagEl.innerHTML = '<span class="pip"></span><span class="nm"></span>';
+  const tagObj = new CSS2DObject(tagEl);
+  tagObj.position.set(0, 2.15, 0);
+  worker.add(tagObj);
+
+  const bubEl = document.createElement('div');
+  bubEl.className = 'bub';
+  const bubObj = new CSS2DObject(bubEl);
+  bubObj.position.set(0, 2.75, 0);
+  bubObj.visible = false;
+  worker.add(bubObj);
+
+  A[id] = {
+    id, desk, worker, tagEl, bubEl, bubObj, tagObj,
+    mode: 'desk',
+    path: [],
+    yaw: seatYaw(id),
+    waitUntil: 0,
+    seatIdx: null,
+  };
+});
+
+/* ═══════════ 経路（机・家具を避けて通路だけを通る） ═══════════ */
+const nearestAisleZ = z => AISLE_Z.reduce((a,b) => Math.abs(b-z) < Math.abs(a-z) ? b : a);
+const nearestLaneX  = x => LANES_X.reduce((a,b) => Math.abs(b-x) < Math.abs(a-x) ? b : a);
+
+/* 現在地 → 縦レーン laneX の crossZ まで出るまでの経路 */
+function seg(a, laneX, crossZ, fromLounge){
+  const p = a.worker.position;
+  const out = [];
+  let cx = p.x, cz = p.z;
+
+  // ソファに座っていた場合は、まずソファ手前の縦通路へ抜ける
+  if (fromLounge && cx > 5.6){
+    out.push(V3(LOUNGE_LANE_X, cz));
+    cx = LOUNGE_LANE_X;
+    const ez = cz >= 0 ? 1.25 : -2.15;
+    if (Math.abs(cz - ez) > 0.08){ out.push(V3(cx, ez)); cz = ez; }
+  }
+
+  const az = nearestAisleZ(cz);
+  if (Math.abs(cz - az) > 0.08){ out.push(V3(cx, az)); cz = az; }        // 通路まで下がる
+  if (Math.abs(cx - laneX) > 0.08){ out.push(V3(laneX, az)); cx = laneX; } // 通路を横移動
+  if (Math.abs(crossZ - az) > 0.08){ out.push(V3(laneX, crossZ)); }       // 縦レーンを移動
+  return out;
+}
+
+const loungeSeatsTaken = {};
+function claimSeat(a){
+  if (a.seatIdx !== null) return a.seatIdx;
+  for (let i = 0; i < SOFA_SEATS.length; i++){
+    if (!loungeSeatsTaken[i]){ loungeSeatsTaken[i] = a.id; a.seatIdx = i; return i; }
+  }
+  return null;
+}
+function releaseSeat(a){
+  if (a.seatIdx !== null){ delete loungeSeatsTaken[a.seatIdx]; a.seatIdx = null; }
+}
+
+function goDesk(a){
+  const wasLounge = (a.mode === 'lounge');
+  releaseSeat(a);
+  a.mode = 'desk';
+  const ap = deskApproach(a.id), seat = deskSeat(a.id);
+  a.path = [...seg(a, nearestLaneX(ap.x), ap.z, wasLounge), V3(ap.x, ap.z), seat];
+}
+function goLounge(a){
+  const wasLounge = (a.mode === 'lounge');
+  const i = claimSeat(a);
+  if (i === null){ goWander(a); return; }   // 満席なら歩き回る
+  a.mode = 'lounge';
+  const s = SOFA_SEATS[i];
+  const cz = s.z >= 0 ? 1.25 : -2.15;
+  a.path = [...seg(a, 1.7, cz, wasLounge), V3(LOUNGE_LANE_X, cz), V3(LOUNGE_LANE_X, s.z), V3(s.x, s.z)];
+}
+function goWander(a){
+  const wasLounge = (a.mode === 'lounge');
+  releaseSeat(a);
+  a.mode = 'wander';
+  const wp = WAYPOINTS[Math.floor(Math.random() * WAYPOINTS.length)];
+  a.path = [...seg(a, nearestLaneX(wp.x), wp.z, wasLounge), V3(wp.x, wp.z)];
+}
+
+function desiredMode(status){
+  if (status === '進行中') return 'desk';
+  if (status === '保留' || status === '完了') return 'lounge';
+  return 'wander';
+}
+
+/* ═══════════ データ ═══════════ */
+let rows = [];
+let selectedId = null;
+
+function applyRow(r){
+  const a = A[r.id];
+  if (!a) return;
+  const av = r.avatar || {};
+
+  a.tagEl.querySelector('.nm').textContent = av.name || DESKS[r.id].plate;
+  a.tagEl.querySelector('.pip').style.background = STATUS_COLOR[r.status] || '#9c93b0';
+  a.tagEl.classList.toggle('selected', selectedId === r.id);
+
+  const text = r.memo || r.task_name || '';
+  a.bubEl.textContent = text;
+  a.bubObj.visible = !!text && (r.status === '進行中' || selectedId === r.id);
+
+  const scr = a.desk.userData.screen;
+  if (scr) scr.material.color.set(r.status === '進行中' ? '#8fd4ff' : '#7d8494');
+
+  // 状態が変わったら行動を切り替える（前回statusと比較して確実に検知）
+  const want = desiredMode(r.status);
+  const statusChanged = (a.status !== r.status);
+  if (want !== a.mode || (want === 'desk' && statusChanged)){
+    if (want === 'desk')        goDesk(a);
+    else if (want === 'lounge') goLounge(a);
+    else                        goWander(a);
+  }
+  a.status = r.status;
+}
+
+function rebuildColors(){
+  rows.forEach(r => {
+    const a = A[r.id];
+    if (!a) return;
+    const av = r.avatar || {};
+    const hairColor  = HAIR[Number.isInteger(av.hair) ? av.hair % HAIR.length : 4];
+    const shirtColor = SHIRT[Number.isInteger(av.shirt) ? av.shirt % SHIRT.length : 0];
+
+    const old = a.worker;
+    const nw = makeWorker(hairColor, shirtColor);
+    nw.position.copy(old.position);
+    nw.rotation.y = old.rotation.y;
+    nw.userData.deskId = r.id;
+    nw.add(a.tagObj);
+    nw.add(a.bubObj);
+    scene.remove(old);
+    scene.add(nw);
+    const i = pickables.indexOf(old);
+    if (i >= 0) pickables[i] = nw;
+    a.worker = nw;
+  });
+}
+
+function renderAll(){ rows.forEach(applyRow); renderHud(); renderSelect(); }
+
+function renderHud(){
+  const c = {進行中:0, 未着手:0, 保留:0, 完了:0};
+  rows.forEach(r => { if (A[r.id] && c[r.status] !== undefined) c[r.status]++; });
+  const chips = document.getElementById('chips');
+  chips.innerHTML = '';
+  [['作業中','進行中'],['待機','未着手'],['保留','保留'],['完了','完了']].forEach(([label,key])=>{
+    const s = document.createElement('span');
+    s.className = 'hud-chip';
+    s.innerHTML = `<span class="dot" style="background:${STATUS_COLOR[key]}"></span>${label}<b>${c[key]}</b>`;
+    chips.appendChild(s);
+  });
+}
+
+function renderSelect(){
+  const sel = document.getElementById('who');
+  sel.innerHTML = '<option value="">— 誰に指示する？ —</option>';
+  rows.forEach(r => {
+    if (!A[r.id]) return;
+    const o = document.createElement('option');
+    o.value = String(r.id);
+    o.textContent = (r.avatar && r.avatar.name) || DESKS[r.id].plate;
+    sel.appendChild(o);
+  });
+  sel.value = selectedId ? String(selectedId) : '';
+  syncSendBtn();
+}
+
+/* ═══════════ 操作 ═══════════ */
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+let downPos = null;
+
+renderer.domElement.addEventListener('pointerdown', e => { downPos = {x:e.clientX, y:e.clientY}; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!downPos) return;
+  const moved = Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y);
+  downPos = null;
+  if (moved > 6) return;
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(pickables, true);
+  if (!hits.length){ selectedId = null; renderAll(); return; }
+
+  let o = hits[0].object;
+  while (o && o.userData.deskId === undefined) o = o.parent;
+  if (!o) return;
+  selectedId = (selectedId === o.userData.deskId) ? null : o.userData.deskId;
+  renderAll();
+});
+
+document.getElementById('btnSpin').addEventListener('click', e => {
+  controls.autoRotate = !controls.autoRotate;
+  e.target.classList.toggle('on', controls.autoRotate);
+  e.target.textContent = controls.autoRotate ? '自動回転 ON' : '自動回転 OFF';
+});
+document.getElementById('btnReset').addEventListener('click', () => {
+  camera.position.copy(HOME);
+  controls.target.set(1.1, 0.9, 0);
+  controls.update();
+});
+const btnFull = document.getElementById('btnFull');
+btnFull.addEventListener('click', () => {
+  if (!document.fullscreenElement){
+    stage.requestFullscreen && stage.requestFullscreen();
+  } else {
+    document.exitFullscreen && document.exitFullscreen();
+  }
+});
+document.addEventListener('fullscreenchange', () => {
+  const on = !!document.fullscreenElement;
+  btnFull.textContent = on ? '全画面を閉じる' : '全画面';
+  btnFull.classList.toggle('on', on);
+  setTimeout(resize, 60);
+});
+
+const who = document.getElementById('who');
+const msg = document.getElementById('msg');
+const send = document.getElementById('send');
+const toast = document.getElementById('toast');
+function syncSendBtn(){ send.disabled = !(who.value && msg.value.trim()); }
+who.addEventListener('change', () => { selectedId = who.value ? Number(who.value) : null; renderAll(); });
+msg.addEventListener('input', syncSendBtn);
+msg.addEventListener('keydown', e => { if (e.key === 'Enter' && !send.disabled) send.click(); });
+send.addEventListener('click', async () => {
+  const id = Number(who.value), text = msg.value.trim();
+  if (!id || !text) return;
+  send.disabled = true; toast.textContent = '送信中…'; toast.style.color = '#c9c0e0';
+  const { data, error } = await sb.from(TABLE)
+    .update({ memo: text, status:'進行中' })
+    .eq('id', id)
+    .select();
+  if (error){ toast.textContent = '送信失敗：' + error.message; toast.style.color = '#ffb3a3'; send.disabled = false; return; }
+  if (!data || !data.length){
+    toast.textContent = '更新できんかった（該当IDなし／権限）';
+    toast.style.color = '#ffb3a3'; send.disabled = false; return;
+  }
+  // Realtimeを待たず、その場で反映して動かす
+  const i = rows.findIndex(r => r.id === id);
+  if (i >= 0) rows[i] = data[0]; else rows.push(data[0]);
+  pushLog((data[0].avatar && data[0].avatar.name) || DESKS[id].plate, `「${text}」`);
+  renderAll();
+  toast.textContent = '指示を送ったばい';
+  toast.style.color = '#9be8a8';
+  msg.value = '';
+  syncSendBtn();
+});
+
+/* ═══════════ 読み込み & Realtime ═══════════ */
+(async () => {
+  const { data, error } = await sb.from(TABLE).select('*').order('id');
+  document.getElementById('loading').style.display = 'none';
+  if (error){ document.getElementById('sub').textContent = '読み込み失敗：' + error.message; return; }
+  rows = data || [];
+  rebuildColors();
+  // 初期状態に応じて即座に配置を決める
+  rows.forEach(r => {
+    const a = A[r.id];
+    if (!a) return;
+    const want = desiredMode(r.status);
+    if (want === 'lounge')      goLounge(a);
+    else if (want === 'wander') goWander(a);
+    else                        goDesk(a);
+  });
+  renderAll();
+})();
+
+let realtimeOK = false;
+sb.channel('ai-office-3d')
+  .on('postgres_changes', { event:'*', schema:'public', table:TABLE }, payload => {
+    if (payload.eventType === 'DELETE'){
+      rows = rows.filter(r => r.id !== payload.old.id);
+    } else {
+      const i = rows.findIndex(r => r.id === payload.new.id);
+      if (i >= 0) rows[i] = payload.new; else rows.push(payload.new);
+      rows.sort((a,b) => a.id - b.id);
+    }
+    if (payload.eventType === 'UPDATE'){
+      const b = payload.old || {}, n = payload.new || {};
+      const nm = (n.avatar && n.avatar.name) || n.project_name || '';
+      if (b.memo !== n.memo && n.memo)      pushLog(nm, `「${n.memo}」`);
+      else if (b.status !== n.status)       pushLog(nm, n.status);
+    }
+    renderAll();
+  })
+  .subscribe(status => {
+    realtimeOK = (status === 'SUBSCRIBED');
+    const sub = document.getElementById('sub');
+    if (status === 'SUBSCRIBED')      sub.textContent = 'axia_cowork_office と Realtime連携中 🟢';
+    else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT')
+                                      sub.textContent = 'Realtime未接続（自動更新で同期中）🟠';
+  });
+
+/* Realtimeが死んでても動くよう、10秒ごとにDBを読み直す保険 */
+async function poll(){
+  const { data, error } = await sb.from(TABLE).select('*').order('id');
+  if (error || !data) return;
+  let changed = false;
+  data.forEach(nr => {
+    const i = rows.findIndex(r => r.id === nr.id);
+    if (i < 0){ rows.push(nr); changed = true; return; }
+    const old = rows[i];
+    if (old.status !== nr.status || old.memo !== nr.memo ||
+        JSON.stringify(old.avatar) !== JSON.stringify(nr.avatar)){
+      // Realtimeが取りこぼした変化をログに出す
+      if (!realtimeOK){
+        const nm = (nr.avatar && nr.avatar.name) || nr.project_name || '';
+        if (old.memo !== nr.memo && nr.memo) pushLog(nm, `「${nr.memo}」`);
+        else if (old.status !== nr.status)   pushLog(nm, nr.status);
+      }
+      rows[i] = nr; changed = true;
+    }
+  });
+  if (changed){ rows.sort((a,b)=>a.id-b.id); renderAll(); }
+}
+setInterval(poll, 10000);
+
+/* ═══════════ リサイズ & ループ ═══════════ */
+function resize(){
+  const w = stage.clientWidth, h = stage.clientHeight;
+  if (!w || !h) return;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+  labelRenderer.setSize(w, h);
+}
+new ResizeObserver(resize).observe(stage);
+resize();
+
+const SPEED = 1.35;              // 歩く速さ（単位/秒）
+const clock = new THREE.Clock();
+
+function stepAvatar(a, dt, t){
+  const w = a.worker;
+  const p = w.position;
+
+  if (a.path.length){
+    // ── 移動中 ──
+    const tgt = a.path[0];
+    const dx = tgt.x - p.x, dz = tgt.z - p.z;
+    const dist = Math.hypot(dx, dz);
+
+    if (dist < 0.06){
+      a.path.shift();
+      if (!a.path.length){
+        // 到着
+        if (a.mode === 'desk')        a.yaw = seatYaw(a.id);
+        else if (a.mode === 'lounge') a.yaw = yawTo(-1, 0);        // ソファは office 側（-x）を向く
+        else                          a.waitUntil = t + 1.5 + Math.random() * 3.5;
+      }
+    } else {
+      if (w.userData.sitting) setPose(w, false);
+      const k = Math.min(1, (SPEED * dt) / dist);
+      p.x += dx * k; p.z += dz * k;
+      a.yaw = yawToward({x:p.x - dx*k, z:p.z - dz*k}, tgt);
+
+      // 歩行モーション
+      const sw = Math.sin(t * 9 + a.id) * 0.5;
+      w.userData.legL.rotation.x = -Math.PI/2 + sw;
+      w.userData.legR.rotation.x = -Math.PI/2 - sw;
+      w.userData.armL.rotation.x = -Math.PI/2 - sw * 0.5;
+      w.userData.armR.rotation.x = -Math.PI/2 + sw * 0.5;
+      w.position.y = Math.abs(Math.sin(t * 9 + a.id)) * 0.035;
+    }
+  } else {
+    // ── 到着後 ──
+    if (a.mode === 'desk' || a.mode === 'lounge'){
+      if (!w.userData.sitting) setPose(w, true);
+      w.position.y = 0;
+
+      if (a.mode === 'desk' && a.status === '進行中'){
+        // タイピング
+        const s = Math.sin(t * 9 + a.id) * 0.12;
+        w.userData.armL.rotation.x =  s;
+        w.userData.armR.rotation.x = -s;
+        w.position.y = Math.sin(t * 6 + a.id) * 0.02;
+      }
+      // 休憩中はゆっくり首を振る
+      w.userData.head.rotation.y = Math.sin(t * (a.mode === 'lounge' ? 0.5 : 1.4) + a.id) * (a.mode === 'lounge' ? 0.25 : 0.08);
+    } else {
+      // うろうろ待機中：立ち止まってきょろきょろ
+      if (w.userData.sitting) setPose(w, false);
+      w.position.y = 0;
+      w.userData.head.rotation.y = Math.sin(t * 0.7 + a.id) * 0.35;
+      if (t > a.waitUntil) goWander(a);
+    }
+  }
+
+  // 向きを滑らかに合わせる
+  let d = a.yaw - w.rotation.y;
+  while (d >  Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  w.rotation.y += d * Math.min(1, dt * 9);
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t  = clock.elapsedTime;
+  Object.values(A).forEach(a => stepAvatar(a, dt, t));
+  controls.update();
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+}
+animate();
 </script>
 </body>
 </html>
