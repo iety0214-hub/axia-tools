@@ -204,12 +204,18 @@ function Card({ r, settings, open, onToggle, onPatch, onDelete, onMove, isFirst,
               {f.type === 'text' && (
                 <TextInput value={fv[f.key] || ''} onCommit={v => set(f.key, v)} placeholder={f.label} />
               )}
-              {f.type === 'select' && (
-                <React.Fragment>
-                  <TextInput value={fv[f.key] || ''} onCommit={v => set(f.key, v)} placeholder={f.label} list={'dl_' + f.key} />
-                  <datalist id={'dl_' + f.key}>{(f.options || []).map(o => <option key={o} value={o} />)}</datalist>
-                </React.Fragment>
-              )}
+              {f.type === 'select' && (() => {
+                const cur = fv[f.key] || '';
+                const opts = f.options || [];
+                const extra = cur && !opts.includes(cur);
+                return (
+                  <select value={cur} onChange={e => set(f.key, e.target.value)} style={inp}>
+                    <option value="">— 未選択 —</option>
+                    {opts.map(o => <option key={o} value={o}>{o}</option>)}
+                    {extra && <option value={cur}>{cur}（一覧外）</option>}
+                  </select>
+                );
+              })()}
               {f.type === 'date' && (
                 <input type="date" value={fv[f.key] || ''} onChange={e => set(f.key, e.target.value)} style={inpM} />
               )}
@@ -298,11 +304,25 @@ function SettingsScreen({ settings, onSave, onClose }) {
                     {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
                   </select>
                   {f.type === 'select' && (
-                    <div style={{ marginTop: 6 }}>
-                      <div style={{ fontSize: 11, color: SUB, marginBottom: 3 }}>選択肢（カンマ区切り）</div>
-                      <TextInput value={(f.options || []).join(',')}
-                        onCommit={v => updF(i, { options: v.split(',').map(s => s.trim()).filter(Boolean) })}
-                        placeholder="SBJ銀行,オリックス銀行" />
+                    <div style={{ marginTop: 8, background: '#fff', border: `1px solid ${LINE}`, borderRadius: 8, padding: 8 }}>
+                      <div style={{ fontSize: 11, color: SUB, marginBottom: 6, fontWeight: 500 }}>
+                        プルダウンの選択肢（ここを直すと全員の画面に反映）
+                      </div>
+                      {(f.options || []).map((o, oi) => (
+                        <div key={oi} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                          <TextInput value={o} onCommit={v => {
+                            const no = [...(f.options || [])];
+                            if (v.trim()) no[oi] = v.trim(); else no.splice(oi, 1);
+                            updF(i, { options: no });
+                          }} />
+                          <button onClick={() => {
+                            if (!confirm(`「${o}」を選択肢から消す？\n※すでに選んどる人の分はそのまま残るよ`)) return;
+                            updF(i, { options: (f.options || []).filter((_, x) => x !== oi) });
+                          }} style={{ border: '1px solid #f0c9c9', background: '#fff6f6', color: '#c14040', borderRadius: 8, padding: '0 10px', fontSize: 12, cursor: 'pointer' }}>🗑</button>
+                        </div>
+                      ))}
+                      <button onClick={() => updF(i, { options: [...(f.options || []), '新しい選択肢'] })}
+                        style={{ ...subBtn, width: '100%', borderStyle: 'dashed', padding: 8, fontSize: 12 }}>＋ 選択肢を追加</button>
                     </div>
                   )}
                   <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
