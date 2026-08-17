@@ -10,8 +10,8 @@
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body { margin:0; background:#f5f6f8; font-family:'Noto Sans JP',sans-serif; color:#1e2a4a; }
-  input, select, button { font-family:'Noto Sans JP',sans-serif; }
-  input:focus, select:focus { outline:2px solid #c8a94a; outline-offset:0; }
+  input, select, button, textarea { font-family:'Noto Sans JP',sans-serif; }
+  input:focus, select:focus, textarea:focus { outline:2px solid #c8a94a; outline-offset:0; }
   .mono { font-family:'DM Mono',monospace; }
 </style>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -25,19 +25,34 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback } = React;
 
-/* ===== Supabase 接続 ===== */
+/* ===== Supabase ===== */
 const SUPABASE_URL = 'https://zrqdoorolwvjlwuatlkc.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpycWRvb3JvbHd2amx3dWF0bGtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxODYwMDksImV4cCI6MjA5Mzc2MjAwOX0.TMdTX0a3c7weNqgmW_IrRGlnV7VfWeAZrktc5M5qh98';
 const TABLE = 'axia_kinsho';
+const STABLE = 'axia_kinsho_settings';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ===== 定数 ===== */
 const LOGO = 'https://raw.githubusercontent.com/iety0214-hub/axia-tools/main/%E9%80%8F%E9%81%8E.png';
-const NAVY = '#1e2a4a', GOLD = '#c8a94a', LINE = '#e3e6ec';
+const NAVY = '#1e2a4a', GOLD = '#c8a94a', LINE = '#e3e6ec', SUB = '#6b7280';
 const WD = ['日','月','火','水','木','金','土'];
-const BANKS = ['SBJ銀行','オリックス銀行','静岡銀行','東京スター銀行','イオン銀行','関西みらい銀行','三井住友トラストL&F','日本政策金融公庫','その他'];
+const TYPES = [
+  { v: 'text', l: '文字（自由入力）' },
+  { v: 'select', l: '選択肢つき' },
+  { v: 'date', l: '日付' },
+  { v: 'datetime', l: '日付＋時刻' },
+];
+
+const DEFAULT_SETTINGS = {
+  appTitle: '金消予定日 一覧',
+  subTitle: 'AXIA JAPAN ／ 仕入れ事業部',
+  nameLabel: '名前',
+  mainKey: 'kinsho',
+  fields: [],
+};
 
 /* ===== ユーティリティ ===== */
+const genKey = () => 'f_' + Math.random().toString(36).slice(2, 8);
 const ym = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
 const ymLabel = (k) => { const [y, m] = k.split('-'); return `${y}年${Number(m)}月`; };
 const addMonth = (k, n) => { const [y, m] = k.split('-').map(Number); return ym(new Date(y, m - 1 + n, 1)); };
@@ -48,17 +63,37 @@ const fmtDate = (s) => {
   if (isNaN(d)) return s;
   return `${d.getMonth() + 1}月${d.getDate()}日（${WD[d.getDay()]}）`;
 };
-const fmtKinsho = (r) => {
-  if (r.kinsho_note === 'none') return '記載なし';
-  if (!r.kinsho_date) return '未定';
-  return fmtDate(r.kinsho_date) + (r.kinsho_time ? ' ' + r.kinsho_time : ' 予定');
+const dtVal = (v) => (v && typeof v === 'object') ? v : { d: '', t: '', none: false };
+const fmtDT = (v) => {
+  const o = dtVal(v);
+  if (o.none) return '記載なし';
+  if (!o.d) return '未定';
+  return fmtDate(o.d) + (o.t ? ' ' + o.t : ' 予定');
+};
+const fmtField = (f, v) => {
+  if (f.type === 'datetime') return fmtDT(v);
+  if (f.type === 'date') return fmtDate(v || '');
+  return v || '';
+};
+const hasVal = (f, v) => {
+  if (f.type === 'datetime') { const o = dtVal(v); return !!o.d || o.none; }
+  return !!(v && String(v).length);
 };
 
-/* ===== DB操作 ===== */
+/* ===== DB ===== */
 const dbLoad = async () => {
   const { data, error } = await sb.from(TABLE).select('*').order('id');
   if (error) { console.error(error); return []; }
   return data || [];
+};
+const dbLoadSettings = async () => {
+  const { data, error } = await sb.from(STABLE).select('settings').eq('id', 1).single();
+  if (error) { console.error(error); return null; }
+  return data ? data.settings : null;
+};
+const dbSaveSettings = async (s) => {
+  const { error } = await sb.from(STABLE).upsert({ id: 1, settings: s, updated_at: new Date().toISOString() });
+  if (error) console.error(error);
 };
 const dbInsert = async (row) => {
   const { data, error } = await sb.from(TABLE).insert(row).select().single();
@@ -74,7 +109,22 @@ const dbDelete = async (id) => {
   if (error) console.error(error);
 };
 
-/* ===== 入力（blur時コミット） ===== */
+/* ===== 共通スタイル ===== */
+const inp = { width: '100%', padding: '9px 10px', border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 14, background: '#fff' };
+const inpM = { ...inp, fontFamily: 'DM Mono, monospace' };
+const navBtn = { padding: '8px 12px', border: 'none', borderRadius: 8, background: 'rgba(255,255,255,.12)', color: '#fff', fontSize: 13, cursor: 'pointer' };
+const subBtn = { flex: 1, padding: '11px', border: `1px solid ${LINE}`, background: '#fff', color: NAVY, borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer' };
+
+function Row({ label, children }) {
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ fontSize: 11, color: SUB, marginBottom: 4, fontWeight: 500 }}>{label}</div>
+      {children}
+    </div>
+  );
+}
+
+/* ===== blur時コミット入力 ===== */
 function TextInput({ value, onCommit, placeholder, style, list }) {
   const [local, setLocal] = useState(value || '');
   const focused = useRef(false);
@@ -89,81 +139,98 @@ function TextInput({ value, onCommit, placeholder, style, list }) {
       onChange={e => setLocal(e.target.value)}
       onFocus={() => focused.current = true}
       onBlur={() => { focused.current = false; if (local !== (value || '')) onCommit(local); }}
-      style={{ width: '100%', padding: '9px 10px', border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 14, background: '#fff', ...style }}
+      style={{ ...inp, ...style }}
     />
   );
 }
 
-const inp = { width: '100%', padding: '9px 10px', border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 14, background: '#fff', fontFamily: 'DM Mono, monospace' };
+/* ===== カード ===== */
+function Card({ r, settings, open, onToggle, onPatch, onDelete, onMove, isFirst, isLast }) {
+  const F = settings.fields;
+  const fv = r.fields || {};
+  const prog = F.filter(f => f.progress);
+  const done = prog.filter(f => hasVal(f, fv[f.key])).length;
+  const subs = F.filter(f => f.sub);
+  const main = F.find(f => f.key === settings.mainKey);
+  const mainTxt = main ? fmtField(main, fv[main.key]) : '';
+  const mainOn = main && hasVal(main, fv[main.key]) && !(main.type === 'datetime' && dtVal(fv[main.key]).none);
 
-function Row({ label, children }) {
-  return (
-    <div style={{ marginTop: 10 }}>
-      <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4, fontWeight: 500 }}>{label}</div>
-      {children}
-    </div>
-  );
-}
+  const set = (k, v) => onPatch({ fields: { ...fv, [k]: v } });
 
-const steps = (r) => [
-  { k: '銀', ok: !!r.bank },
-  { k: '承', ok: !!r.approval_date },
-  { k: '契', ok: !!r.contract_date },
-  { k: '金', ok: !!r.kinsho_date },
-];
-
-function Card({ r, open, onToggle, onPatch, onDelete }) {
-  const st = steps(r);
-  const done = st.filter(s => s.ok).length;
-  const fixed = r.kinsho_date && r.kinsho_note !== 'none';
   return (
     <div style={{ background: '#fff', borderRadius: 12, marginBottom: 10, border: `1px solid ${LINE}`, overflow: 'hidden', boxShadow: '0 1px 2px rgba(30,42,74,.05)' }}>
       <div onClick={onToggle} style={{ padding: '12px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>{r.name || '（未入力）'}</div>
-          <div style={{ fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {r.bukken}{r.room ? ' ' + r.room : ''}
-          </div>
-          <div className="mono" style={{ fontSize: 13, marginTop: 5, color: fixed ? NAVY : '#9ca3af', fontWeight: fixed ? 500 : 400 }}>
-            🗓 {fmtKinsho(r)}
-          </div>
+          {subs.length > 0 && (
+            <div style={{ fontSize: 12, color: SUB, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {subs.map(f => fmtField(f, fv[f.key])).filter(Boolean).join(' ・ ')}
+            </div>
+          )}
+          {main && (
+            <div className="mono" style={{ fontSize: 13, marginTop: 5, color: mainOn ? NAVY : '#9ca3af', fontWeight: mainOn ? 500 : 400 }}>
+              🗓 {mainTxt || '未定'}
+            </div>
+          )}
         </div>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ display: 'flex', gap: 3, marginBottom: 4 }}>
-            {st.map((s, i) => (
-              <div key={i} style={{
-                width: 20, height: 20, borderRadius: '50%', fontSize: 10, lineHeight: '20px',
-                background: s.ok ? GOLD : '#eef0f4', color: s.ok ? '#fff' : '#b6bcc7', fontWeight: 700
-              }}>{s.k}</div>
-            ))}
+          <div style={{ display: 'flex', gap: 3, marginBottom: 4, justifyContent: 'flex-end' }}>
+            {prog.map(f => {
+              const ok = hasVal(f, fv[f.key]);
+              return (
+                <div key={f.key} title={f.label} style={{
+                  width: 20, height: 20, borderRadius: '50%', fontSize: 10, lineHeight: '20px',
+                  background: ok ? GOLD : '#eef0f4', color: ok ? '#fff' : '#b6bcc7', fontWeight: 700
+                }}>{(f.label || '?').slice(0, 1)}</div>
+              );
+            })}
           </div>
-          <div style={{ fontSize: 10, color: '#9ca3af' }}>{done}/4 {open ? '▲' : '▼'}</div>
+          <div style={{ fontSize: 10, color: '#9ca3af' }}>{done}/{prog.length} {open ? '▲' : '▼'}</div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginLeft: 2 }}>
+          <button onClick={e => { e.stopPropagation(); onMove(-1); }} disabled={isFirst} style={moveBtn(isFirst)}>▲</button>
+          <button onClick={e => { e.stopPropagation(); onMove(1); }} disabled={isLast} style={moveBtn(isLast)}>▼</button>
         </div>
       </div>
 
       {open && (
         <div style={{ padding: '4px 14px 14px', borderTop: `1px solid ${LINE}` }}>
-          <Row label="名前"><TextInput value={r.name} onCommit={v => onPatch({ name: v })} placeholder="契約者名" /></Row>
-          <Row label="物件名"><TextInput value={r.bukken} onCommit={v => onPatch({ bukken: v })} placeholder="物件名" /></Row>
-          <Row label="部屋番号"><TextInput value={r.room} onCommit={v => onPatch({ room: v })} placeholder="503" /></Row>
-          <Row label="銀行"><TextInput value={r.bank} onCommit={v => onPatch({ bank: v })} placeholder="銀行を選択・入力" list="banklist" /></Row>
-          <Row label="承認日">
-            <input type="date" value={r.approval_date || ''} onChange={e => onPatch({ approval_date: e.target.value })} style={inp} />
+          <Row label={settings.nameLabel || '名前'}>
+            <TextInput value={r.name} onCommit={v => onPatch({ name: v })} placeholder={settings.nameLabel} />
           </Row>
-          <Row label="契約日">
-            <input type="date" value={r.contract_date || ''} onChange={e => onPatch({ contract_date: e.target.value })} style={inp} />
-          </Row>
-          <Row label="金消予定日">
-            <div style={{ display: 'flex', gap: 6 }}>
-              <input type="date" value={r.kinsho_date || ''} onChange={e => onPatch({ kinsho_date: e.target.value, kinsho_note: '' })} style={{ ...inp, flex: 1.4 }} />
-              <input type="time" value={r.kinsho_time || ''} onChange={e => onPatch({ kinsho_time: e.target.value })} style={{ ...inp, flex: 1 }} />
-            </div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#6b7280', marginTop: 6 }}>
-              <input type="checkbox" checked={r.kinsho_note === 'none'}
-                onChange={e => onPatch({ kinsho_note: e.target.checked ? 'none' : '' })} />
-              記載なし（日程未通知）
-            </label>
-          </Row>
+
+          {F.map(f => (
+            <Row key={f.key} label={f.label}>
+              {f.type === 'text' && (
+                <TextInput value={fv[f.key] || ''} onCommit={v => set(f.key, v)} placeholder={f.label} />
+              )}
+              {f.type === 'select' && (
+                <React.Fragment>
+                  <TextInput value={fv[f.key] || ''} onCommit={v => set(f.key, v)} placeholder={f.label} list={'dl_' + f.key} />
+                  <datalist id={'dl_' + f.key}>{(f.options || []).map(o => <option key={o} value={o} />)}</datalist>
+                </React.Fragment>
+              )}
+              {f.type === 'date' && (
+                <input type="date" value={fv[f.key] || ''} onChange={e => set(f.key, e.target.value)} style={inpM} />
+              )}
+              {f.type === 'datetime' && (() => {
+                const o = dtVal(fv[f.key]);
+                return (
+                  <div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <input type="date" value={o.d} onChange={e => set(f.key, { ...o, d: e.target.value, none: false })} style={{ ...inpM, flex: 1.4 }} />
+                      <input type="time" value={o.t} onChange={e => set(f.key, { ...o, t: e.target.value })} style={{ ...inpM, flex: 1 }} />
+                    </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: SUB, marginTop: 6 }}>
+                      <input type="checkbox" checked={!!o.none} onChange={e => set(f.key, { ...o, none: e.target.checked })} />
+                      記載なし（日程未通知）
+                    </label>
+                  </div>
+                );
+              })()}
+            </Row>
+          ))}
+
           <button onClick={onDelete} style={{
             marginTop: 12, width: '100%', padding: '10px', border: '1px solid #f0c9c9', background: '#fff6f6',
             color: '#c14040', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer'
@@ -174,9 +241,127 @@ function Card({ r, open, onToggle, onPatch, onDelete }) {
   );
 }
 
+/* ===== 設定画面 ===== */
+function SettingsScreen({ settings, onSave, onClose }) {
+  const [d, setD] = useState(() => JSON.parse(JSON.stringify(settings)));
+  const up = (p) => setD(x => ({ ...x, ...p }));
+  const updF = (i, p) => up({ fields: d.fields.map((f, idx) => idx === i ? { ...f, ...p } : f) });
+  const addF = () => up({ fields: [...d.fields, { key: genKey(), label: '新しい項目', type: 'text', sub: false, progress: true, options: [] }] });
+  const delF = (i) => {
+    if (!confirm(`「${d.fields[i].label}」を削除する？\n※入力済みの中身も表示されんくなるよ`)) return;
+    const nf = d.fields.filter((_, idx) => idx !== i);
+    up({ fields: nf, mainKey: d.mainKey === d.fields[i].key ? (nf[0] ? nf[0].key : '') : d.mainKey });
+  };
+  const move = (i, dir) => {
+    const j = i + dir;
+    if (j < 0 || j >= d.fields.length) return;
+    const nf = [...d.fields];
+    [nf[i], nf[j]] = [nf[j], nf[i]];
+    up({ fields: nf });
+  };
+
+  return (
+    <div style={{ maxWidth: 560, margin: '0 auto', paddingBottom: 100 }}>
+      <div style={{ background: NAVY, color: '#fff', padding: '14px 16px', position: 'sticky', top: 0, zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ fontSize: 16, fontWeight: 700 }}>⚙ 項目の設定</div>
+        <button onClick={onClose} style={navBtn}>✕ 閉じる</button>
+      </div>
+
+      <div style={{ padding: 12 }}>
+        <div style={{ background: '#fffbea', border: '1px solid #f0e2b6', borderRadius: 10, padding: '10px 12px', fontSize: 12, color: '#7a6520', marginBottom: 12 }}>
+          ここで変えた内容は<b>3名全員の画面</b>に反映されるっちゃ。項目を消すと、その中身は見えんくなるけん注意してね。
+        </div>
+
+        <Sec title="基本">
+          <Row label="アプリのタイトル"><TextInput value={d.appTitle} onCommit={v => up({ appTitle: v })} /></Row>
+          <Row label="サブタイトル"><TextInput value={d.subTitle} onCommit={v => up({ subTitle: v })} /></Row>
+          <Row label="1列目（見出しになる項目）の名前"><TextInput value={d.nameLabel} onCommit={v => up({ nameLabel: v })} /></Row>
+          <Row label="カードに大きく出す項目">
+            <select value={d.mainKey} onChange={e => up({ mainKey: e.target.value })} style={inp}>
+              <option value="">なし</option>
+              {d.fields.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
+            </select>
+          </Row>
+        </Sec>
+
+        <Sec title="項目一覧">
+          {d.fields.map((f, i) => (
+            <div key={f.key} style={{ border: `1px solid ${LINE}`, borderRadius: 10, padding: 10, marginBottom: 10, background: '#fafbfc' }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <button onClick={() => move(i, -1)} disabled={i === 0} style={arrBtn(i === 0)}>▲</button>
+                  <button onClick={() => move(i, 1)} disabled={i === d.fields.length - 1} style={arrBtn(i === d.fields.length - 1)}>▼</button>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <TextInput value={f.label} onCommit={v => updF(i, { label: v })} placeholder="項目名" />
+                  <select value={f.type} onChange={e => updF(i, { type: e.target.value })} style={{ ...inp, marginTop: 6 }}>
+                    {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
+                  </select>
+                  {f.type === 'select' && (
+                    <div style={{ marginTop: 6 }}>
+                      <div style={{ fontSize: 11, color: SUB, marginBottom: 3 }}>選択肢（カンマ区切り）</div>
+                      <TextInput value={(f.options || []).join(',')}
+                        onCommit={v => updF(i, { options: v.split(',').map(s => s.trim()).filter(Boolean) })}
+                        placeholder="SBJ銀行,オリックス銀行" />
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
+                    <label style={chk}>
+                      <input type="checkbox" checked={!!f.progress} onChange={e => updF(i, { progress: e.target.checked })} />
+                      進捗の丸に入れる
+                    </label>
+                    <label style={chk}>
+                      <input type="checkbox" checked={!!f.sub} onChange={e => updF(i, { sub: e.target.checked })} />
+                      閉じた状態でも表示
+                    </label>
+                  </div>
+                </div>
+                <button onClick={() => delF(i)} style={{ border: '1px solid #f0c9c9', background: '#fff6f6', color: '#c14040', borderRadius: 8, padding: '6px 8px', fontSize: 12, cursor: 'pointer' }}>🗑</button>
+              </div>
+            </div>
+          ))}
+          <button onClick={addF} style={{ ...subBtn, width: '100%', borderStyle: 'dashed' }}>＋ 項目を追加</button>
+        </Sec>
+      </div>
+
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: 12, background: 'linear-gradient(transparent,#f5f6f8 30%)' }}>
+        <div style={{ maxWidth: 560, margin: '0 auto', display: 'flex', gap: 8 }}>
+          <button onClick={onClose} style={{ ...subBtn, flex: 1, padding: 14 }}>キャンセル</button>
+          <button onClick={() => onSave(d)} style={{
+            flex: 2, padding: 14, background: NAVY, color: '#fff', border: 'none',
+            borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 12px rgba(30,42,74,.25)'
+          }}>保存する</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const moveBtn = (dis) => ({
+  border: `1px solid ${LINE}`, background: dis ? '#f4f5f7' : '#fff', color: dis ? '#ccd1d8' : NAVY,
+  borderRadius: 6, width: 30, height: 26, fontSize: 11, cursor: dis ? 'default' : 'pointer', padding: 0
+});
+
+const chk = { display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: SUB };
+const arrBtn = (dis) => ({
+  border: `1px solid ${LINE}`, background: dis ? '#f2f3f5' : '#fff', color: dis ? '#c9cdd4' : NAVY,
+  borderRadius: 6, width: 28, height: 24, fontSize: 10, cursor: dis ? 'default' : 'pointer', padding: 0
+});
+
+function Sec({ title, children }) {
+  return (
+    <div style={{ background: '#fff', border: `1px solid ${LINE}`, borderRadius: 12, padding: 14, marginBottom: 12 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>{title}</div>
+      {children}
+    </div>
+  );
+}
+
 /* ===== 本体 ===== */
 function App() {
   const [all, setAll] = useState([]);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [screen, setScreen] = useState('main');
   const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState(ym(new Date()));
   const [extraMonths, setExtraMonths] = useState([]);
@@ -188,8 +373,9 @@ function App() {
   const flash = (m) => { setToast(m); setTimeout(() => setToast(''), 1600); };
 
   const reload = useCallback(async () => {
-    const data = await dbLoad();
+    const [data, st] = await Promise.all([dbLoad(), dbLoadSettings()]);
     setAll(data);
+    if (st) setSettings({ ...DEFAULT_SETTINGS, ...st });
     setLoading(false);
     if (first.current) {
       first.current = false;
@@ -205,7 +391,12 @@ function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: TABLE }, () => {
         if (Date.now() - lock.current < 3000) return;
         reload();
-      }).subscribe();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: STABLE }, () => {
+        if (Date.now() - lock.current < 3000) return;
+        reload();
+      })
+      .subscribe();
     return () => { sb.removeChannel(ch); };
   }, [reload]);
 
@@ -226,56 +417,100 @@ function App() {
   };
   const add = async () => {
     lock.current = Date.now();
-    const row = await dbInsert({ month, name: '', bukken: '', room: '', bank: '', approval_date: '', contract_date: '', kinsho_date: '', kinsho_time: '', kinsho_note: '' });
+    const maxSo = all.filter(r => r.month === month).reduce((m, r) => Math.max(m, r.sort_order ?? 0), 0);
+    const row = await dbInsert({ month, name: '', fields: {}, sort_order: maxSo + 1000 });
     if (!row) return flash('追加に失敗…通信を確認して');
     setAll(a => [...a, row]);
     setOpenId(row.id);
     setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 120);
   };
 
-  const sorted = [...rows].sort((a, b) => {
-    const x = a.kinsho_date || '9999', y = b.kinsho_date || '9999';
-    return x === y ? (a.kinsho_time || '').localeCompare(b.kinsho_time || '') : x.localeCompare(y);
-  });
+  const mainF = settings.fields.find(f => f.key === settings.mainKey);
+  const dateKey = (r) => {
+    if (!mainF) return '9999';
+    const v = (r.fields || {})[mainF.key];
+    if (mainF.type === 'datetime') { const o = dtVal(v); return (o.d || '9999') + ' ' + (o.t || ''); }
+    return v || '9999';
+  };
+  const sorted = [...rows].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id);
+
+  // 隣同士を入れ替え
+  const moveRow = (id, dir) => {
+    const i = sorted.findIndex(r => r.id === id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= sorted.length) return;
+    const a = sorted[i], b = sorted[j];
+    const ao = a.sort_order ?? (i + 1) * 1000, bo = b.sort_order ?? (j + 1) * 1000;
+    lock.current = Date.now();
+    setAll(all => all.map(r => r.id === a.id ? { ...r, sort_order: bo } : r.id === b.id ? { ...r, sort_order: ao } : r));
+    Promise.all([dbUpdate(a.id, { sort_order: bo }), dbUpdate(b.id, { sort_order: ao })]).then(() => flash('並び替えたばい'));
+  };
+
+  // 日付順に一括で並べ直す
+  const resortByDate = async () => {
+    if (!rows.length) return;
+    if (!confirm('日付の早い順に並べ直す？（今の手動の並びは消えるよ）')) return;
+    const ordered = [...rows].sort((a, b) => dateKey(a).localeCompare(dateKey(b)));
+    lock.current = Date.now();
+    const map = {};
+    ordered.forEach((r, i) => { map[r.id] = (i + 1) * 1000; });
+    setAll(all => all.map(r => map[r.id] != null ? { ...r, sort_order: map[r.id] } : r));
+    await Promise.all(ordered.map(r => dbUpdate(r.id, { sort_order: map[r.id] })));
+    flash('日付順にしたばい');
+  };
 
   const copyTsv = () => {
-    const head = ['名前', '物件名', '部屋番号', '銀行', '承認日', '契約日', '金消予定日'].join('\t');
-    const body = sorted.map(r => [r.name, r.bukken, r.room, r.bank, fmtDate(r.approval_date), fmtDate(r.contract_date), fmtKinsho(r)].join('\t')).join('\n');
+    const head = [settings.nameLabel || '名前', ...settings.fields.map(f => f.label)].join('\t');
+    const body = sorted.map(r => [r.name, ...settings.fields.map(f => fmtField(f, (r.fields || {})[f.key]))].join('\t')).join('\n');
     navigator.clipboard.writeText(head + '\n' + body).then(() => flash('コピーしたばい'));
   };
 
   const carryOver = async () => {
     const prev = addMonth(month, -1);
-    const src = all.filter(r => r.month === prev && (!r.kinsho_date || r.kinsho_note === 'none'));
+    const src = all.filter(r => r.month === prev && !(mainF && hasVal(mainF, (r.fields || {})[mainF.key]) && !dtVal((r.fields || {})[mainF.key]).none));
     if (!src.length) return flash('繰越対象なし');
     lock.current = Date.now();
+    let so = all.filter(r => r.month === month).reduce((m, r) => Math.max(m, r.sort_order ?? 0), 0);
     for (const r of src) {
-      const row = await dbInsert({
-        month, name: r.name, bukken: r.bukken, room: r.room, bank: r.bank,
-        approval_date: r.approval_date, contract_date: r.contract_date,
-        kinsho_date: '', kinsho_time: '', kinsho_note: ''
-      });
+      const nf = { ...(r.fields || {}) };
+      if (mainF) delete nf[mainF.key];
+      so += 1000;
+      const row = await dbInsert({ month, name: r.name, fields: nf, sort_order: so });
       if (row) setAll(a => [...a, row]);
     }
     flash(`${src.length}件を繰越`);
   };
 
+  const saveSettings = async (s) => {
+    lock.current = Date.now();
+    setSettings(s);
+    await dbSaveSettings(s);
+    setScreen('main');
+    flash('設定を保存したばい');
+  };
+
   const monthKeys = Array.from(new Set([...all.map(r => r.month), ...extraMonths, month, ym(new Date())])).sort();
   const goMonth = (n) => { const next = addMonth(month, n); setExtraMonths(e => [...e, next]); setMonth(next); setOpenId(null); };
 
-  const doneCount = rows.filter(r => r.kinsho_date && r.kinsho_note !== 'none').length;
+  const progF = settings.fields.filter(f => f.progress);
+  const doneCount = rows.filter(r => progF.length && progF.every(f => hasVal(f, (r.fields || {})[f.key]))).length;
+
+  if (screen === 'settings') {
+    return <SettingsScreen settings={settings} onSave={saveSettings} onClose={() => setScreen('main')} />;
+  }
 
   return (
     <div style={{ maxWidth: 560, margin: '0 auto', paddingBottom: 90 }}>
-      <datalist id="banklist">{BANKS.map(b => <option key={b} value={b} />)}</datalist>
-
       <div style={{ background: NAVY, color: '#fff', padding: '14px 16px', position: 'sticky', top: 0, zIndex: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: '.02em' }}>金消予定日 一覧</div>
-            <div style={{ fontSize: 11, opacity: .7, marginTop: 2 }}>AXIA JAPAN ／ 仕入れ事業部</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: '.02em' }}>{settings.appTitle}</div>
+            <div style={{ fontSize: 11, opacity: .7, marginTop: 2 }}>{settings.subTitle}</div>
           </div>
-          <img src={LOGO} alt="AXIA JAPAN" style={{ height: 30, opacity: .95 }} onError={e => e.target.style.display = 'none'} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button onClick={() => setScreen('settings')} style={{ ...navBtn, fontSize: 16, padding: '6px 10px' }}>⚙</button>
+            <img src={LOGO} alt="AXIA JAPAN" style={{ height: 30, opacity: .95 }} onError={e => e.target.style.display = 'none'} />
+          </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
           <button onClick={() => goMonth(-1)} style={navBtn}>◀</button>
@@ -286,7 +521,7 @@ function App() {
           <button onClick={() => goMonth(1)} style={navBtn}>▶</button>
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件 ／ 日程確定 {doneCount} 件 ・ チーム同期中
+          全 {rows.length} 件 ／ 全項目そろい {doneCount} 件 ・ チーム同期中
         </div>
       </div>
 
@@ -297,15 +532,21 @@ function App() {
             この月のデータはまだなかよ。<br />下の「＋ 追加」から入れてね。
           </div>
         )}
-        {sorted.map(r => (
-          <Card key={r.id} r={r} open={openId === r.id}
+        {sorted.map((r, i) => (
+          <Card key={r.id} r={r} settings={settings} open={openId === r.id}
             onToggle={() => setOpenId(openId === r.id ? null : r.id)}
-            onPatch={p => patch(r.id, p)} onDelete={() => del(r.id)} />
+            onPatch={p => patch(r.id, p)} onDelete={() => del(r.id)}
+            onMove={dir => moveRow(r.id, dir)} isFirst={i === 0} isLast={i === sorted.length - 1} />
         ))}
         {!loading && (
-          <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-            <button onClick={copyTsv} style={subBtn}>📋 表をコピー</button>
-            <button onClick={carryOver} style={subBtn}>↪ 前月から繰越</button>
+          <div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+              <button onClick={copyTsv} style={subBtn}>📋 表をコピー</button>
+              <button onClick={carryOver} style={subBtn}>↪ 前月から繰越</button>
+            </div>
+            {sorted.length > 1 && (
+              <button onClick={resortByDate} style={{ ...subBtn, width: '100%', marginTop: 8 }}>🔢 日付の早い順に並べ直す</button>
+            )}
           </div>
         )}
       </div>
@@ -328,9 +569,6 @@ function App() {
     </div>
   );
 }
-
-const navBtn = { padding: '8px 12px', border: 'none', borderRadius: 8, background: 'rgba(255,255,255,.12)', color: '#fff', fontSize: 13, cursor: 'pointer' };
-const subBtn = { flex: 1, padding: '11px', border: `1px solid ${LINE}`, background: '#fff', color: NAVY, borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer' };
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
