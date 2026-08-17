@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>金消予定日 一覧 | AXIA JAPAN</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin:0; background:#f5f6f8; font-family:'Noto Sans JP',sans-serif; color:#1e2a4a; }
+  input, select, button { font-family:'Noto Sans JP',sans-serif; }
+  input:focus, select:focus { outline:2px solid #c8a94a; outline-offset:0; }
+  .mono { font-family:'DM Mono',monospace; }
+</style>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+/* ===== Supabase 接続 ===== */
+const SUPABASE_URL = 'https://zrqdoorolwvjlwuatlkc.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpycWRvb3JvbHd2amx3dWF0bGtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxODYwMDksImV4cCI6MjA5Mzc2MjAwOX0.TMdTX0a3c7weNqgmW_IrRGlnV7VfWeAZrktc5M5qh98';
+const TABLE = 'axia_kinsho';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ===== 定数 ===== */
+const LOGO = 'https://raw.githubusercontent.com/iety0214-hub/axia-tools/main/%E9%80%8F%E9%81%8E.png';
+const NAVY = '#1e2a4a', GOLD = '#c8a94a', LINE = '#e3e6ec';
+const WD = ['日','月','火','水','木','金','土'];
+const BANKS = ['SBJ銀行','オリックス銀行','静岡銀行','東京スター銀行','イオン銀行','関西みらい銀行','三井住友トラストL&F','日本政策金融公庫','その他'];
+
+/* ===== ユーティリティ ===== */
+const ym = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+const ymLabel = (k) => { const [y, m] = k.split('-'); return `${y}年${Number(m)}月`; };
+const addMonth = (k, n) => { const [y, m] = k.split('-').map(Number); return ym(new Date(y, m - 1 + n, 1)); };
+
+const fmtDate = (s) => {
+  if (!s) return '';
+  const d = new Date(s + 'T00:00:00');
+  if (isNaN(d)) return s;
+  return `${d.getMonth() + 1}月${d.getDate()}日（${WD[d.getDay()]}）`;
+};
+const fmtKinsho = (r) => {
+  if (r.kinsho_note === 'none') return '記載なし';
+  if (!r.kinsho_date) return '未定';
+  return fmtDate(r.kinsho_date) + (r.kinsho_time ? ' ' + r.kinsho_time : ' 予定');
+};
+
+/* ===== DB操作 ===== */
+const dbLoad = async () => {
+  const { data, error } = await sb.from(TABLE).select('*').order('id');
+  if (error) { console.error(error); return []; }
+  return data || [];
+};
+const dbInsert = async (row) => {
+  const { data, error } = await sb.from(TABLE).insert(row).select().single();
+  if (error) { console.error(error); return null; }
+  return data;
+};
+const dbUpdate = async (id, patch) => {
+  const { error } = await sb.from(TABLE).update(patch).eq('id', id);
+  if (error) console.error(error);
+};
+const dbDelete = async (id) => {
+  const { error } = await sb.from(TABLE).delete().eq('id', id);
+  if (error) console.error(error);
+};
+
+/* ===== 入力（blur時コミット） ===== */
+function TextInput({ value, onCommit, placeholder, style, list }) {
+  const [local, setLocal] = useState(value || '');
+  const focused = useRef(false);
+  const prev = useRef(value);
+  useEffect(() => {
+    if (value !== prev.current && !focused.current) setLocal(value || '');
+    prev.current = value;
+  }, [value]);
+  return (
+    <input
+      value={local} list={list} placeholder={placeholder}
+      onChange={e => setLocal(e.target.value)}
+      onFocus={() => focused.current = true}
+      onBlur={() => { focused.current = false; if (local !== (value || '')) onCommit(local); }}
+      style={{ width: '100%', padding: '9px 10px', border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 14, background: '#fff', ...style }}
+    />
+  );
+}
+
+const inp = { width: '100%', padding: '9px 10px', border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 14, background: '#fff', fontFamily: 'DM Mono, monospace' };
+
+function Row({ label, children }) {
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4, fontWeight: 500 }}>{label}</div>
+      {children}
+    </div>
+  );
+}
+
+const steps = (r) => [
+  { k: '銀', ok: !!r.bank },
+  { k: '承', ok: !!r.approval_date },
+  { k: '契', ok: !!r.contract_date },
+  { k: '金', ok: !!r.kinsho_date },
+];
+
+function Card({ r, open, onToggle, onPatch, onDelete }) {
+  const st = steps(r);
+  const done = st.filter(s => s.ok).length;
+  const fixed = r.kinsho_date && r.kinsho_note !== 'none';
+  return (
+    <div style={{ background: '#fff', borderRadius: 12, marginBottom: 10, border: `1px solid ${LINE}`, overflow: 'hidden', boxShadow: '0 1px 2px rgba(30,42,74,.05)' }}>
+      <div onClick={onToggle} style={{ padding: '12px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>{r.name || '（未入力）'}</div>
+          <div style={{ fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {r.bukken}{r.room ? ' ' + r.room : ''}
+          </div>
+          <div className="mono" style={{ fontSize: 13, marginTop: 5, color: fixed ? NAVY : '#9ca3af', fontWeight: fixed ? 500 : 400 }}>
+            🗓 {fmtKinsho(r)}
+          </div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ display: 'flex', gap: 3, marginBottom: 4 }}>
+            {st.map((s, i) => (
+              <div key={i} style={{
+                width: 20, height: 20, borderRadius: '50%', fontSize: 10, lineHeight: '20px',
+                background: s.ok ? GOLD : '#eef0f4', color: s.ok ? '#fff' : '#b6bcc7', fontWeight: 700
+              }}>{s.k}</div>
+            ))}
+          </div>
+          <div style={{ fontSize: 10, color: '#9ca3af' }}>{done}/4 {open ? '▲' : '▼'}</div>
+        </div>
+      </div>
+
+      {open && (
+        <div style={{ padding: '4px 14px 14px', borderTop: `1px solid ${LINE}` }}>
+          <Row label="名前"><TextInput value={r.name} onCommit={v => onPatch({ name: v })} placeholder="契約者名" /></Row>
+          <Row label="物件名"><TextInput value={r.bukken} onCommit={v => onPatch({ bukken: v })} placeholder="物件名" /></Row>
+          <Row label="部屋番号"><TextInput value={r.room} onCommit={v => onPatch({ room: v })} placeholder="503" /></Row>
+          <Row label="銀行"><TextInput value={r.bank} onCommit={v => onPatch({ bank: v })} placeholder="銀行を選択・入力" list="banklist" /></Row>
+          <Row label="承認日">
+            <input type="date" value={r.approval_date || ''} onChange={e => onPatch({ approval_date: e.target.value })} style={inp} />
+          </Row>
+          <Row label="契約日">
+            <input type="date" value={r.contract_date || ''} onChange={e => onPatch({ contract_date: e.target.value })} style={inp} />
+          </Row>
+          <Row label="金消予定日">
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input type="date" value={r.kinsho_date || ''} onChange={e => onPatch({ kinsho_date: e.target.value, kinsho_note: '' })} style={{ ...inp, flex: 1.4 }} />
+              <input type="time" value={r.kinsho_time || ''} onChange={e => onPatch({ kinsho_time: e.target.value })} style={{ ...inp, flex: 1 }} />
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#6b7280', marginTop: 6 }}>
+              <input type="checkbox" checked={r.kinsho_note === 'none'}
+                onChange={e => onPatch({ kinsho_note: e.target.checked ? 'none' : '' })} />
+              記載なし（日程未通知）
+            </label>
+          </Row>
+          <button onClick={onDelete} style={{
+            marginTop: 12, width: '100%', padding: '10px', border: '1px solid #f0c9c9', background: '#fff6f6',
+            color: '#c14040', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer'
+          }}>🗑 この行を削除</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ===== 本体 ===== */
+function App() {
+  const [all, setAll] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [month, setMonth] = useState(ym(new Date()));
+  const [extraMonths, setExtraMonths] = useState([]);
+  const [openId, setOpenId] = useState(null);
+  const [toast, setToast] = useState('');
+  const lock = useRef(0);
+  const first = useRef(true);
+
+  const flash = (m) => { setToast(m); setTimeout(() => setToast(''), 1600); };
+
+  const reload = useCallback(async () => {
+    const data = await dbLoad();
+    setAll(data);
+    setLoading(false);
+    if (first.current) {
+      first.current = false;
+      const ks = Array.from(new Set(data.map(r => r.month))).sort();
+      const now = ym(new Date());
+      if (!ks.includes(now) && ks.length) setMonth(ks[ks.length - 1]);
+    }
+  }, []);
+
+  useEffect(() => {
+    reload();
+    const ch = sb.channel('axia_kinsho_rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: TABLE }, () => {
+        if (Date.now() - lock.current < 3000) return;
+        reload();
+      }).subscribe();
+    return () => { sb.removeChannel(ch); };
+  }, [reload]);
+
+  const rows = all.filter(r => r.month === month);
+
+  const patch = (id, p) => {
+    lock.current = Date.now();
+    setAll(a => a.map(r => r.id === id ? { ...r, ...p } : r));
+    dbUpdate(id, p).then(() => flash('保存したばい'));
+  };
+  const del = async (id) => {
+    if (!confirm('この行を削除する？')) return;
+    lock.current = Date.now();
+    setAll(a => a.filter(r => r.id !== id));
+    setOpenId(null);
+    await dbDelete(id);
+    flash('削除したばい');
+  };
+  const add = async () => {
+    lock.current = Date.now();
+    const row = await dbInsert({ month, name: '', bukken: '', room: '', bank: '', approval_date: '', contract_date: '', kinsho_date: '', kinsho_time: '', kinsho_note: '' });
+    if (!row) return flash('追加に失敗…通信を確認して');
+    setAll(a => [...a, row]);
+    setOpenId(row.id);
+    setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 120);
+  };
+
+  const sorted = [...rows].sort((a, b) => {
+    const x = a.kinsho_date || '9999', y = b.kinsho_date || '9999';
+    return x === y ? (a.kinsho_time || '').localeCompare(b.kinsho_time || '') : x.localeCompare(y);
+  });
+
+  const copyTsv = () => {
+    const head = ['名前', '物件名', '部屋番号', '銀行', '承認日', '契約日', '金消予定日'].join('\t');
+    const body = sorted.map(r => [r.name, r.bukken, r.room, r.bank, fmtDate(r.approval_date), fmtDate(r.contract_date), fmtKinsho(r)].join('\t')).join('\n');
+    navigator.clipboard.writeText(head + '\n' + body).then(() => flash('コピーしたばい'));
+  };
+
+  const carryOver = async () => {
+    const prev = addMonth(month, -1);
+    const src = all.filter(r => r.month === prev && (!r.kinsho_date || r.kinsho_note === 'none'));
+    if (!src.length) return flash('繰越対象なし');
+    lock.current = Date.now();
+    for (const r of src) {
+      const row = await dbInsert({
+        month, name: r.name, bukken: r.bukken, room: r.room, bank: r.bank,
+        approval_date: r.approval_date, contract_date: r.contract_date,
+        kinsho_date: '', kinsho_time: '', kinsho_note: ''
+      });
+      if (row) setAll(a => [...a, row]);
+    }
+    flash(`${src.length}件を繰越`);
+  };
+
+  const monthKeys = Array.from(new Set([...all.map(r => r.month), ...extraMonths, month, ym(new Date())])).sort();
+  const goMonth = (n) => { const next = addMonth(month, n); setExtraMonths(e => [...e, next]); setMonth(next); setOpenId(null); };
+
+  const doneCount = rows.filter(r => r.kinsho_date && r.kinsho_note !== 'none').length;
+
+  return (
+    <div style={{ maxWidth: 560, margin: '0 auto', paddingBottom: 90 }}>
+      <datalist id="banklist">{BANKS.map(b => <option key={b} value={b} />)}</datalist>
+
+      <div style={{ background: NAVY, color: '#fff', padding: '14px 16px', position: 'sticky', top: 0, zIndex: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: '.02em' }}>金消予定日 一覧</div>
+            <div style={{ fontSize: 11, opacity: .7, marginTop: 2 }}>AXIA JAPAN ／ 仕入れ事業部</div>
+          </div>
+          <img src={LOGO} alt="AXIA JAPAN" style={{ height: 30, opacity: .95 }} onError={e => e.target.style.display = 'none'} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
+          <button onClick={() => goMonth(-1)} style={navBtn}>◀</button>
+          <select value={month} onChange={e => { setMonth(e.target.value); setOpenId(null); }}
+            style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: 'none', background: 'rgba(255,255,255,.12)', color: '#fff', fontSize: 15, fontWeight: 700, textAlign: 'center' }}>
+            {monthKeys.map(k => <option key={k} value={k} style={{ color: '#000' }}>{ymLabel(k)}</option>)}
+          </select>
+          <button onClick={() => goMonth(1)} style={navBtn}>▶</button>
+        </div>
+        <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
+          全 {rows.length} 件 ／ 日程確定 {doneCount} 件 ・ チーム同期中
+        </div>
+      </div>
+
+      <div style={{ padding: '12px 12px 0' }}>
+        {loading && <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13, padding: '50px 0' }}>読み込み中…</div>}
+        {!loading && sorted.length === 0 && (
+          <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13, padding: '50px 0' }}>
+            この月のデータはまだなかよ。<br />下の「＋ 追加」から入れてね。
+          </div>
+        )}
+        {sorted.map(r => (
+          <Card key={r.id} r={r} open={openId === r.id}
+            onToggle={() => setOpenId(openId === r.id ? null : r.id)}
+            onPatch={p => patch(r.id, p)} onDelete={() => del(r.id)} />
+        ))}
+        {!loading && (
+          <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+            <button onClick={copyTsv} style={subBtn}>📋 表をコピー</button>
+            <button onClick={carryOver} style={subBtn}>↪ 前月から繰越</button>
+          </div>
+        )}
+      </div>
+
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: 12, background: 'linear-gradient(transparent,#f5f6f8 30%)' }}>
+        <div style={{ maxWidth: 560, margin: '0 auto' }}>
+          <button onClick={add} style={{
+            width: '100%', padding: '14px', background: NAVY, color: '#fff', border: 'none',
+            borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 12px rgba(30,42,74,.25)'
+          }}>＋ 追加</button>
+        </div>
+      </div>
+
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 78, left: '50%', transform: 'translateX(-50%)',
+          background: NAVY, color: '#fff', padding: '8px 18px', borderRadius: 20, fontSize: 13, zIndex: 20
+        }}>{toast}</div>
+      )}
+    </div>
+  );
+}
+
+const navBtn = { padding: '8px 12px', border: 'none', borderRadius: 8, background: 'rgba(255,255,255,.12)', color: '#fff', fontSize: 13, cursor: 'pointer' };
+const subBtn = { flex: 1, padding: '11px', border: `1px solid ${LINE}`, background: '#fff', color: NAVY, borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer' };
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
