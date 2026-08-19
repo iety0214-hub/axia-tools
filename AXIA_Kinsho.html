@@ -150,7 +150,7 @@ function TextInput({ value, onCommit, placeholder, style, list }) {
 function Card({ r, settings, open, onToggle, onPatch, onDelete, onCopy }) {
   const F = settings.fields;
   const fv = r.fields || {};
-  const prog = F.filter(f => f.progress && !/銀行|金融機関/.test(f.label || ''));
+  const prog = F.filter(f => f.progress && /承認|契約|金消/.test(f.label || '')).slice(0, 3);
   const done = prog.filter(f => hasVal(f, fv[f.key])).length;
   const subs = F.filter(f => f.sub);
   // 見出しに出す項目（物件名・号室／部屋番号）と、名前の右に並べる項目（銀行など）に分ける
