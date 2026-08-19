@@ -35,6 +35,8 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 /* ===== 定数 ===== */
 const LOGO = 'https://raw.githubusercontent.com/iety0214-hub/axia-tools/main/%E9%80%8F%E9%81%8E.png';
 const NAVY = '#1e2a4a', GOLD = '#c8a94a', LINE = '#e3e6ec', SUB = '#6b7280';
+const SUBTXT = '#33405e';              // カードの氏名・銀行など（濃いめ）
+const PROG_COLORS = ['#2e7d32', '#1565c0', '#b3261e'];  // 承・契・金
 const WD = ['日','月','火','水','木','金','土'];
 const TYPES = [
   { v: 'text', l: '文字（自由入力）' },
@@ -145,12 +147,18 @@ function TextInput({ value, onCommit, placeholder, style, list }) {
 }
 
 /* ===== カード ===== */
-function Card({ r, settings, open, onToggle, onPatch, onDelete, onMove, isFirst, isLast }) {
+function Card({ r, settings, open, onToggle, onPatch, onDelete, onCopy }) {
   const F = settings.fields;
   const fv = r.fields || {};
-  const prog = F.filter(f => f.progress);
+  const prog = F.filter(f => f.progress && !/銀行|金融機関/.test(f.label || ''));
   const done = prog.filter(f => hasVal(f, fv[f.key])).length;
   const subs = F.filter(f => f.sub);
+  // 見出しに出す項目（物件名・号室／部屋番号）と、名前の右に並べる項目（銀行など）に分ける
+  const isBukken = (f) => /物件|号室|部屋/.test(f.label || '');
+  const headSubs = subs.filter(isBukken);
+  const restSubs = subs.filter(f => !isBukken(f));
+  const headTxt = headSubs.map(f => fmtField(f, fv[f.key])).filter(Boolean).join(' ');
+  const lineTxt = [r.name, ...restSubs.map(f => fmtField(f, fv[f.key]))].filter(Boolean).join(' ・ ');
   const main = F.find(f => f.key === settings.mainKey);
   const mainTxt = main ? fmtField(main, fv[main.key]) : '';
   const mainOn = main && hasVal(main, fv[main.key]) && !(main.type === 'datetime' && dtVal(fv[main.key]).none);
@@ -161,10 +169,10 @@ function Card({ r, settings, open, onToggle, onPatch, onDelete, onMove, isFirst,
     <div style={{ background: '#fff', borderRadius: 12, marginBottom: 10, border: `1px solid ${LINE}`, overflow: 'hidden', boxShadow: '0 1px 2px rgba(30,42,74,.05)' }}>
       <div onClick={onToggle} style={{ padding: '12px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>{r.name || '（未入力）'}</div>
-          {subs.length > 0 && (
-            <div style={{ fontSize: 12, color: SUB, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {subs.map(f => fmtField(f, fv[f.key])).filter(Boolean).join(' ・ ')}
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>{headTxt || '（未入力）'}</div>
+          {lineTxt && (
+            <div style={{ fontSize: 12.5, color: SUBTXT, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {lineTxt}
             </div>
           )}
           {main && (
@@ -175,21 +183,24 @@ function Card({ r, settings, open, onToggle, onPatch, onDelete, onMove, isFirst,
         </div>
         <div style={{ textAlign: 'center' }}>
           <div style={{ display: 'flex', gap: 3, marginBottom: 4, justifyContent: 'flex-end' }}>
-            {prog.map(f => {
+            {prog.map((f, pi) => {
               const ok = hasVal(f, fv[f.key]);
               return (
                 <div key={f.key} title={f.label} style={{
                   width: 20, height: 20, borderRadius: '50%', fontSize: 10, lineHeight: '20px',
-                  background: ok ? GOLD : '#eef0f4', color: ok ? '#fff' : '#b6bcc7', fontWeight: 700
+                  background: ok ? PROG_COLORS[pi % PROG_COLORS.length] : '#eef0f4',
+                  color: ok ? '#fff' : '#b6bcc7', fontWeight: 700
                 }}>{(f.label || '?').slice(0, 1)}</div>
               );
             })}
           </div>
           <div style={{ fontSize: 10, color: '#9ca3af' }}>{done}/{prog.length} {open ? '▲' : '▼'}</div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginLeft: 2 }}>
-          <button onClick={e => { e.stopPropagation(); onMove(-1); }} disabled={isFirst} style={moveBtn(isFirst)}>▲</button>
-          <button onClick={e => { e.stopPropagation(); onMove(1); }} disabled={isLast} style={moveBtn(isLast)}>▼</button>
+        <div style={{ display: 'flex', alignItems: 'center', marginLeft: 2 }}>
+          <button onClick={e => { e.stopPropagation(); onCopy(); }} title="この1件をコピー" style={{
+            width: 34, height: 34, borderRadius: 9, border: `1px solid ${LINE}`,
+            background: '#fff', color: NAVY, fontSize: 15, cursor: 'pointer', lineHeight: '32px', padding: 0
+          }}>📋</button>
         </div>
       </div>
 
@@ -357,10 +368,6 @@ function SettingsScreen({ settings, onSave, onClose }) {
   );
 }
 
-const moveBtn = (dis) => ({
-  border: `1px solid ${LINE}`, background: dis ? '#f4f5f7' : '#fff', color: dis ? '#ccd1d8' : NAVY,
-  borderRadius: 6, width: 30, height: 26, fontSize: 11, cursor: dis ? 'default' : 'pointer', padding: 0
-});
 
 const chk = { display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: SUB };
 const arrBtn = (dis) => ({
@@ -454,18 +461,6 @@ function App() {
   };
   const sorted = [...rows].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id);
 
-  // 隣同士を入れ替え
-  const moveRow = (id, dir) => {
-    const i = sorted.findIndex(r => r.id === id);
-    const j = i + dir;
-    if (i < 0 || j < 0 || j >= sorted.length) return;
-    const a = sorted[i], b = sorted[j];
-    const ao = a.sort_order ?? (i + 1) * 1000, bo = b.sort_order ?? (j + 1) * 1000;
-    lock.current = Date.now();
-    setAll(all => all.map(r => r.id === a.id ? { ...r, sort_order: bo } : r.id === b.id ? { ...r, sort_order: ao } : r));
-    Promise.all([dbUpdate(a.id, { sort_order: bo }), dbUpdate(b.id, { sort_order: ao })]).then(() => flash('並び替えたばい'));
-  };
-
   // 日付順に一括で並べ直す
   const resortByDate = async () => {
     if (!rows.length) return;
@@ -479,10 +474,84 @@ function App() {
     flash('日付順にしたばい');
   };
 
-  const copyTsv = () => {
-    const head = [settings.nameLabel || '名前', ...settings.fields.map(f => f.label)].join('\t');
-    const body = sorted.map(r => [r.name, ...settings.fields.map(f => fmtField(f, (r.fields || {})[f.key]))].join('\t')).join('\n');
-    navigator.clipboard.writeText(head + '\n' + body).then(() => flash('コピーしたばい'));
+  // 出力用の列順：物件名・号室 → 名前 → 残りの項目
+  const exportCols = () => {
+    const F = settings.fields;
+    const isBukken = (f) => /物件|号室|部屋/.test(f.label || '');
+    const fld = (f) => ({ label: f.label, get: (r) => fmtField(f, (r.fields || {})[f.key]) });
+    return [
+      ...F.filter(isBukken).map(fld),
+      { label: settings.nameLabel || '名前', get: (r) => r.name || '' },
+      ...F.filter(f => !isBukken(f)).map(fld),
+    ];
+  };
+
+  // カード1枚だけをテキストでコピー
+  const copyOne = (r) => {
+    const cols = exportCols();
+    const txt = cols.map(c => `${c.label}：${c.get(r) || '－'}`).join('\n');
+    navigator.clipboard.writeText(txt).then(
+      () => flash('この1件をコピーしたばい'),
+      () => flash('コピーできんかった')
+    );
+  };
+
+  // 印刷用の表を別ウィンドウで開いて、そのまま印刷ダイアログを出す
+  const printTable = () => {
+    if (!sorted.length) return flash('印刷する行がなかばい');
+    const cols = exportCols();
+    const esc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const nameIdx = cols.findIndex(c => c.label === (settings.nameLabel || '名前'));
+    const th = cols.map(c => `<th>${esc(c.label)}</th>`).join('');
+    const tr = sorted.map((r, i) =>
+      `<tr${i % 2 ? ' class="alt"' : ''}>` + cols.map((c, ci) =>
+        `<td class="${ci === 0 || ci === nameIdx ? 'l' : 'c'}">${esc(c.get(r)) || '&nbsp;'}</td>`
+      ).join('') + '</tr>'
+    ).join('');
+    const t = new Date();
+    const dstr = `${t.getFullYear()}年${t.getMonth() + 1}月${t.getDate()}日`;
+    const html = `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
+<title>${esc(settings.appTitle || '一覧')}_${esc(month)}</title>
+<style>
+@page { size: A4 landscape; margin: 12mm 14mm; }
+* { box-sizing: border-box; }
+body { margin:0; font-family:"Yu Gothic","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif; color:#111; }
+.logo { text-align:right; margin:0 0 2mm; }
+.logo img { width:14mm; height:auto; }
+h1 { font-size:15pt; text-align:center; margin:0 0 2mm; letter-spacing:.04em; }
+.meta { text-align:right; font-size:9pt; color:#555; margin:0 0 4mm; }
+table { border-collapse:collapse; width:100%; }
+th { background:#1F3864; color:#fff; font-size:9.5pt; font-weight:600; padding:2mm 1.5mm;
+     border:.3mm solid #9AA3B2; text-align:center; }
+td { font-size:9.5pt; padding:2mm 1.5mm; border:.3mm solid #C7CDD8; }
+td.c { text-align:center; } td.l { text-align:left; }
+tr.alt td { background:#F2F4F8; }
+thead { display:table-header-group; }
+tr { page-break-inside:avoid; }
+.note { font-size:8.5pt; color:#555; margin-top:4mm; }
+.bar { position:fixed; top:0; left:0; right:0; padding:10px; background:#1e2a4a; color:#fff;
+       text-align:center; font-size:13px; }
+.bar button { margin-left:10px; padding:6px 16px; border:0; border-radius:6px;
+              background:#c8a94a; color:#fff; font-size:13px; cursor:pointer; }
+@media print { .bar { display:none; } body { padding-top:0 !important; } }
+</style></head><body style="padding-top:52px">
+<div class="bar">印刷プレビューが出らんかったらこのボタンから
+  <button onclick="window.print()">印刷する</button></div>
+<p class="logo"><img src="${LOGO}" alt=""></p>
+<h1>${esc(settings.appTitle || '一覧')}（${esc(ymLabel(month))}）</h1>
+<p class="meta">${esc(settings.subTitle || '')}　作成日：${dstr}</p>
+<table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>
+<p class="note">※ 空欄の項目は確定次第の更新となります。</p>
+</body></html>`;
+    const w = window.open('', '_blank');
+    if (!w) return flash('ポップアップを許可して');
+    w.document.write(html);
+    w.document.close();
+    // ロゴの読み込みを待ってから印刷ダイアログ
+    const go = () => { try { w.focus(); w.print(); } catch (e) {} };
+    const img = w.document.querySelector('img');
+    if (img && !img.complete) { img.onload = go; img.onerror = go; setTimeout(go, 2500); }
+    else setTimeout(go, 400);
   };
 
   const carryOver = async () => {
@@ -556,12 +625,12 @@ function App() {
           <Card key={r.id} r={r} settings={settings} open={openId === r.id}
             onToggle={() => setOpenId(openId === r.id ? null : r.id)}
             onPatch={p => patch(r.id, p)} onDelete={() => del(r.id)}
-            onMove={dir => moveRow(r.id, dir)} isFirst={i === 0} isLast={i === sorted.length - 1} />
+            onCopy={() => copyOne(r)} />
         ))}
         {!loading && (
           <div>
             <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-              <button onClick={copyTsv} style={subBtn}>📋 表をコピー</button>
+              <button onClick={printTable} style={subBtn}>🖨 印刷する</button>
               <button onClick={carryOver} style={subBtn}>↪ 前月から繰越</button>
             </div>
             {sorted.length > 1 && (
