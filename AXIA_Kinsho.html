@@ -66,10 +66,10 @@ const fmtDate = (s) => {
   return `${d.getMonth() + 1}月${d.getDate()}日（${WD[d.getDay()]}）`;
 };
 const dtVal = (v) => (v && typeof v === 'object') ? v : { d: '', t: '', none: false };
+// 日付が空なら自動で「記載なし」。日付が入っとったら自動で解除。
 const fmtDT = (v) => {
   const o = dtVal(v);
-  if (o.none) return '記載なし';
-  if (!o.d) return '未定';
+  if (!o.d) return '記載なし';
   return fmtDate(o.d) + (o.t ? ' ' + o.t : ' 予定');
 };
 const fmtField = (f, v) => {
@@ -78,7 +78,7 @@ const fmtField = (f, v) => {
   return v || '';
 };
 const hasVal = (f, v) => {
-  if (f.type === 'datetime') { const o = dtVal(v); return !!o.d || o.none; }
+  if (f.type === 'datetime') { return !!dtVal(v).d; }
   return !!(v && String(v).length);
 };
 
@@ -166,13 +166,13 @@ function Card({ r, settings, open, onToggle, onPatch, onDelete, onCopy }) {
     ...(r.name ? [{ k: '__name', t: r.name, empty: false }] : []),
     ...restSubs.map(f => {
       const t = fmtField(f, fv[f.key]);
-      const has = !!t && t !== '未定';
+      const has = !!t && t !== '未定' && t !== '記載なし';
       return { k: f.key, t: has ? t : `${f.label}：－`, empty: !has };
     })
   ];
   const main = F.find(f => f.key === settings.mainKey);
   const mainTxt = main ? fmtField(main, fv[main.key]) : '';
-  const mainOn = main && hasVal(main, fv[main.key]) && !(main.type === 'datetime' && dtVal(fv[main.key]).none);
+  const mainOn = main && hasVal(main, fv[main.key]);
 
   const set = (k, v) => onPatch({ fields: { ...fv, [k]: v } });
 
@@ -197,7 +197,7 @@ function Card({ r, settings, open, onToggle, onPatch, onDelete, onCopy }) {
           )}
           {main && (
             <div className="mono" style={{ fontSize: 13, marginTop: 5, color: mainOn ? NAVY : '#9ca3af', fontWeight: mainOn ? 500 : 400 }}>
-              🗓 {mainTxt || '未定'}
+              🗓 {mainTxt || '記載なし'}
             </div>
           )}
         </div>
@@ -256,12 +256,12 @@ function Card({ r, settings, open, onToggle, onPatch, onDelete, onCopy }) {
                 return (
                   <div>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <input type="date" value={o.d} onChange={e => set(f.key, { ...o, d: e.target.value, none: false })} style={{ ...inpM, flex: 1.4 }} />
+                      <input type="date" value={o.d} onChange={e => set(f.key, { ...o, d: e.target.value, none: !e.target.value })} style={{ ...inpM, flex: 1.4 }} />
                       <input type="time" value={o.t} onChange={e => set(f.key, { ...o, t: e.target.value })} style={{ ...inpM, flex: 1 }} />
                     </div>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: SUB, marginTop: 6 }}>
-                      <input type="checkbox" checked={!!o.none} onChange={e => set(f.key, { ...o, none: e.target.checked })} />
-                      記載なし（日程未通知）
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: o.d ? '#b6bcc7' : SUB, marginTop: 6 }}>
+                      <input type="checkbox" checked={!o.d} readOnly disabled style={{ cursor: 'default' }} />
+                      記載なし（日程未通知）<span style={{ fontSize: 10.5, color: '#9ca3af' }}>※日付を入れると自動で外れる</span>
                     </label>
                   </div>
                 );
@@ -582,7 +582,7 @@ tr { page-break-inside:avoid; }
 
   const carryOver = async () => {
     const prev = addMonth(month, -1);
-    const src = all.filter(r => r.month === prev && !(mainF && hasVal(mainF, (r.fields || {})[mainF.key]) && !dtVal((r.fields || {})[mainF.key]).none));
+    const src = all.filter(r => r.month === prev && !(mainF && hasVal(mainF, (r.fields || {})[mainF.key])));
     if (!src.length) return flash('繰越対象なし');
     lock.current = Date.now();
     let so = all.filter(r => r.month === month).reduce((m, r) => Math.max(m, r.sort_order ?? 0), 0);
@@ -636,7 +636,7 @@ tr { page-break-inside:avoid; }
           <button onClick={() => goMonth(1)} style={navBtn}>▶</button>
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件 ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v12.4
+          全 {rows.length} 件 ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v12.5
         </div>
       </div>
 
