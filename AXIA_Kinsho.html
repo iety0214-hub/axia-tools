@@ -162,13 +162,14 @@ function Card({ r, settings, open, onToggle, onPatch, onDelete, onCopy }) {
   const restSubs = subs.filter(f => !isBukken(f));
   const headTxt = headSubs.map(f => fmtField(f, fv[f.key])).filter(Boolean).join(' ');
   // 名前 ＋ サブ項目。値が空の項目は「項目名：－」で出して、設定が効いとることが分かるようにする
-  const lineTxt = [
-    r.name,
+  const lineItems = [
+    ...(r.name ? [{ k: '__name', t: r.name, empty: false }] : []),
     ...restSubs.map(f => {
       const t = fmtField(f, fv[f.key]);
-      return (t && t !== '未定') ? t : `${f.label}：－`;
+      const has = !!t && t !== '未定';
+      return { k: f.key, t: has ? t : `${f.label}：－`, empty: !has };
     })
-  ].filter(Boolean).join(' ・ ');
+  ];
   const main = F.find(f => f.key === settings.mainKey);
   const mainTxt = main ? fmtField(main, fv[main.key]) : '';
   const mainOn = main && hasVal(main, fv[main.key]) && !(main.type === 'datetime' && dtVal(fv[main.key]).none);
@@ -180,9 +181,18 @@ function Card({ r, settings, open, onToggle, onPatch, onDelete, onCopy }) {
       <div onClick={onToggle} style={{ padding: '12px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>{headTxt || '（未入力）'}</div>
-          {lineTxt && (
-            <div style={{ fontSize: 12.5, color: SUBTXT, fontWeight: 500, lineHeight: 1.5, wordBreak: 'break-word' }}>
-              {lineTxt}
+          {!!lineItems.length && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 3 }}>
+              {lineItems.map(it => (
+                <span key={it.k} style={{
+                  fontSize: 12, fontWeight: 500, lineHeight: 1.4,
+                  padding: '2px 8px', borderRadius: 6,
+                  background: it.empty ? '#f7f8fa' : '#eef1f7',
+                  border: `1px solid ${it.empty ? '#e8eaef' : '#d8dee9'}`,
+                  color: it.empty ? '#a3a9b5' : SUBTXT,
+                  whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis'
+                }}>{it.t}</span>
+              ))}
             </div>
           )}
           {main && (
@@ -626,7 +636,7 @@ tr { page-break-inside:avoid; }
           <button onClick={() => goMonth(1)} style={navBtn}>▶</button>
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件 ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v12.3
+          全 {rows.length} 件 ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v12.4
         </div>
       </div>
 
