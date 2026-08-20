@@ -36,7 +36,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const LOGO = 'https://raw.githubusercontent.com/iety0214-hub/axia-tools/main/%E9%80%8F%E9%81%8E.png';
 const NAVY = '#1e2a4a', GOLD = '#c8a94a', LINE = '#e3e6ec', SUB = '#6b7280';
 const SUBTXT = '#33405e';              // カードの氏名・銀行など（濃いめ）
-const PROG_COLORS = ['#2e7d32', '#1565c0', '#b3261e'];  // 承・契・金
+const PROG_COLORS = ['#2e7d32', '#1565c0', '#b3261e', '#7b4bb0', '#0f766e', '#b06a00'];  // 承・契・金＋追加分
 const WD = ['日','月','火','水','木','金','土'];
 const TYPES = [
   { v: 'text', l: '文字（自由入力）' },
@@ -150,15 +150,25 @@ function TextInput({ value, onCommit, placeholder, style, list }) {
 function Card({ r, settings, open, onToggle, onPatch, onDelete, onCopy }) {
   const F = settings.fields;
   const fv = r.fields || {};
-  const prog = F.filter(f => f.progress && /承認|契約|金消/.test(f.label || '')).slice(0, 3);
+  const prog = F.filter(f => f.progress).slice(0, 6);   // 横一列に収めるため最大6個
   const done = prog.filter(f => hasVal(f, fv[f.key])).length;
+  // 個数が増えても1段に収まるように、丸のサイズと間隔を自動で詰める
+  const dotSize = prog.length <= 3 ? 20 : prog.length === 4 ? 19 : prog.length === 5 ? 17 : 16;
+  const dotGap = prog.length <= 4 ? 3 : 2;
   const subs = F.filter(f => f.sub);
   // 見出しに出す項目（物件名・号室／部屋番号）と、名前の右に並べる項目（銀行など）に分ける
   const isBukken = (f) => /物件|号室|部屋/.test(f.label || '');
   const headSubs = subs.filter(isBukken);
   const restSubs = subs.filter(f => !isBukken(f));
   const headTxt = headSubs.map(f => fmtField(f, fv[f.key])).filter(Boolean).join(' ');
-  const lineTxt = [r.name, ...restSubs.map(f => fmtField(f, fv[f.key]))].filter(Boolean).join(' ・ ');
+  // 名前 ＋ サブ項目。値が空の項目は「項目名：－」で出して、設定が効いとることが分かるようにする
+  const lineTxt = [
+    r.name,
+    ...restSubs.map(f => {
+      const t = fmtField(f, fv[f.key]);
+      return (t && t !== '未定') ? t : `${f.label}：－`;
+    })
+  ].filter(Boolean).join(' ・ ');
   const main = F.find(f => f.key === settings.mainKey);
   const mainTxt = main ? fmtField(main, fv[main.key]) : '';
   const mainOn = main && hasVal(main, fv[main.key]) && !(main.type === 'datetime' && dtVal(fv[main.key]).none);
@@ -171,7 +181,7 @@ function Card({ r, settings, open, onToggle, onPatch, onDelete, onCopy }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>{headTxt || '（未入力）'}</div>
           {lineTxt && (
-            <div style={{ fontSize: 12.5, color: SUBTXT, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ fontSize: 12.5, color: SUBTXT, fontWeight: 500, lineHeight: 1.5, wordBreak: 'break-word' }}>
               {lineTxt}
             </div>
           )}
@@ -181,13 +191,14 @@ function Card({ r, settings, open, onToggle, onPatch, onDelete, onCopy }) {
             </div>
           )}
         </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ display: 'flex', gap: 3, marginBottom: 4, justifyContent: 'flex-end' }}>
+        <div style={{ textAlign: 'center', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: dotGap, marginBottom: 4, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
             {prog.map((f, pi) => {
               const ok = hasVal(f, fv[f.key]);
               return (
                 <div key={f.key} title={f.label} style={{
-                  width: 20, height: 20, borderRadius: '50%', fontSize: 10, lineHeight: '20px',
+                  width: dotSize, height: dotSize, flexShrink: 0, borderRadius: '50%',
+                  fontSize: Math.round(dotSize / 2), lineHeight: dotSize + 'px', textAlign: 'center',
                   background: ok ? PROG_COLORS[pi % PROG_COLORS.length] : '#eef0f4',
                   color: ok ? '#fff' : '#b6bcc7', fontWeight: 700
                 }}>{(f.label || '?').slice(0, 1)}</div>
@@ -262,7 +273,7 @@ function Card({ r, settings, open, onToggle, onPatch, onDelete, onCopy }) {
 function SettingsScreen({ settings, onSave, onClose }) {
   const [d, setD] = useState(() => JSON.parse(JSON.stringify(settings)));
   const up = (p) => setD(x => ({ ...x, ...p }));
-  const updF = (i, p) => up({ fields: d.fields.map((f, idx) => idx === i ? { ...f, ...p } : f) });
+  const updF = (i, p) => setD(x => ({ ...x, fields: x.fields.map((f, idx) => idx === i ? { ...f, ...p } : f) }));
   const addF = () => up({ fields: [...d.fields, { key: genKey(), label: '新しい項目', type: 'text', sub: false, progress: true, options: [] }] });
   const delF = (i) => {
     if (!confirm(`「${d.fields[i].label}」を削除する？\n※入力済みの中身も表示されんくなるよ`)) return;
@@ -302,6 +313,11 @@ function SettingsScreen({ settings, onSave, onClose }) {
         </Sec>
 
         <Sec title="項目一覧">
+          {d.fields.filter(f => f.progress).length > 6 && (
+            <div style={{ background: '#fff6f6', border: '1px solid #f0c9c9', borderRadius: 8, padding: '8px 10px', fontSize: 11.5, color: '#c14040', marginBottom: 10 }}>
+              「進捗の丸に入れる」は<b>6個まで</b>しかカードに出せんっちゃ。7個目からは表示されんけん、どれか外してね。
+            </div>
+          )}
           {d.fields.map((f, i) => (
             <div key={f.key} style={{ border: `1px solid ${LINE}`, borderRadius: 10, padding: 10, marginBottom: 10, background: '#fafbfc' }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
@@ -610,7 +626,7 @@ tr { page-break-inside:avoid; }
           <button onClick={() => goMonth(1)} style={navBtn}>▶</button>
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件 ／ 全項目そろい {doneCount} 件 ・ チーム同期中
+          全 {rows.length} 件 ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v12.3
         </div>
       </div>
 
