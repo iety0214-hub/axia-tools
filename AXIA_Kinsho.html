@@ -963,7 +963,7 @@ function App() {
     );
   };
 
-  // 印刷用の表を別ウィンドウで開いて、そのまま印刷ダイアログを出す
+  // 印刷用の表を裏側のiframeに作って、その場で印刷ダイアログを出す（タブは開かん）
   const printTable = () => {
     if (!sorted.length) return flash('印刷する行がなかばい');
     const cols = exportCols();
@@ -996,27 +996,37 @@ tr.alt td { background:#F2F4F8; }
 thead { display:table-header-group; }
 tr { page-break-inside:avoid; }
 .note { font-size:8.5pt; color:#555; margin-top:4mm; }
-.bar { position:fixed; top:0; left:0; right:0; padding:10px; background:#1e2a4a; color:#fff;
-       text-align:center; font-size:13px; }
-.bar button { margin-left:10px; padding:6px 16px; border:0; border-radius:6px;
-              background:#c8a94a; color:#fff; font-size:13px; cursor:pointer; }
-@media print { .bar { display:none; } body { padding-top:0 !important; } }
-</style></head><body style="padding-top:52px">
-<div class="bar">印刷プレビューが出らんかったらこのボタンから
-  <button onclick="window.print()">印刷する</button></div>
+</style></head><body>
 <p class="logo"><img src="${LOGO}" alt=""></p>
 <h1>${esc(settings.appTitle || '一覧')}（${esc(ymLabel(month))}）</h1>
 <p class="meta">${esc(settings.subTitle || '')}　作成日：${dstr}</p>
 <table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>
 <p class="note">※ 空欄の項目は確定次第の更新となります。</p>
 </body></html>`;
-    const w = window.open('', '_blank');
-    if (!w) return flash('ポップアップを許可して');
-    w.document.write(html);
-    w.document.close();
+    // 新規タブは開かず、見えない枠（iframe）に印刷用の表を流し込んで、そのまま印刷プレビューを出す
+    const old = document.getElementById('__printFrame');
+    if (old) old.remove();
+    const fr = document.createElement('iframe');
+    fr.id = '__printFrame';
+    fr.setAttribute('aria-hidden', 'true');
+    fr.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;border:0;';
+    document.body.appendChild(fr);
+    const doc = fr.contentWindow.document;
+    doc.open(); doc.write(html); doc.close();
+
+    let done = false;
+    const cleanup = () => { setTimeout(() => { const el = document.getElementById('__printFrame'); if (el) el.remove(); }, 500); };
+    const go = () => {
+      if (done) return; done = true;
+      try {
+        fr.contentWindow.focus();
+        fr.contentWindow.onafterprint = cleanup;
+        fr.contentWindow.print();
+        setTimeout(cleanup, 60000); // 念のための後始末
+      } catch (e) { flash('⚠ 印刷ダイアログが出せんかった', true); cleanup(); }
+    };
     // ロゴの読み込みを待ってから印刷ダイアログ
-    const go = () => { try { w.focus(); w.print(); } catch (e) {} };
-    const img = w.document.querySelector('img');
+    const img = doc.querySelector('img');
     if (img && !img.complete) { img.onload = go; img.onerror = go; setTimeout(go, 2500); }
     else setTimeout(go, 400);
   };
@@ -1086,7 +1096,7 @@ tr { page-break-inside:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.7.3
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.7.4
         </div>
       </div>
 
