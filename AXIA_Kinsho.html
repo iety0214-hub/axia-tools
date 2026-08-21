@@ -513,9 +513,6 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
                         onPick={v => { set(f.key, { ...o, d: v, none: false }); setCalKey(null); }}
                         onClear={() => { set(f.key, { ...o, d: '', none: true }); setCalKey(null); }} />
                     )}
-                    {!!o.d && (
-                      <Chips items={TIME_QUICK.map(t => ({ v: t, l: t }))} value={o.t} onPick={v => set(f.key, { ...o, t: o.t === v ? '' : v })} />
-                    )}
                     <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: o.d ? '#b6bcc7' : SUB, marginTop: 8 }}>
                       <input type="checkbox" checked={!o.d} readOnly disabled style={{ cursor: 'default' }} />
                       記載なし（日程未通知）<span style={{ fontSize: 10.5, color: '#9ca3af' }}>※日付を入れると自動で外れる</span>
@@ -1087,7 +1084,7 @@ tr { page-break-inside:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.5
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.6
         </div>
       </div>
 
