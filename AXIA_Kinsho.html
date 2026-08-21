@@ -433,6 +433,10 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
             <Row key={f.key} label={f.label}>
               {f.type === 'text' && (() => {
                 const cur = fv[f.key] || '';
+                // 候補チップ（サジェスト）は「物件名」だけに残す。ほかの文字項目は普通の入力欄のみ
+                if (f.key !== 'bukken') {
+                  return <TextInput value={cur} onCommit={v => set(f.key, v)} placeholder={f.label} />;
+                }
                 const sg = (suggests || {})[f.key] || [];
                 // 出現回数が最も多い1件だけをチップにする（履歴が増えても選択肢は増やさない）
                 const top = sg.filter(s => s !== cur).slice(0, 1);
@@ -1083,7 +1087,7 @@ tr { page-break-inside:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.4
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.5
         </div>
       </div>
 
