@@ -3,16 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="color-scheme" content="light">
 <title>金消予定日 一覧 | AXIA JAPAN</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
+  :root { color-scheme: light; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body { margin:0; background:#f5f6f8; font-family:'Noto Sans JP',sans-serif; color:#1e2a4a; }
-  input, select, button, textarea { font-family:'Noto Sans JP',sans-serif; }
+  input, select, button, textarea { font-family:'Noto Sans JP',sans-serif; color:#1e2a4a; color-scheme: light; }
   input:focus, select:focus, textarea:focus { outline:2px solid #c8a94a; outline-offset:0; }
   .mono { font-family:'DM Mono',monospace; }
+  /* ブラウザ標準の小さいカレンダー/時計アイコンは消して、自前の大きいボタンに一本化する */
+  input[type=date]::-webkit-calendar-picker-indicator,
+  input[type=time]::-webkit-calendar-picker-indicator { display:none; -webkit-appearance:none; }
+  input[type=date], input[type=time] { -webkit-appearance:none; appearance:none; color:#1e2a4a; color-scheme: light; }
 </style>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -36,6 +42,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const LOGO = 'https://raw.githubusercontent.com/iety0214-hub/axia-tools/main/%E9%80%8F%E9%81%8E.png';
 const NAVY = '#1e2a4a', GOLD = '#c8a94a', LINE = '#e3e6ec', SUB = '#6b7280';
 const SUBTXT = '#33405e';              // カードの氏名・銀行など（濃いめ）
+const KINSHO_PINK = { bg: '#fdeaf3', bd: '#f0b8d6', fg: '#9c2b63' };  // 金消日バッジは期日に関係なくピンク固定
 const PROG_COLORS = ['#2e7d32', '#1565c0', '#b3261e', '#7b4bb0', '#0f766e', '#b06a00'];  // 承・契・金＋追加分
 const WD = ['日','月','火','水','木','金','土'];
 const TYPES = [
@@ -88,6 +95,17 @@ const fmtField = (f, v) => {
 const hasVal = (f, v) => {
   if (f.type === 'datetime') { return !!dtVal(v).d; }
   return !!(v && String(v).length);
+};
+// 期日までの残り日数で色分け：3日以内＝赤／7日以内＝黄／それ以外＝紺（未入力は灰）
+const dateTone = (on, rawD) => {
+  let tone = { bg: '#eef1f7', bd: '#d8dee9', fg: SUBTXT };
+  if (on && rawD) {
+    const diff = Math.floor((new Date(rawD + 'T00:00:00') - new Date(new Date().toDateString())) / 86400000);
+    if (diff <= 3) tone = { bg: '#fdecea', bd: '#f3b9b3', fg: '#8c1d18' };
+    else if (diff <= 7) tone = { bg: '#fff4d6', bd: '#f0cf7a', fg: '#8a5a00' };
+    else tone = { bg: '#e8edfb', bd: '#c9d4f2', fg: NAVY };
+  }
+  return tone;
 };
 
 /* ===== DB ===== */
@@ -218,6 +236,27 @@ function MiniCal({ value, onPick, onClear }) {
     </div>
   );
 }
+const icoBtn = (on) => ({
+  width: 52, height: 46, flexShrink: 0, borderRadius: 10, cursor: 'pointer', padding: 0,
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  border: `1px solid ${on ? GOLD : LINE}`, background: on ? '#fdf6e3' : '#fff',
+  color: on ? '#8a5a00' : NAVY
+});
+const IcoCal = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+    <rect x="3" y="5" width="18" height="16" rx="2.5" /><path d="M3 10h18M8 3v4M16 3v4" />
+    <circle cx="8.5" cy="14.5" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="14.5" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="15.5" cy="14.5" r="1.1" fill="currentColor" stroke="none" />
+  </svg>
+);
+const IcoClock = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+    <circle cx="12" cy="12" r="9" /><path d="M12 7v5.3l3.4 2" />
+  </svg>
+);
+// 時計ボタン：スマホ標準の時刻ピッカーを直接開く
+const openPicker = (el) => { if (!el) return; try { el.showPicker(); } catch (e) { el.focus(); } };
 const TIME_QUICK = ['10:00', '11:00', '13:00', '14:00', '15:00', '16:00'];
 
 function Row({ label, children }) {
@@ -251,6 +290,10 @@ function TextInput({ value, onCommit, placeholder, style, list, inputMode }) {
 
 /* ===== カード ===== */
 function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onPatch, onDelete, onCopy, onDup }) {
+  const [calKey, setCalKey] = useState(null);
+  const timeRef = useRef({});
+  // カードを閉じたらカレンダーも畳んでおく（次に開いた時に開きっぱなしにせん）
+  useEffect(() => { if (!open) setCalKey(null); }, [open]);
   const F = settings.fields;
   const fv = r.fields || {};
   const prog = F.filter(f => f.progress).slice(0, 6);   // 横一列に収めるため最大6個
@@ -262,12 +305,16 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
   // 見出しに出す項目（物件名・号室／部屋番号）と、名前の右に並べる項目（銀行など）に分ける
   const isBukken = (f) => /物件|号室|部屋/.test(f.label || '');
   const headSubs = subs.filter(isBukken);
-  const restSubs = subs.filter(f => !isBukken(f));
+  // 金消予定日（main）は下の色付きバッジで別途出すので、灰色チップ側には出さない（二重表示防止）
+  const restSubs = subs.filter(f => !isBukken(f) && f.key !== settings.mainKey);
+  // 日付系のsub項目（金消予定日など）は灰色チップじゃなく、期日で色が変わるバッジ表示にする
+  const dateSubs = restSubs.filter(f => f.type === 'date' || f.type === 'datetime');
+  const chipSubs = restSubs.filter(f => f.type !== 'date' && f.type !== 'datetime');
   const headTxt = headSubs.map(f => fmtField(f, fv[f.key])).filter(Boolean).join(' ');
-  // 名前 ＋ サブ項目。値が空の項目は「項目名：－」で出して、設定が効いとることが分かるようにする
+  // 名前 ＋ サブ項目（日付系以外）。値が空の項目は「項目名：－」で出して、設定が効いとることが分かるようにする
   const lineItems = [
     ...(r.name ? [{ k: '__name', t: r.name, empty: false }] : []),
-    ...restSubs.map(f => {
+    ...chipSubs.map(f => {
       const t = fmtField(f, fv[f.key]);
       const has = !!t && t !== '未定' && t !== '記載なし';
       return { k: f.key, t: has ? t : `${f.label}：－`, empty: !has };
@@ -304,11 +351,40 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
               ))}
             </div>
           )}
-          {main && (main.type === 'date' || main.type === 'datetime') && (
-            <div className="mono" style={{ fontSize: 13, marginTop: 5, color: mainOn ? NAVY : '#9ca3af', fontWeight: mainOn ? 500 : 400 }}>
-              🗓 {mainTxt || '記載なし'}
+          {!!dateSubs.length && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+              {dateSubs.map(f => {
+                const v = fv[f.key];
+                const on = hasVal(f, v);
+                const tone = on ? KINSHO_PINK : { bg: '#eef1f7', bd: '#d8dee9', fg: SUBTXT };
+                const txt = fmtField(f, v);
+                return (
+                  <div key={f.key} className="mono" style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    padding: '3px 10px', borderRadius: 7, maxWidth: '100%', fontSize: 12.5, fontWeight: 700,
+                    background: tone.bg, border: `1px solid ${tone.bd}`, color: tone.fg
+                  }}>
+                    <span style={{ flexShrink: 0 }}>🗓</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{txt || '記載なし'}</span>
+                  </div>
+                );
+              })}
             </div>
           )}
+          {main && (main.type === 'date' || main.type === 'datetime') && (() => {
+            const rawD = main.type === 'datetime' ? dtVal(fv[main.key]).d : (fv[main.key] || '');
+            const tone = dateTone(mainOn, rawD);
+            return (
+              <div className="mono" style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 6,
+                padding: '3px 10px', borderRadius: 7, maxWidth: '100%', fontSize: 13, fontWeight: 700,
+                background: tone.bg, border: `1px solid ${tone.bd}`, color: tone.fg
+              }}>
+                <span style={{ flexShrink: 0 }}>🗓</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mainTxt || '記載なし'}</span>
+              </div>
+            );
+          })()}
           {main && main.type !== 'date' && main.type !== 'datetime' && mainOn && (
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 6,
@@ -358,7 +434,8 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
               {f.type === 'text' && (() => {
                 const cur = fv[f.key] || '';
                 const sg = (suggests || {})[f.key] || [];
-                const top = sg.filter(s => s !== cur).slice(0, 4);
+                // 出現回数が最も多い1件だけをチップにする（履歴が増えても選択肢は増やさない）
+                const top = sg.filter(s => s !== cur).slice(0, 1);
                 return (
                   <div>
                     <TextInput value={cur} onCommit={v => set(f.key, v)} placeholder={f.label} list={`dl_${r.id}_${f.key}`} />
@@ -400,8 +477,16 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
               )}
               {f.type === 'date' && (
                 <div>
-                  <input type="date" value={fv[f.key] || ''} onChange={e => set(f.key, e.target.value)} style={inpM} />
-                  <MiniCal value={fv[f.key] || ''} onPick={v => set(f.key, v)} onClear={() => set(f.key, '')} />
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input type="date" value={fv[f.key] || ''} onChange={e => set(f.key, e.target.value)} style={{ ...inpM, flex: 1, height: 46, borderRadius: 10, fontSize: 15 }} />
+                    <button type="button" aria-label="カレンダーから選ぶ"
+                      onClick={() => setCalKey(calKey === f.key ? null : f.key)} style={icoBtn(calKey === f.key)}><IcoCal /></button>
+                  </div>
+                  {calKey === f.key && (
+                    <MiniCal value={fv[f.key] || ''}
+                      onPick={v => { set(f.key, v); setCalKey(null); }}
+                      onClear={() => { set(f.key, ''); setCalKey(null); }} />
+                  )}
                 </div>
               )}
               {f.type === 'datetime' && (() => {
@@ -409,10 +494,21 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
                 return (
                   <div>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <input type="date" value={o.d} onChange={e => set(f.key, { ...o, d: e.target.value, none: !e.target.value })} style={{ ...inpM, flex: 1.4 }} />
-                      <input type="time" value={o.t} onChange={e => set(f.key, { ...o, t: e.target.value })} style={{ ...inpM, flex: 1 }} />
+                      <input type="date" value={o.d} onChange={e => set(f.key, { ...o, d: e.target.value, none: !e.target.value })} style={{ ...inpM, flex: 1, height: 46, borderRadius: 10, fontSize: 15 }} />
+                      <button type="button" aria-label="カレンダーから選ぶ"
+                        onClick={() => setCalKey(calKey === f.key ? null : f.key)} style={icoBtn(calKey === f.key)}><IcoCal /></button>
                     </div>
-                    <MiniCal value={o.d} onPick={v => set(f.key, { ...o, d: v, none: false })} onClear={() => set(f.key, { ...o, d: '', none: true })} />
+                    <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                      <input type="time" ref={el => (timeRef.current[f.key] = el)} value={o.t}
+                        onChange={e => set(f.key, { ...o, t: e.target.value })} style={{ ...inpM, flex: 1, height: 46, borderRadius: 10, fontSize: 15 }} />
+                      <button type="button" aria-label="時刻を選ぶ"
+                        onClick={() => openPicker(timeRef.current[f.key])} style={icoBtn(false)}><IcoClock /></button>
+                    </div>
+                    {calKey === f.key && (
+                      <MiniCal value={o.d}
+                        onPick={v => { set(f.key, { ...o, d: v, none: false }); setCalKey(null); }}
+                        onClear={() => { set(f.key, { ...o, d: '', none: true }); setCalKey(null); }} />
+                    )}
                     {!!o.d && (
                       <Chips items={TIME_QUICK.map(t => ({ v: t, l: t }))} value={o.t} onPick={v => set(f.key, { ...o, t: o.t === v ? '' : v })} />
                     )}
@@ -987,7 +1083,7 @@ tr { page-break-inside:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.2
         </div>
       </div>
 
