@@ -102,21 +102,32 @@ const dbLoadSettings = async () => {
   return data ? data.settings : null;
 };
 const dbSaveSettings = async (s) => {
-  const { error } = await sb.from(STABLE).upsert({ id: 1, settings: s, updated_at: new Date().toISOString() });
-  if (error) console.error(error);
+  try {
+    const { error } = await sb.from(STABLE).upsert({ id: 1, settings: s, updated_at: new Date().toISOString() });
+    if (error) { console.error(error); return { ok: false, error }; }
+    return { ok: true };
+  } catch (e) { console.error(e); return { ok: false, error: e }; }
 };
 const dbInsert = async (row) => {
-  const { data, error } = await sb.from(TABLE).insert(row).select().single();
-  if (error) { console.error(error); return null; }
-  return data;
+  try {
+    const { data, error } = await sb.from(TABLE).insert(row).select().single();
+    if (error) { console.error(error); return { ok: false, error }; }
+    return { ok: true, data };
+  } catch (e) { console.error(e); return { ok: false, error: e }; }
 };
 const dbUpdate = async (id, patch) => {
-  const { error } = await sb.from(TABLE).update(patch).eq('id', id);
-  if (error) console.error(error);
+  try {
+    const { error } = await sb.from(TABLE).update(patch).eq('id', id);
+    if (error) { console.error(error); return { ok: false, error }; }
+    return { ok: true };
+  } catch (e) { console.error(e); return { ok: false, error: e }; }
 };
 const dbDelete = async (id) => {
-  const { error } = await sb.from(TABLE).delete().eq('id', id);
-  if (error) console.error(error);
+  try {
+    const { error } = await sb.from(TABLE).delete().eq('id', id);
+    if (error) { console.error(error); return { ok: false, error }; }
+    return { ok: true };
+  } catch (e) { console.error(e); return { ok: false, error: e }; }
 };
 
 /* ===== 共通スタイル ===== */
@@ -124,6 +135,90 @@ const inp = { width: '100%', padding: '9px 10px', border: `1px solid ${LINE}`, b
 const inpM = { ...inp, fontFamily: 'DM Mono, monospace' };
 const navBtn = { padding: '8px 12px', border: 'none', borderRadius: 8, background: 'rgba(255,255,255,.12)', color: '#fff', fontSize: 13, cursor: 'pointer' };
 const subBtn = { flex: 1, padding: '11px', border: `1px solid ${LINE}`, background: '#fff', color: NAVY, borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer' };
+
+/* ===== 入力の手間を減らす小さな部品 ===== */
+const isoOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const chipBtn = (on) => ({
+  padding: '6px 10px', borderRadius: 999, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
+  border: `1px solid ${on ? GOLD : LINE}`, background: on ? '#fdf6e3' : '#fff',
+  color: on ? '#8a5a00' : NAVY, fontWeight: on ? 700 : 500
+});
+function Chips({ items, value, onPick }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+      {items.map(it => (
+        <button key={it.v} type="button" onClick={() => onPick(it.v)} style={chipBtn(value === it.v)}>{it.l}</button>
+      ))}
+    </div>
+  );
+}
+// 日付欄の下に常時出しとくミニカレンダー（今日も含めてタップで選ぶ）
+const MC_HEAD = ['日','月','火','水','木','金','土'];
+const mcCell = (state) => {
+  const base = {
+    height: 34, border: '1px solid transparent', borderRadius: 8, background: 'transparent',
+    fontSize: 13, cursor: 'pointer', padding: 0, lineHeight: 1, fontFamily: 'DM Mono, monospace'
+  };
+  if (state === 'sel')   return { ...base, background: NAVY, color: '#fff', fontWeight: 700 };
+  if (state === 'today') return { ...base, borderColor: GOLD, background: '#fdf6e3', color: '#8a5a00', fontWeight: 700 };
+  return base;
+};
+function MiniCal({ value, onPick, onClear }) {
+  const today = isoOf(new Date());
+  const [view, setView] = useState(() => (value || today).slice(0, 7));
+  const seen = useRef(value);
+  useEffect(() => {
+    if (value !== seen.current) { seen.current = value; if (value) setView(value.slice(0, 7)); }
+  }, [value]);
+
+  const [y, m] = view.split('-').map(Number);
+  const lead = new Date(y, m - 1, 1).getDay();
+  const last = new Date(y, m, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < lead; i++) cells.push(null);
+  for (let d = 1; d <= last; d++) cells.push(d);
+  while (cells.length % 7) cells.push(null);
+
+  const iso = (d) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  const shift = (n) => setView(addMonth(view, n));
+  const navS = { width: 30, height: 28, borderRadius: 8, border: `1px solid ${LINE}`, background: '#fff', color: NAVY, fontSize: 11, cursor: 'pointer', padding: 0 };
+
+  return (
+    <div style={{ marginTop: 8, border: `1px solid ${LINE}`, borderRadius: 10, padding: 8, background: '#fff' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+        <button type="button" onClick={() => shift(-1)} style={navS}>◀</button>
+        <div style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 700 }}>{ymLabel(view)}</div>
+        <button type="button" onClick={() => shift(1)} style={navS}>▶</button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2, marginBottom: 2 }}>
+        {MC_HEAD.map((w, i) => (
+          <div key={w} style={{ textAlign: 'center', fontSize: 10.5, fontWeight: 500, padding: '2px 0', color: i === 0 ? '#c14040' : i === 6 ? '#2563a8' : SUB }}>{w}</div>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2 }}>
+        {cells.map((d, i) => {
+          if (!d) return <div key={'e' + i} />;
+          const v = iso(d);
+          const state = value === v ? 'sel' : v === today ? 'today' : '';
+          const wd = i % 7;
+          return (
+            <button key={v} type="button" onClick={() => onPick(v)}
+              style={{ ...mcCell(state), color: state ? mcCell(state).color : wd === 0 ? '#c14040' : wd === 6 ? '#2563a8' : NAVY }}>
+              {d}
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+        <button type="button" onClick={() => { setView(today.slice(0, 7)); onPick(today); }}
+          style={{ ...chipBtn(value === today), flex: 1, padding: '7px 0' }}>今日にする</button>
+        {value && <button type="button" onClick={onClear} style={{ ...chipBtn(false), flex: 1, padding: '7px 0', color: '#c14040', borderColor: '#f0c9c9' }}>クリア</button>}
+      </div>
+    </div>
+  );
+}
+const TIME_QUICK = ['10:00', '11:00', '13:00', '14:00', '15:00', '16:00'];
 
 function Row({ label, children }) {
   return (
@@ -155,7 +250,7 @@ function TextInput({ value, onCommit, placeholder, style, list, inputMode }) {
 }
 
 /* ===== カード ===== */
-function Card({ r, settings, open, onToggle, onPatch, onDelete, onCopy }) {
+function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onPatch, onDelete, onCopy, onDup }) {
   const F = settings.fields;
   const fv = r.fields || {};
   const prog = F.filter(f => f.progress).slice(0, 6);   // 横一列に収めるため最大6個
@@ -185,10 +280,16 @@ function Card({ r, settings, open, onToggle, onPatch, onDelete, onCopy }) {
   const set = (k, v) => onPatch({ fields: { ...fv, [k]: v } });
 
   return (
-    <div style={{ background: '#fff', borderRadius: 12, marginBottom: 10, border: `1px solid ${LINE}`, overflow: 'hidden', boxShadow: '0 1px 2px rgba(30,42,74,.05)' }}>
+    <div style={{ background: '#fff', borderRadius: 12, marginBottom: 10, border: `1px solid ${unsaved ? '#f3b9b3' : LINE}`, overflow: 'hidden', boxShadow: unsaved ? '0 0 0 2px rgba(179,38,30,.10)' : '0 1px 2px rgba(30,42,74,.05)' }}>
       <div onClick={onToggle} style={{ padding: '12px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>{headTxt || '（未入力）'}</div>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+            {unsaved && <span style={{
+              flexShrink: 0, fontSize: 10, fontWeight: 700, color: '#fff', background: '#b3261e',
+              borderRadius: 5, padding: '2px 6px', letterSpacing: '.02em'
+            }}>未保存</span>}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{headTxt || '（未入力）'}</span>
+          </div>
           {!!lineItems.length && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 3 }}>
               {lineItems.map(it => (
@@ -247,18 +348,42 @@ function Card({ r, settings, open, onToggle, onPatch, onDelete, onCopy }) {
       {open && (
         <div style={{ padding: '4px 14px 14px', borderTop: `1px solid ${LINE}` }}>
           <Row label={settings.nameLabel || '名前'}>
-            <TextInput value={r.name} onCommit={v => onPatch({ name: v })} placeholder={settings.nameLabel} />
+            <TextInput value={r.name} onCommit={v => onPatch({ name: v })} placeholder={settings.nameLabel}
+              list={`dl_name_${r.id}`} />
+            <datalist id={`dl_name_${r.id}`}>{(nameSuggest || []).map(s => <option key={s} value={s} />)}</datalist>
           </Row>
 
           {F.map(f => (
             <Row key={f.key} label={f.label}>
-              {f.type === 'text' && (
-                <TextInput value={fv[f.key] || ''} onCommit={v => set(f.key, v)} placeholder={f.label} />
-              )}
+              {f.type === 'text' && (() => {
+                const cur = fv[f.key] || '';
+                const sg = (suggests || {})[f.key] || [];
+                const top = sg.filter(s => s !== cur).slice(0, 4);
+                return (
+                  <div>
+                    <TextInput value={cur} onCommit={v => set(f.key, v)} placeholder={f.label} list={`dl_${r.id}_${f.key}`} />
+                    <datalist id={`dl_${r.id}_${f.key}`}>{sg.map(s => <option key={s} value={s} />)}</datalist>
+                    {!!top.length && (
+                      <Chips items={top.map(s => ({ v: s, l: s }))} value={cur} onPick={v => set(f.key, v)} />
+                    )}
+                  </div>
+                );
+              })()}
               {f.type === 'select' && (() => {
                 const cur = fv[f.key] || '';
                 const opts = f.options || [];
                 const extra = cur && !opts.includes(cur);
+                // 選択肢が少なければ、プルダウンを開かずに1タップで選べるようにする
+                if (opts.length && opts.length <= 6 && !extra) {
+                  return (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {opts.map(o => (
+                        <button key={o} type="button" onClick={() => set(f.key, cur === o ? '' : o)} style={chipBtn(cur === o)}>{o}</button>
+                      ))}
+                      {cur && <button type="button" onClick={() => set(f.key, '')} style={{ ...chipBtn(false), color: '#c14040', borderColor: '#f0c9c9' }}>クリア</button>}
+                    </div>
+                  );
+                }
                 return (
                   <select value={cur} onChange={e => set(f.key, e.target.value)} style={inp}>
                     <option value="">— 未選択 —</option>
@@ -274,7 +399,10 @@ function Card({ r, settings, open, onToggle, onPatch, onDelete, onCopy }) {
                 </div>
               )}
               {f.type === 'date' && (
-                <input type="date" value={fv[f.key] || ''} onChange={e => set(f.key, e.target.value)} style={inpM} />
+                <div>
+                  <input type="date" value={fv[f.key] || ''} onChange={e => set(f.key, e.target.value)} style={inpM} />
+                  <MiniCal value={fv[f.key] || ''} onPick={v => set(f.key, v)} onClear={() => set(f.key, '')} />
+                </div>
               )}
               {f.type === 'datetime' && (() => {
                 const o = dtVal(fv[f.key]);
@@ -284,7 +412,11 @@ function Card({ r, settings, open, onToggle, onPatch, onDelete, onCopy }) {
                       <input type="date" value={o.d} onChange={e => set(f.key, { ...o, d: e.target.value, none: !e.target.value })} style={{ ...inpM, flex: 1.4 }} />
                       <input type="time" value={o.t} onChange={e => set(f.key, { ...o, t: e.target.value })} style={{ ...inpM, flex: 1 }} />
                     </div>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: o.d ? '#b6bcc7' : SUB, marginTop: 6 }}>
+                    <MiniCal value={o.d} onPick={v => set(f.key, { ...o, d: v, none: false })} onClear={() => set(f.key, { ...o, d: '', none: true })} />
+                    {!!o.d && (
+                      <Chips items={TIME_QUICK.map(t => ({ v: t, l: t }))} value={o.t} onPick={v => set(f.key, { ...o, t: o.t === v ? '' : v })} />
+                    )}
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: o.d ? '#b6bcc7' : SUB, marginTop: 8 }}>
                       <input type="checkbox" checked={!o.d} readOnly disabled style={{ cursor: 'default' }} />
                       記載なし（日程未通知）<span style={{ fontSize: 10.5, color: '#9ca3af' }}>※日付を入れると自動で外れる</span>
                     </label>
@@ -294,10 +426,13 @@ function Card({ r, settings, open, onToggle, onPatch, onDelete, onCopy }) {
             </Row>
           ))}
 
-          <button onClick={onDelete} style={{
-            marginTop: 12, width: '100%', padding: '10px', border: '1px solid #f0c9c9', background: '#fff6f6',
-            color: '#c14040', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer'
-          }}>🗑 この行を削除</button>
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <button onClick={onDup} style={{ ...subBtn, padding: '10px' }}>⧉ この行を複製</button>
+            <button onClick={onDelete} style={{
+              flex: 1, padding: '10px', border: '1px solid #f0c9c9', background: '#fff6f6',
+              color: '#c14040', borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer'
+            }}>🗑 削除</button>
+          </div>
         </div>
       )}
     </div>
@@ -517,15 +652,26 @@ function App() {
   const [month, setMonth] = useState(ym(new Date()));
   const [extraMonths, setExtraMonths] = useState([]);
   const [openId, setOpenId] = useState(null);
-  const [toast, setToast] = useState('');
+  const [toast, setToast] = useState(null);
+  const [pending, setPending] = useState({});   // 保存に失敗して未送信のパッチ {id: patch}
+  const [query, setQuery] = useState('');
   const lock = useRef(0);
   const first = useRef(true);
+  const retrying = useRef(false);
+  const toastTimer = useRef(null);
+  const pendingRef = useRef({});
 
-  const flash = (m) => { setToast(m); setTimeout(() => setToast(''), 1600); };
+  const flash = (m, bad) => {
+    setToast({ m, bad: !!bad });
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), bad ? 3600 : 1600);
+  };
 
   const reload = useCallback(async () => {
     const [data, st] = await Promise.all([dbLoad(), dbLoadSettings()]);
-    setAll(data);
+    // 未保存で手元にしかない入力は、サーバの値で上書きせずに残す
+    const q = pendingRef.current;
+    setAll(Object.keys(q).length ? data.map(r => q[r.id] ? { ...r, ...q[r.id] } : r) : data);
     if (st) setSettings({ ...DEFAULT_SETTINGS, ...st });
     setLoading(false);
     if (first.current) {
@@ -551,28 +697,95 @@ function App() {
     return () => { sb.removeChannel(ch); };
   }, [reload]);
 
+  pendingRef.current = pending;
+
   const rows = all.filter(r => r.month === month);
+
+  // ===== 未保存キュー：保存に失敗した分をためて自動で再送する =====
+  const sendPatch = useCallback(async (id, p) => {
+    lock.current = Date.now();
+    const res = await dbUpdate(id, p);
+    if (res.ok) {
+      setPending(q => {
+        if (!q[id]) return q;
+        const n = { ...q }; delete n[id]; return n;
+      });
+      return true;
+    }
+    // 失敗分は行ごとにマージして保持（あとでまとめて再送）
+    setPending(q => ({ ...q, [id]: { ...(q[id] || {}), ...p } }));
+    return false;
+  }, []);
 
   const patch = (id, p) => {
     lock.current = Date.now();
     setAll(a => a.map(r => r.id === id ? { ...r, ...p } : r));
-    dbUpdate(id, p).then(() => flash('保存したばい'));
+    sendPatch(id, p).then(ok => flash(ok ? '保存したばい' : '⚠ 保存できとらん（自動で再送するけん画面は閉じんで）', !ok));
   };
+
+  const retryAll = useCallback(async () => {
+    const ids = Object.keys(pending);
+    if (!ids.length || retrying.current) return;
+    retrying.current = true;
+    let ng = 0;
+    for (const id of ids) {
+      const ok = await sendPatch(Number(id), pending[id]);
+      if (!ok) ng++;
+    }
+    retrying.current = false;
+    if (!ng) flash('未保存の分、保存できたばい');
+  }, [pending, sendPatch]);
+
+  // オンライン復帰時と20秒おきに再送を試す
+  useEffect(() => {
+    if (!Object.keys(pending).length) return;
+    const t = setInterval(retryAll, 20000);
+    window.addEventListener('online', retryAll);
+    return () => { clearInterval(t); window.removeEventListener('online', retryAll); };
+  }, [pending, retryAll]);
+
+  // 未保存が残っとる状態でタブを閉じようとしたら止める
+  useEffect(() => {
+    const h = (e) => { if (Object.keys(pending).length) { e.preventDefault(); e.returnValue = ''; } };
+    window.addEventListener('beforeunload', h);
+    return () => window.removeEventListener('beforeunload', h);
+  }, [pending]);
+
   const del = async (id) => {
     if (!confirm('この行を削除する？')) return;
     lock.current = Date.now();
+    const backup = all.find(r => r.id === id);
     setAll(a => a.filter(r => r.id !== id));
     setOpenId(null);
-    await dbDelete(id);
+    const res = await dbDelete(id);
+    if (!res.ok) {
+      if (backup) setAll(a => [...a, backup]);
+      return flash('⚠ 削除できんかった（通信を確認して）', true);
+    }
     flash('削除したばい');
   };
   const add = async () => {
     lock.current = Date.now();
     const maxSo = all.filter(r => r.month === month).reduce((m, r) => Math.max(m, r.sort_order ?? 0), 0);
-    const row = await dbInsert({ month, name: '', fields: {}, sort_order: maxSo + 1000 });
-    if (!row) return flash('追加に失敗…通信を確認して');
-    setAll(a => [...a, row]);
-    setOpenId(row.id);
+    const res = await dbInsert({ month, name: '', fields: {}, sort_order: maxSo + 1000 });
+    if (!res.ok) return flash('⚠ 追加できんかった（通信を確認して）', true);
+    setAll(a => [...a, res.data]);
+    setOpenId(res.data.id);
+    setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 120);
+  };
+
+  // 同じ条件の案件を作るとき用：中身ごとコピーして1行増やす（主要日付だけは空にする）
+  const dup = async (r) => {
+    lock.current = Date.now();
+    const mf = settings.fields.find(f => f.key === settings.mainKey);
+    const nf = { ...(r.fields || {}) };
+    if (mf) delete nf[mf.key];
+    const maxSo = all.filter(x => x.month === month).reduce((m, x) => Math.max(m, x.sort_order ?? 0), 0);
+    const res = await dbInsert({ month, name: r.name, fields: nf, sort_order: maxSo + 1000 });
+    if (!res.ok) return flash('⚠ 複製できんかった（通信を確認して）', true);
+    setAll(a => [...a, res.data]);
+    setOpenId(res.data.id);
+    flash('複製したばい');
     setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 120);
   };
 
@@ -583,7 +796,37 @@ function App() {
     if (mainF.type === 'datetime') { const o = dtVal(v); return (o.d || '9999') + ' ' + (o.t || ''); }
     return v || '9999';
   };
-  const sorted = [...rows].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id);
+  const pendingCount = Object.keys(pending).length;
+
+  // 過去に入力した値を候補にして、2回目からは選ぶだけで済むようにする
+  const suggests = React.useMemo(() => {
+    const m = {};
+    settings.fields.filter(f => f.type === 'text').forEach(f => {
+      const c = {};
+      all.forEach(r => {
+        const v = ((r.fields || {})[f.key] || '').trim();
+        if (v) c[v] = (c[v] || 0) + 1;
+      });
+      m[f.key] = Object.keys(c).sort((a, b) => c[b] - c[a]).slice(0, 20);
+    });
+    return m;
+  }, [all, settings.fields]);
+  const nameSuggest = React.useMemo(() => {
+    const c = {};
+    all.forEach(r => { const v = (r.name || '').trim(); if (v) c[v] = (c[v] || 0) + 1; });
+    return Object.keys(c).sort((a, b) => c[b] - c[a]).slice(0, 20);
+  }, [all]);
+
+  // 検索：名前と全項目の中身をまとめて対象にする
+  const hit = (r) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    const fv = r.fields || {};
+    const txt = [r.name || '', ...settings.fields.map(f => fmtField(f, fv[f.key]))].join(' ').toLowerCase();
+    return q.split(/\s+/).every(w => txt.includes(w));
+  };
+  const sorted = [...rows].filter(hit).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id);
+  const otherMonthHits = query.trim() ? all.filter(r => r.month !== month && hit(r)).length : 0;
 
   // 日付順に一括で並べ直す
   const resortByDate = async () => {
@@ -594,8 +837,9 @@ function App() {
     const map = {};
     ordered.forEach((r, i) => { map[r.id] = (i + 1) * 1000; });
     setAll(all => all.map(r => map[r.id] != null ? { ...r, sort_order: map[r.id] } : r));
-    await Promise.all(ordered.map(r => dbUpdate(r.id, { sort_order: map[r.id] })));
-    flash('日付順にしたばい');
+    const rs = await Promise.all(ordered.map(r => dbUpdate(r.id, { sort_order: map[r.id] })));
+    const ng = rs.filter(x => !x.ok).length;
+    flash(ng ? `⚠ ${ng}件の並び順が保存できとらん（もう一回押して）` : '日付順にしたばい', !!ng);
   };
 
   // 出力用の列順：物件名・号室 → 名前 → 残りの項目
@@ -684,22 +928,23 @@ tr { page-break-inside:avoid; }
     if (!src.length) return flash('繰越対象なし');
     lock.current = Date.now();
     let so = all.filter(r => r.month === month).reduce((m, r) => Math.max(m, r.sort_order ?? 0), 0);
+    let ok = 0, ng = 0;
     for (const r of src) {
       const nf = { ...(r.fields || {}) };
       if (mainF) delete nf[mainF.key];
       so += 1000;
-      const row = await dbInsert({ month, name: r.name, fields: nf, sort_order: so });
-      if (row) setAll(a => [...a, row]);
+      const res = await dbInsert({ month, name: r.name, fields: nf, sort_order: so });
+      if (res.ok) { setAll(a => [...a, res.data]); ok++; } else ng++;
     }
-    flash(`${src.length}件を繰越`);
+    flash(ng ? `⚠ ${ok}件は繰越できたけど${ng}件が失敗（通信を確認して）` : `${ok}件を繰越`, !!ng);
   };
 
   const saveSettings = async (s) => {
     lock.current = Date.now();
     setSettings(s);
-    await dbSaveSettings(s);
+    const res = await dbSaveSettings(s);
     setScreen('main');
-    flash('設定を保存したばい');
+    flash(res.ok ? '設定を保存したばい' : '⚠ 設定が保存できとらん（もう一回保存して）', !res.ok);
   };
 
   const monthKeys = Array.from(new Set([...all.map(r => r.month), ...extraMonths, month, ym(new Date())])).sort();
@@ -733,23 +978,56 @@ tr { page-break-inside:avoid; }
           </select>
           <button onClick={() => goMonth(1)} style={navBtn}>▶</button>
         </div>
+        <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="🔍 物件名・名前・銀行などで絞り込み"
+            style={{
+              flex: 1, padding: '8px 10px', borderRadius: 8, border: 'none',
+              background: 'rgba(255,255,255,.12)', color: '#fff', fontSize: 13
+            }} />
+          {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
+        </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件 ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v12.7
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13
         </div>
       </div>
+
+      {!!pendingCount && (
+        <div style={{
+          margin: '0 12px',
+          background: '#fdecea', border: '1px solid #f3b9b3', borderRadius: 10,
+          padding: '9px 12px', fontSize: 12.5, color: '#8c1d18',
+          display: 'flex', alignItems: 'center', gap: 8, marginTop: 12
+        }}>
+          <span style={{ flex: 1, lineHeight: 1.5 }}>
+            ⚠ <b>{pendingCount}件</b>がまだ保存できとらん。20秒おきに自動で再送しよるっちゃ。
+          </span>
+          <button onClick={retryAll} style={{
+            border: '1px solid #d9534f', background: '#fff', color: '#b3261e',
+            borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', flexShrink: 0
+          }}>今すぐ再送</button>
+        </div>
+      )}
 
       <div style={{ padding: '12px 12px 0' }}>
         {loading && <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13, padding: '50px 0' }}>読み込み中…</div>}
         {!loading && sorted.length === 0 && (
-          <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13, padding: '50px 0' }}>
-            この月のデータはまだなかよ。<br />下の「＋ 追加」から入れてね。
+          <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13, padding: '50px 0', lineHeight: 1.8 }}>
+            {query.trim()
+              ? <>「{query}」に合う行は{ymLabel(month)}にはなかよ。<br />{otherMonthHits ? `ほかの月には ${otherMonthHits} 件あるっちゃ。` : ''}</>
+              : <>この月のデータはまだなかよ。<br />下の「＋ 追加」から入れてね。</>}
+          </div>
+        )}
+        {!loading && sorted.length > 0 && !!otherMonthHits && (
+          <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: 11.5, marginBottom: 8 }}>
+            ほかの月にも {otherMonthHits} 件ヒットしとるよ
           </div>
         )}
         {sorted.map((r, i) => (
           <Card key={r.id} r={r} settings={settings} open={openId === r.id}
+            unsaved={!!pending[r.id]} suggests={suggests} nameSuggest={nameSuggest}
             onToggle={() => setOpenId(openId === r.id ? null : r.id)}
             onPatch={p => patch(r.id, p)} onDelete={() => del(r.id)}
-            onCopy={() => copyOne(r)} />
+            onCopy={() => copyOne(r)} onDup={() => dup(r)} />
         ))}
         {!loading && (
           <div>
@@ -776,8 +1054,10 @@ tr { page-break-inside:avoid; }
       {toast && (
         <div style={{
           position: 'fixed', bottom: 78, left: '50%', transform: 'translateX(-50%)',
-          background: NAVY, color: '#fff', padding: '8px 18px', borderRadius: 20, fontSize: 13, zIndex: 20
-        }}>{toast}</div>
+          background: toast.bad ? '#b3261e' : NAVY, color: '#fff', padding: '9px 18px', borderRadius: 20,
+          fontSize: 13, zIndex: 20, maxWidth: '92vw', textAlign: 'center', lineHeight: 1.5,
+          boxShadow: '0 4px 14px rgba(0,0,0,.22)'
+        }}>{toast.m}</div>
       )}
     </div>
   );
