@@ -424,9 +424,7 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
       {open && (
         <div style={{ padding: '4px 14px 14px', borderTop: `1px solid ${LINE}` }}>
           <Row label={settings.nameLabel || '名前'}>
-            <TextInput value={r.name} onCommit={v => onPatch({ name: v })} placeholder={settings.nameLabel}
-              list={`dl_name_${r.id}`} />
-            <datalist id={`dl_name_${r.id}`}>{(nameSuggest || []).map(s => <option key={s} value={s} />)}</datalist>
+            <TextInput value={r.name} onCommit={v => onPatch({ name: v })} placeholder={settings.nameLabel} />
           </Row>
 
           {F.map(f => (
@@ -524,10 +522,14 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
           ))}
 
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <button onClick={onDup} style={{ ...subBtn, padding: '10px' }}>⧉ この行を複製</button>
+            <button onClick={onDup} style={{ ...subBtn, padding: '10px', fontSize: 12, whiteSpace: 'nowrap' }}>⧉ この行を複製</button>
+            <button onClick={onToggle} style={{
+              flex: 1, padding: '10px', border: `1px solid ${LINE}`, background: '#f7f8fa',
+              color: NAVY, borderRadius: 10, fontSize: 12, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap'
+            }}>▲ カードを閉じる</button>
             <button onClick={onDelete} style={{
               flex: 1, padding: '10px', border: '1px solid #f0c9c9', background: '#fff6f6',
-              color: '#c14040', borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer'
+              color: '#c14040', borderRadius: 10, fontSize: 12, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap'
             }}>🗑 削除</button>
           </div>
         </div>
@@ -541,9 +543,9 @@ function SettingsScreen({ settings, onSave, onClose }) {
   const [d, setD] = useState(() => JSON.parse(JSON.stringify(settings)));
   const up = (p) => setD(x => ({ ...x, ...p }));
   const updF = (i, p) => setD(x => ({ ...x, fields: x.fields.map((f, idx) => idx === i ? { ...f, ...p } : f) }));
-  const addF = () => up({ fields: [...d.fields, { key: genKey(), label: '新しい項目', type: 'text', sub: false, progress: true, options: [] }] });
+  const addF = () => up({ fields: [...d.fields, { key: genKey(), label: '', type: 'text', sub: false, progress: true, options: [] }] });
   const delF = (i) => {
-    if (!confirm(`「${d.fields[i].label}」を削除する？\n※入力済みの中身も表示されんくなるよ`)) return;
+    if (!confirm(`「${d.fields[i].label || '(名前なし)'}」を削除する？\n※入力済みの中身も表示されんくなるよ`)) return;
     const nf = d.fields.filter((_, idx) => idx !== i);
     up({ fields: nf, mainKey: d.mainKey === d.fields[i].key ? (nf[0] ? nf[0].key : '') : d.mainKey });
   };
@@ -676,7 +678,7 @@ function SettingsScreen({ settings, onSave, onClose }) {
                       </div>
                       {(f.options || []).map((o, oi) => (
                         <div key={oi} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-                          <TextInput value={o} onCommit={v => {
+                          <TextInput value={o} placeholder="選択肢" onCommit={v => {
                             const no = [...(f.options || [])];
                             if (v.trim()) no[oi] = v.trim(); else no.splice(oi, 1);
                             updF(i, { options: no });
@@ -687,7 +689,7 @@ function SettingsScreen({ settings, onSave, onClose }) {
                           }} style={{ border: '1px solid #f0c9c9', background: '#fff6f6', color: '#c14040', borderRadius: 8, padding: '0 10px', fontSize: 12, cursor: 'pointer' }}>🗑</button>
                         </div>
                       ))}
-                      <button onClick={() => updF(i, { options: [...(f.options || []), '新しい選択肢'] })}
+                      <button onClick={() => updF(i, { options: [...(f.options || []), ''] })}
                         style={{ ...subBtn, width: '100%', borderStyle: 'dashed', padding: 8, fontSize: 12 }}>＋ 選択肢を追加</button>
                     </div>
                   )}
@@ -1084,7 +1086,7 @@ tr { page-break-inside:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.6
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.7.3
         </div>
       </div>
 
