@@ -149,7 +149,7 @@ const dbDelete = async (id) => {
 };
 
 /* ===== 共通スタイル ===== */
-const inp = { width: '100%', padding: '9px 10px', border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 14, background: '#fff' };
+const inp = { width: '100%', padding: '9px 10px', border: `1px solid #b9c0cf`, borderRadius: 8, fontSize: 14, background: '#fff' };
 const inpM = { ...inp, fontFamily: 'DM Mono, monospace' };
 const navBtn = { padding: '8px 12px', border: 'none', borderRadius: 8, background: 'rgba(255,255,255,.12)', color: '#fff', fontSize: 13, cursor: 'pointer' };
 const subBtn = { flex: 1, padding: '11px', border: `1px solid ${LINE}`, background: '#fff', color: NAVY, borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer' };
@@ -261,7 +261,7 @@ const TIME_QUICK = ['10:00', '11:00', '13:00', '14:00', '15:00', '16:00'];
 
 function Row({ label, children }) {
   return (
-    <div style={{ marginTop: 10 }}>
+    <div style={{ marginTop: 10, border: `1px solid ${LINE}`, borderRadius: 10, padding: 10, background: '#fafbfc' }}>
       <div style={{ fontSize: 11, color: SUB, marginBottom: 4, fontWeight: 500 }}>{label}</div>
       {children}
     </div>
@@ -1083,7 +1083,7 @@ tr { page-break-inside:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.2
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.4
         </div>
       </div>
 
