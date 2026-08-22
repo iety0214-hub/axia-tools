@@ -754,6 +754,7 @@ function App() {
   const [toast, setToast] = useState(null);
   const [pending, setPending] = useState({});   // 保存に失敗して未送信のパッチ {id: patch}
   const [query, setQuery] = useState('');
+  const [printPick, setPrintPick] = useState(null); // 印刷する月を選ぶ画面（null＝閉じとる／配列＝選択中の月）
   const lock = useRef(0);
   const first = useRef(true);
   const retrying = useRef(false);
@@ -964,44 +965,85 @@ function App() {
   };
 
   // 印刷用の表を裏側のiframeに作って、その場で印刷ダイアログを出す（タブは開かん）
-  const printTable = () => {
-    if (!sorted.length) return flash('印刷する行がなかばい');
+  // months＝印刷したい月の配列。複数選んだときは改ページせず、月の区切り帯を挟んで続けて流し込む
+  const printTable = (months) => {
+    const ms = (months && months.length ? [...months] : [month]).sort();
+    // 選んだ月の行を「月順 → その月の並び順」でひとつなぎにする
+    const target = ms.flatMap(k =>
+      all.filter(r => r.month === k && hit(r))
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id)
+    );
+    if (!target.length) return flash('印刷する行がなかばい');
     const cols = exportCols();
     const esc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const nameIdx = cols.findIndex(c => c.label === (settings.nameLabel || '名前'));
     const th = cols.map(c => `<th>${esc(c.label)}</th>`).join('');
-    const tr = sorted.map((r, i) =>
-      `<tr${i % 2 ? ' class="alt"' : ''}>` + cols.map((c, ci) =>
+    const multi = ms.length > 1;
+    let curM = null, zebra = 0;
+    const tr = target.map(r => {
+      let band = '';
+      if (multi && r.month !== curM) {
+        curM = r.month; zebra = 0;
+        const n = target.filter(x => x.month === curM).length;
+        band = `<tr class="band"><td colspan="${cols.length}">${esc(ymLabel(curM))}　（${n}件）</td></tr>`;
+      }
+      const row = `<tr${zebra++ % 2 ? ' class="alt"' : ''}>` + cols.map((c, ci) =>
         `<td class="${ci === 0 || ci === nameIdx ? 'l' : 'c'}">${esc(c.get(r)) || '&nbsp;'}</td>`
-      ).join('') + '</tr>'
-    ).join('');
+      ).join('') + '</tr>';
+      return band + row;
+    }).join('');
+    const titleM = !multi ? ymLabel(ms[0])
+      : (ms.length <= 3 ? ms.map(ymLabel).join('・')
+        : `${ymLabel(ms[0])}〜${ymLabel(ms[ms.length - 1])}（${ms.length}ヶ月分）`);
+    // ── 紙面の割り付け（1ページ目にちょうど10件入るよう行の高さを逆算する）──
+    // A4横（高さ210mm）から上下余白24mmを引いた186mmが使える範囲。
+    // 1ページ目はここから「見出しブロック＋表ヘッダー＋1ページ目に出る月の区切り帯」を引いて、
+    // 残りを10等分する。2ページ目からは見出しブロックが無いぶん、同じ行の高さのまま入るだけ入る。
+    const P1_ROWS = 10;                 // 1ページ目に入れたい件数
+    const PAGE_MM = 210 - 12 * 2;       // 紙の高さ − 上下余白
+    const HEAD_MM = 19;                 // タイトル行（ロゴを横に抱き合わせ）＋作成日の固定高さ
+    const TH_MM = 8;                    // 表ヘッダーの高さ（毎ページ繰り返す）
+    const BAND_MM = 7;                  // 月の区切り帯の高さ
+    const SAFE_MM = 3;                  // 端の丸め誤差で1行こぼれんための逃げ
+    // 1ページ目に何本の区切り帯が入るかは、最初の10件が何ヶ月にまたがるかで決まる
+    const p1Bands = multi ? new Set(target.slice(0, P1_ROWS).map(r => r.month)).size : 0;
+    const ROW_MM = Math.floor(
+      ((PAGE_MM - HEAD_MM - TH_MM - SAFE_MM - p1Bands * BAND_MM) / P1_ROWS) * 10) / 10;
     const t = new Date();
     const dstr = `${t.getFullYear()}年${t.getMonth() + 1}月${t.getDate()}日`;
     const html = `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
-<title>${esc(settings.appTitle || '一覧')}_${esc(month)}</title>
+<title>${esc(settings.appTitle || '一覧')}_${esc(ms.join('_'))}</title>
 <style>
 @page { size: A4 landscape; margin: 12mm 14mm; }
 * { box-sizing: border-box; }
 body { margin:0; font-family:"Yu Gothic","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif; color:#111; }
-.logo { text-align:right; margin:0 0 2mm; }
-.logo img { width:14mm; height:auto; }
-h1 { font-size:15pt; text-align:center; margin:0 0 2mm; letter-spacing:.04em; }
-.meta { text-align:right; font-size:9pt; color:#555; margin:0 0 4mm; }
+.head { position:relative; height:${HEAD_MM}mm; overflow:hidden; }
+.logo { position:absolute; right:0; top:0; margin:0; }
+.logo img { width:12mm; height:auto; }
+h1 { font-size:14pt; text-align:center; margin:0 0 1.5mm; padding:0 16mm;
+     letter-spacing:.04em; line-height:1.25; }
+.meta { text-align:right; font-size:9pt; color:#555; margin:0; padding-right:14mm; }
 table { border-collapse:collapse; width:100%; }
-th { background:#1F3864; color:#fff; font-size:9.5pt; font-weight:600; padding:2mm 1.5mm;
+th { background:#1F3864; color:#fff; font-size:10pt; font-weight:600;
+     height:${TH_MM}mm; padding:0 1.5mm; vertical-align:middle;
      border:.3mm solid #9AA3B2; text-align:center; }
-td { font-size:9.5pt; padding:2mm 1.5mm; border:.3mm solid #C7CDD8; }
+td { font-size:11pt; height:${ROW_MM}mm; padding:0 1.5mm; vertical-align:middle;
+     border:.3mm solid #C7CDD8; }
 td.c { text-align:center; } td.l { text-align:left; }
 tr.alt td { background:#F2F4F8; }
+tr.band td { background:#DDE3EE; color:#1F3864; font-size:10pt; font-weight:700;
+     height:${BAND_MM}mm; text-align:left; padding:0 2mm; vertical-align:middle;
+     letter-spacing:.04em; border:.3mm solid #9AA3B2; }
 thead { display:table-header-group; }
 tr { page-break-inside:avoid; }
-.note { font-size:8.5pt; color:#555; margin-top:4mm; }
+tr.band { page-break-after:avoid; }
 </style></head><body>
+<div class="head">
 <p class="logo"><img src="${LOGO}" alt=""></p>
-<h1>${esc(settings.appTitle || '一覧')}（${esc(ymLabel(month))}）</h1>
+<h1>${esc(settings.appTitle || '一覧')}（${esc(titleM)}）</h1>
 <p class="meta">${esc(settings.subTitle || '')}　作成日：${dstr}</p>
+</div>
 <table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>
-<p class="note">※ 空欄の項目は確定次第の更新となります。</p>
 </body></html>`;
     // 新規タブは開かず、見えない枠（iframe）に印刷用の表を流し込んで、そのまま印刷プレビューを出す
     const old = document.getElementById('__printFrame');
@@ -1096,7 +1138,7 @@ tr { page-break-inside:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.7.4
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.4
         </div>
       </div>
 
@@ -1141,7 +1183,7 @@ tr { page-break-inside:avoid; }
         {!loading && (
           <div>
             <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-              <button onClick={printTable} style={subBtn}>🖨 印刷する</button>
+              <button onClick={() => setPrintPick([month])} style={subBtn}>🖨 印刷する</button>
               <button onClick={carryOver} style={subBtn}>↪ 前月から繰越</button>
             </div>
             {sorted.length > 1 && (
@@ -1159,6 +1201,57 @@ tr { page-break-inside:avoid; }
           }}>＋ 追加</button>
         </div>
       </div>
+
+      {printPick && (
+        <div onClick={() => setPrintPick(null)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(17,24,39,.35)', zIndex: 30,
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center'
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#fff', width: '100%', maxWidth: 560, borderRadius: '16px 16px 0 0',
+            padding: '16px 16px 20px', maxHeight: '82vh', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 -6px 24px rgba(0,0,0,.18)'
+          }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>印刷する月を選んでね</div>
+            <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 4, lineHeight: 1.6 }}>
+              複数選ぶと、改ページせず月の区切りを挟んで続けて印刷するっちゃ。
+            </div>
+            <div style={{ display: 'flex', gap: 8, margin: '12px 0 10px' }}>
+              <button onClick={() => setPrintPick([month])} style={{ ...subBtn, padding: '8px' }}>今月だけ</button>
+              <button onClick={() => setPrintPick(monthKeys.filter(k => all.some(r => r.month === k)))}
+                style={{ ...subBtn, padding: '8px' }}>データのある月ぜんぶ</button>
+            </div>
+            <div style={{ overflowY: 'auto', border: `1px solid ${LINE}`, borderRadius: 10, flex: 1 }}>
+              {monthKeys.map(k => {
+                const n = all.filter(r => r.month === k && hit(r)).length;
+                const on = printPick.includes(k);
+                return (
+                  <label key={k} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '11px 12px',
+                    borderBottom: `1px solid ${LINE}`, cursor: n ? 'pointer' : 'default',
+                    background: on ? '#eef2fa' : '#fff', opacity: n ? 1 : .45
+                  }}>
+                    <input type="checkbox" checked={on} disabled={!n}
+                      onChange={() => setPrintPick(p => on ? p.filter(x => x !== k) : [...p, k])}
+                      style={{ width: 17, height: 17, accentColor: NAVY }} />
+                    <span style={{ flex: 1, fontSize: 14, fontWeight: on ? 700 : 500, color: '#111' }}>{ymLabel(k)}</span>
+                    <span style={{ fontSize: 12, color: '#6b7280' }}>{n ? `${fmtNum(n)} 件` : 'データなし'}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <button onClick={() => setPrintPick(null)} style={subBtn}>やめる</button>
+              <button disabled={!printPick.length}
+                onClick={() => { const ms = [...printPick]; setPrintPick(null); setTimeout(() => printTable(ms), 60); }}
+                style={{
+                  ...subBtn, background: printPick.length ? NAVY : '#c8ccd4', color: '#fff',
+                  border: 'none', fontWeight: 700, cursor: printPick.length ? 'pointer' : 'default'
+                }}>🖨 この {fmtNum(printPick.length)} ヶ月を印刷</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div style={{
