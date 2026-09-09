@@ -1268,6 +1268,27 @@
             return /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
         }
 
+        function isAndroidDevice() {
+            return /Android/i.test(navigator.userAgent);
+        }
+
+        // アプリ用のURLを開き、アプリが立ち上がらなければ指定のURLへ切り替える
+        function openAppThenFallback(appUrl, fallbackUrl) {
+            let left = false;
+            const onHide = function() { if (document.hidden) left = true; };
+            document.addEventListener('visibilitychange', onHide);
+            window.addEventListener('pagehide', function() { left = true; });
+
+            window.location.href = appUrl;
+
+            setTimeout(function() {
+                document.removeEventListener('visibilitychange', onHide);
+                if (!left && !document.hidden) {
+                    window.location.href = fallbackUrl;
+                }
+            }, 1500);
+        }
+
         // Gmail送信ボタン（生成 → コピー → Gmail起動 を一括）
         document.getElementById('btnGmail').addEventListener('click', function() {
             // 1) まず生成（未入力があればここで中断）
@@ -1301,26 +1322,20 @@
             }
 
             // 3) Gmailを開く
-            // googlegmail:// はiOS専用のスキーム。Androidで使うと
-            // ERR_UNKNOWN_URL_SCHEME になって画面ごと飛ぶので、iPhone/iPadだけに限定する。
             if (isIOSDevice()) {
+                // googlegmail:// はiOS専用のスキーム。
+                // これを使わないと既定メール（iCloud）が開いてしまう。
                 const gmailAppUrl = 'googlegmail:///co?to=' + encodeURIComponent(TO) +
                     '&subject=' + encodedSubject + '&body=' + encodedBody;
+                openAppThenFallback(gmailAppUrl, gmailWebUrl);
 
-                let left = false;
-                const onHide = function() { if (document.hidden) left = true; };
-                document.addEventListener('visibilitychange', onHide);
-                window.addEventListener('pagehide', function() { left = true; });
+            } else if (isAndroidDevice()) {
+                // Androidは mailto: で既定のメールアプリ（通常はGmail）が開く。
+                // 件名だけでなく本文も渡すことで、開いた時点で全部入った状態になる。
+                const mailtoUrl = 'mailto:' + TO +
+                    '?subject=' + encodedSubject + '&body=' + encodedBody;
+                openAppThenFallback(mailtoUrl, gmailWebUrl);
 
-                window.location.href = gmailAppUrl;
-
-                // アプリが開かなかった場合（未インストール等）はGmailのWeb版へ
-                setTimeout(function() {
-                    document.removeEventListener('visibilitychange', onHide);
-                    if (!left && !document.hidden) {
-                        window.location.href = gmailWebUrl;
-                    }
-                }, 1200);
             } else {
                 openGmailWeb();
             }
