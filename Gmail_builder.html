@@ -190,6 +190,130 @@
             color: #666;
             margin-top: 4px;
         }
+
+        .list-tools {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn-mini {
+            background: #667eea;
+            color: #fff;
+            padding: 8px 14px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .btn-mini.secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .save-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            font-size: 13px;
+            color: #333;
+        }
+
+        .save-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #667eea;
+            flex-shrink: 0;
+        }
+
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            z-index: 1000;
+        }
+
+        .modal-backdrop.active {
+            display: flex;
+        }
+
+        .modal {
+            background: #fff;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 440px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .modal-head {
+            padding: 16px;
+            border-bottom: 1px solid #eee;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .modal-body {
+            padding: 16px;
+            overflow-y: auto;
+        }
+
+        .modal-foot {
+            padding: 12px 16px;
+            border-top: 1px solid #eee;
+            text-align: right;
+        }
+
+        .modal-add {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .modal-add input {
+            flex: 1;
+            min-width: 0;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .list-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 4px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .btn-del {
+            background: #ef4444;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
     </style>
 </head>
 <body>
@@ -241,19 +365,6 @@
                 <label class="required">振替前物件名</label>
                 <select id="beforePropertyName">
                     <option value="">選択してください</option>
-                    <option value="未定">未定</option>
-                    <option value="ライジングプレイス綾瀬">ライジングプレイス綾瀬</option>
-                    <option value="プレサンスジェネ千種内山2">プレサンスジェネ千種内山2</option>
-                    <option value="MAXIV代田橋">MAXIV代田橋</option>
-                    <option value="AXIA City 大阪淡路">AXIA City 大阪淡路</option>
-                    <option value="デュオステージ調布国領MAXIV">デュオステージ調布国領MAXIV</option>
-                    <option value="AXIA M-City大阪加賀屋">AXIA M-City大阪加賀屋</option>
-                    <option value="MAXIV板橋本町">MAXIV板橋本町</option>
-                    <option value="ラナップスクエア新福島">ラナップスクエア新福島</option>
-                    <option value="プレール・ドゥーク田園調布南">プレール・ドゥーク田園調布南</option>
-                    <option value="MAXIV百合ヶ丘">MAXIV百合ヶ丘</option>
-                    <option value="MAXIV新栄">MAXIV新栄</option>
-                    <option value="その他">その他（手入力）</option>
                 </select>
             </div>
 
@@ -271,33 +382,20 @@
                 <label class="required">物件名</label>
                 <select id="propertyName">
                     <option value="">選択してください</option>
-                    <option value="未定">未定</option>
-                    <option value="ライジングプレイス綾瀬">ライジングプレイス綾瀬</option>
-                    <option value="プレサンスジェネ千種内山2">プレサンスジェネ千種内山2</option>
-                    <option value="MAXIV代田橋">MAXIV代田橋</option>
-                    <option value="AXIA City 大阪淡路">AXIA City 大阪淡路</option>
-                    <option value="デュオステージ調布国領MAXIV">デュオステージ調布国領MAXIV</option>
-                    <option value="AXIA M-City大阪加賀屋">AXIA M-City大阪加賀屋</option>
-                    <option value="MAXIV板橋本町">MAXIV板橋本町</option>
-                    <option value="ラナップスクエア新福島">ラナップスクエア新福島</option>
-                    <option value="プレール・ドゥーク田園調布南">プレール・ドゥーク田園調布南</option>
-                    <option value="MAXIV百合ヶ丘">MAXIV百合ヶ丘</option>
-                    <option value="MAXIV新栄">MAXIV新栄</option>
-                    <option value="その他">その他（手入力）</option>
-                    <option value="新規追加">➕ 新規物件を追加</option>
                 </select>
-                <div class="info-text">「新規物件を追加」でリストに永久保存できます</div>
+                <div class="list-tools">
+                    <button type="button" class="btn-mini" data-edit-list="property">物件リストを編集</button>
+                </div>
+                <div class="info-text">「その他（手入力）」で入力した物件名は、リストに追加するか選べます</div>
             </div>
 
             <div class="form-group" id="customPropertyGroup" style="display: none;">
                 <label>物件名（手入力）</label>
                 <input type="text" id="customProperty" placeholder="物件名を入力してください">
-            </div>
-
-            <div class="form-group" id="addPropertyGroup" style="display: none;">
-                <label>新規物件名を追加</label>
-                <input type="text" id="newProperty" placeholder="物件名を入力してください">
-                <button type="button" id="btnAddProperty" style="margin-top: 8px; background: #FFD700; color: #000; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">リストに追加</button>
+                <div class="save-row">
+                    <input type="checkbox" id="savePropertyToList">
+                    <label for="savePropertyToList" style="margin: 0; font-weight: 500;">この物件名をリストに追加する</label>
+                </div>
             </div>
 
             <div class="form-group">
@@ -309,18 +407,19 @@
                 <label class="required">銀行</label>
                 <select id="bank">
                     <option value="">選択してください</option>
-                    <option value="未定">未定</option>
-                    <option value="楽天銀行">楽天銀行</option>
-                    <option value="SBJ銀行">SBJ銀行</option>
-                    <option value="イオン銀行">イオン銀行</option>
-                    <option value="SBI新生銀行">SBI新生銀行</option>
-                    <option value="その他">その他（手入力）</option>
                 </select>
+                <div class="list-tools">
+                    <button type="button" class="btn-mini" data-edit-list="bank">銀行リストを編集</button>
+                </div>
             </div>
 
             <div class="form-group" id="customBankGroup" style="display: none;">
                 <label>銀行名（手入力）</label>
                 <input type="text" id="customBank" placeholder="銀行名を入力してください">
+                <div class="save-row">
+                    <input type="checkbox" id="saveBankToList">
+                    <label for="saveBankToList" style="margin: 0; font-weight: 500;">この銀行名をリストに追加する</label>
+                </div>
             </div>
 
             <div class="form-group">
@@ -337,60 +436,16 @@
                 <label class="required">担当</label>
                 <select id="personInCharge">
                     <option value="">選択してください</option>
-                    <option value="茂木社長">茂木社長</option>
-                    <option value="井上常務">井上常務</option>
-                    <option value="土屋次長">土屋次長</option>
-                    <option value="笠原部長">笠原部長</option>
-                    <option value="家原部長">家原部長</option>
-                    <option value="伊藤係長">伊藤係長</option>
-                    <option value="川合部長">川合部長</option>
-                    <option value="安部課長">安部課長</option>
-                    <option value="髙野係長">髙野係長</option>
-                    <option value="大内社員">大内社員</option>
-                    <option value="浅見社員">浅見社員</option>
-                    <option value="佐野係長">佐野係長</option>
-                    <option value="坪井社員">坪井社員</option>
-                    <option value="桃井社員">桃井社員</option>
-                    <option value="五十嵐社員">五十嵐社員</option>
-                    <option value="三浦社員">三浦社員</option>
-                    <option value="脇田社員">脇田社員</option>
-                    <option value="儀間主任">儀間主任</option>
-                    <option value="内田社員">内田社員</option>
-                    <option value="瓜田社員">瓜田社員</option>
-                    <option value="柴田社員">柴田社員</option>
-                    <option value="木村社員">木村社員</option>
-                    <option value="後藤社員">後藤社員</option>
                 </select>
-                <button type="button" id="btnEditStaff" style="margin-top: 8px; background: #667eea; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">役職を編集</button>
+                <div class="list-tools">
+                    <button type="button" class="btn-mini" data-edit-list="staff">社員リストを編集</button>
+                </div>
             </div>
 
             <div class="form-group">
                 <label>同行</label>
                 <select id="accompany">
                     <option value="">選択してください</option>
-                    <option value="茂木社長">茂木社長</option>
-                    <option value="井上常務">井上常務</option>
-                    <option value="土屋次長">土屋次長</option>
-                    <option value="笠原部長">笠原部長</option>
-                    <option value="家原部長">家原部長</option>
-                    <option value="伊藤係長">伊藤係長</option>
-                    <option value="川合部長">川合部長</option>
-                    <option value="安部課長">安部課長</option>
-                    <option value="髙野係長">髙野係長</option>
-                    <option value="大内社員">大内社員</option>
-                    <option value="浅見社員">浅見社員</option>
-                    <option value="佐野係長">佐野係長</option>
-                    <option value="坪井社員">坪井社員</option>
-                    <option value="桃井社員">桃井社員</option>
-                    <option value="五十嵐社員">五十嵐社員</option>
-                    <option value="三浦社員">三浦社員</option>
-                    <option value="脇田社員">脇田社員</option>
-                    <option value="儀間主任">儀間主任</option>
-                    <option value="内田社員">内田社員</option>
-                    <option value="瓜田社員">瓜田社員</option>
-                    <option value="柴田社員">柴田社員</option>
-                    <option value="木村社員">木村社員</option>
-                    <option value="後藤社員">後藤社員</option>
                 </select>
             </div>
 
@@ -398,29 +453,6 @@
                 <label>所属</label>
                 <select id="department">
                     <option value="">選択してください</option>
-                    <option value="茂木社長">茂木社長</option>
-                    <option value="井上常務">井上常務</option>
-                    <option value="土屋次長">土屋次長</option>
-                    <option value="笠原部長">笠原部長</option>
-                    <option value="家原部長">家原部長</option>
-                    <option value="伊藤係長">伊藤係長</option>
-                    <option value="川合部長">川合部長</option>
-                    <option value="安部課長">安部課長</option>
-                    <option value="髙野係長">髙野係長</option>
-                    <option value="大内社員">大内社員</option>
-                    <option value="浅見社員">浅見社員</option>
-                    <option value="佐野係長">佐野係長</option>
-                    <option value="坪井社員">坪井社員</option>
-                    <option value="桃井社員">桃井社員</option>
-                    <option value="五十嵐社員">五十嵐社員</option>
-                    <option value="三浦社員">三浦社員</option>
-                    <option value="脇田社員">脇田社員</option>
-                    <option value="儀間主任">儀間主任</option>
-                    <option value="内田社員">内田社員</option>
-                    <option value="瓜田社員">瓜田社員</option>
-                    <option value="柴田社員">柴田社員</option>
-                    <option value="木村社員">木村社員</option>
-                    <option value="後藤社員">後藤社員</option>
                 </select>
             </div>
 
@@ -446,9 +478,253 @@
         </div>
     </div>
 
+    <div class="modal-backdrop" id="listModal">
+        <div class="modal">
+            <div class="modal-head" id="listModalTitle">リストを編集</div>
+            <div class="modal-body">
+                <div class="modal-add">
+                    <input type="text" id="listModalInput" placeholder="追加する項目を入力">
+                    <button type="button" class="btn-mini" id="listModalAdd">追加</button>
+                </div>
+                <div id="listModalItems"></div>
+            </div>
+            <div class="modal-foot">
+                <button type="button" class="btn-mini secondary" id="listModalClose">閉じる</button>
+            </div>
+        </div>
+    </div>
+
     <div class="toast" id="toast">コピーしました！</div>
 
     <script>
+        // ========== マスターリスト（初期値） ==========
+        const DEFAULT_PROPERTIES = [
+            'ライジングプレイス綾瀬',
+            'プレサンスジェネ千種内山2',
+            'MAXIV代田橋',
+            'AXIA City 大阪淡路',
+            'デュオステージ調布国領MAXIV',
+            'AXIA M-City大阪加賀屋',
+            'MAXIV板橋本町',
+            'ラナップスクエア新福島',
+            'プレール・ドゥーク田園調布南',
+            'MAXIV百合ヶ丘',
+            'MAXIV新栄',
+            'AXIA CITY神戸松原',
+            'AXIA CITY武蔵小山',
+            'AXIA CITY大阪瑞光',
+            'AXIA CITY浮間舟渡',
+            'AXIA CITY 下井草全',
+            'AXIA CITY 亀有'
+        ];
+
+        const DEFAULT_BANKS = [
+            '楽天銀行',
+            'SBJ銀行',
+            'イオン銀行',
+            'SBI新生銀行'
+        ];
+
+        const DEFAULT_STAFF = [
+            '茂木社長', '井上常務', '笠原部長', '土屋次長', '家原部長',
+            '伊藤係長', '川合部長', '安部課長', '髙野係長', '佐野係長',
+            '浅見主任', '坪井社員', '桃井主任', '五十嵐主任', '三浦社員',
+            '儀間主任', '脇田主任', '内田社員', '瓜田社員', '柴田社員',
+            '木村社員', '後藤社員', '糸永社員', '堀社員'
+        ];
+
+        const LIST_DEFS = {
+            property: { key: 'propertyList_v2', label: '物件リスト', placeholder: '物件名を入力', defaults: DEFAULT_PROPERTIES, render: renderPropertySelects },
+            bank:     { key: 'bankList_v2',     label: '銀行リスト', placeholder: '銀行名を入力', defaults: DEFAULT_BANKS,      render: renderBankSelect },
+            staff:    { key: 'staffList_v2',    label: '社員リスト', placeholder: '社員名を入力', defaults: DEFAULT_STAFF,      render: renderStaffSelects }
+        };
+
+        // 旧バージョンで追加した物件名を引き継ぐ
+        function migrateOldStorage() {
+            try {
+                if (localStorage.getItem(LIST_DEFS.property.key)) return;
+                const old = localStorage.getItem('customProperties');
+                if (!old) return;
+                const oldArray = JSON.parse(old);
+                if (!Array.isArray(oldArray) || oldArray.length === 0) return;
+                const merged = DEFAULT_PROPERTIES.slice();
+                oldArray.forEach(function(name) {
+                    if (merged.indexOf(name) === -1) merged.push(name);
+                });
+                localStorage.setItem(LIST_DEFS.property.key, JSON.stringify(merged));
+            } catch (e) {
+                console.error('リスト移行エラー:', e);
+            }
+        }
+
+        // リスト取得（保存が無ければ初期値）
+        function getList(type) {
+            const def = LIST_DEFS[type];
+            try {
+                const saved = localStorage.getItem(def.key);
+                if (saved) {
+                    const arr = JSON.parse(saved);
+                    if (Array.isArray(arr) && arr.length > 0) return arr;
+                }
+            } catch (e) {
+                console.error('リスト読み込みエラー:', e);
+            }
+            return def.defaults.slice();
+        }
+
+        // リスト保存＋ドロップダウン再描画
+        function setList(type, arr) {
+            const def = LIST_DEFS[type];
+            try {
+                localStorage.setItem(def.key, JSON.stringify(arr));
+            } catch (e) {
+                console.error('リスト保存エラー:', e);
+            }
+            def.render();
+        }
+
+        // リストに1件追加（既存なら false）
+        function addToList(type, name) {
+            const arr = getList(type);
+            if (arr.indexOf(name) !== -1) return false;
+            arr.push(name);
+            setList(type, arr);
+            return true;
+        }
+
+        // セレクトを組み立て直す（選択中の値はできるだけ維持）
+        function fillSelect(selectId, items, options) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            const current = select.value;
+            const opts = options || {};
+
+            select.innerHTML = '';
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = '選択してください';
+            select.appendChild(placeholder);
+
+            if (opts.undecided) {
+                const undecided = document.createElement('option');
+                undecided.value = '未定';
+                undecided.textContent = '未定';
+                select.appendChild(undecided);
+            }
+
+            items.forEach(function(name) {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                select.appendChild(option);
+            });
+
+            if (opts.custom) {
+                const other = document.createElement('option');
+                other.value = 'その他';
+                other.textContent = '✏️ その他（手入力）';
+                select.appendChild(other);
+            }
+
+            select.value = current;
+            if (select.value !== current) select.value = '';
+        }
+
+        function renderPropertySelects() {
+            const items = getList('property');
+            fillSelect('propertyName', items, { undecided: true, custom: true });
+            fillSelect('beforePropertyName', items, { undecided: true, custom: true });
+        }
+
+        function renderBankSelect() {
+            fillSelect('bank', getList('bank'), { undecided: true, custom: true });
+        }
+
+        function renderStaffSelects() {
+            const items = getList('staff');
+            ['personInCharge', 'accompany', 'department'].forEach(function(id) {
+                fillSelect(id, items, {});
+            });
+        }
+
+        // ========== リスト編集モーダル ==========
+        let currentListType = null;
+
+        function openListModal(type) {
+            currentListType = type;
+            const def = LIST_DEFS[type];
+            document.getElementById('listModalTitle').textContent = def.label + 'の編集';
+            const input = document.getElementById('listModalInput');
+            input.value = '';
+            input.placeholder = def.placeholder;
+            renderListModalItems();
+            document.getElementById('listModal').classList.add('active');
+        }
+
+        function closeListModal() {
+            document.getElementById('listModal').classList.remove('active');
+            currentListType = null;
+        }
+
+        function renderListModalItems() {
+            const box = document.getElementById('listModalItems');
+            box.innerHTML = '';
+            const items = getList(currentListType);
+
+            if (items.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'info-text';
+                empty.textContent = '項目がありません';
+                box.appendChild(empty);
+                return;
+            }
+
+            items.forEach(function(name) {
+                const row = document.createElement('div');
+                row.className = 'list-item';
+
+                const label = document.createElement('span');
+                label.textContent = name;
+
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn-del';
+                btn.textContent = '削除';
+                btn.addEventListener('click', function() {
+                    if (!confirm('「' + name + '」をリストから削除しますか？')) return;
+                    const arr = getList(currentListType);
+                    const index = arr.indexOf(name);
+                    if (index !== -1) arr.splice(index, 1);
+                    setList(currentListType, arr);
+                    renderListModalItems();
+                    updateSubject();
+                    showToast('「' + name + '」を削除しました', 'success');
+                });
+
+                row.appendChild(label);
+                row.appendChild(btn);
+                box.appendChild(row);
+            });
+        }
+
+        function addFromListModal() {
+            const input = document.getElementById('listModalInput');
+            const name = input.value.trim();
+
+            if (!name) {
+                alert('追加する内容を入力してください');
+                return;
+            }
+            if (!addToList(currentListType, name)) {
+                alert('「' + name + '」はすでにリストにあります');
+                return;
+            }
+
+            input.value = '';
+            renderListModalItems();
+            showToast('「' + name + '」を追加しました', 'success');
+        }
+
         // 件名自動更新
         function updateSubject() {
             const reportType = document.getElementById('reportType').value;
@@ -464,7 +740,7 @@
             let finalProperty = '';
             if (propertyName === 'その他' && customProperty) {
                 finalProperty = customProperty;
-            } else if (propertyName && propertyName !== 'その他' && propertyName !== '新規追加') {
+            } else if (propertyName && propertyName !== 'その他') {
                 finalProperty = propertyName;
             }
             
@@ -517,162 +793,41 @@
         
         document.getElementById('propertyName').addEventListener('change', function() {
             const customGroup = document.getElementById('customPropertyGroup');
-            const addGroup = document.getElementById('addPropertyGroup');
-            
+
             if (this.value === 'その他') {
                 customGroup.style.display = 'block';
-                addGroup.style.display = 'none';
-            } else if (this.value === '新規追加') {
-                customGroup.style.display = 'none';
-                addGroup.style.display = 'block';
             } else {
                 customGroup.style.display = 'none';
-                addGroup.style.display = 'none';
                 document.getElementById('customProperty').value = '';
-                document.getElementById('newProperty').value = '';
+                document.getElementById('savePropertyToList').checked = false;
             }
             updateSubject();
         });
 
-        // 新規物件追加ボタン
-        document.getElementById('btnAddProperty').addEventListener('click', function() {
-            const newPropertyName = document.getElementById('newProperty').value.trim();
-            
-            if (!newPropertyName) {
-                alert('物件名を入力してください');
-                return;
-            }
-            
-            // ドロップダウンに追加
-            const select = document.getElementById('propertyName');
-            const newOption = document.createElement('option');
-            newOption.value = newPropertyName;
-            newOption.textContent = newPropertyName;
-            
-            // 「その他」の前に挿入
-            const otherOption = select.querySelector('option[value="その他"]');
-            select.insertBefore(newOption, otherOption);
-            
-            // 追加した物件を選択状態にする
-            select.value = newPropertyName;
-            
-            // localStorageに保存
-            savePropertyToStorage(newPropertyName);
-            
-            // 入力欄を隠す
-            document.getElementById('addPropertyGroup').style.display = 'none';
-            document.getElementById('newProperty').value = '';
-            
-            // 件名更新
-            updateSubject();
-            
-            showToast('物件「' + newPropertyName + '」をリストに追加しました', 'success');
+        // リスト編集ボタン（物件・銀行・社員 共通）
+        Array.prototype.forEach.call(document.querySelectorAll('[data-edit-list]'), function(btn) {
+            btn.addEventListener('click', function() {
+                openListModal(btn.getAttribute('data-edit-list'));
+            });
         });
 
-        // localStorageに物件名を保存
-        function savePropertyToStorage(propertyName) {
-            let savedProperties = localStorage.getItem('customProperties');
-            let propertiesArray = savedProperties ? JSON.parse(savedProperties) : [];
-            
-            if (!propertiesArray.includes(propertyName)) {
-                propertiesArray.push(propertyName);
-                localStorage.setItem('customProperties', JSON.stringify(propertiesArray));
-            }
-        }
-
-        // ページ読み込み時にlocalStorageから物件名を復元
-        function loadPropertiesFromStorage() {
-            let savedProperties = localStorage.getItem('customProperties');
-            if (!savedProperties) return;
-            
-            let propertiesArray = JSON.parse(savedProperties);
-            const select = document.getElementById('propertyName');
-            const otherOption = select.querySelector('option[value="その他"]');
-            
-            propertiesArray.forEach(function(propertyName) {
-                const newOption = document.createElement('option');
-                newOption.value = propertyName;
-                newOption.textContent = propertyName;
-                select.insertBefore(newOption, otherOption);
-            });
-        }
-
-        // ページ読み込み時に実行
-        loadPropertiesFromStorage();
-
-        // 役職編集ボタン
-        document.getElementById('btnEditStaff').addEventListener('click', function() {
-            const currentList = [
-                '茂木社長', '井上常務', '土屋次長', '笠原部長', '家原部長', 
-                '伊藤係長', '川合部長', '安部課長', '髙野係長', '大内社員',
-                '浅見社員', '佐野係長', '坪井社員', '桃井社員', '五十嵐社員',
-                '三浦社員', '脇田社員', '儀間主任', '内田社員', '瓜田社員',
-                '柴田社員', '木村社員', '後藤社員'
-            ];
-            
-            const newList = prompt('社員名簿を編集してください（カンマ区切り）\n\n例：茂木社長,井上常務,土屋次長', currentList.join(','));
-            
-            if (newList !== null && newList.trim() !== '') {
-                const staffArray = newList.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s !== ''; });
-                
-                if (staffArray.length === 0) {
-                    alert('最低1名は登録してください');
-                    return;
-                }
-                
-                // 全ドロップダウンを更新
-                updateStaffDropdowns(staffArray);
-                
-                // localStorageに保存
-                localStorage.setItem('staffList', JSON.stringify(staffArray));
-                
-                showToast('社員名簿を更新しました', 'success');
+        document.getElementById('listModalAdd').addEventListener('click', addFromListModal);
+        document.getElementById('listModalClose').addEventListener('click', closeListModal);
+        document.getElementById('listModal').addEventListener('click', function(e) {
+            if (e.target === this) closeListModal();
+        });
+        document.getElementById('listModalInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addFromListModal();
             }
         });
 
-        // 社員ドロップダウンを更新する関数
-        function updateStaffDropdowns(staffArray) {
-            const selects = ['personInCharge', 'accompany', 'department'];
-            
-            selects.forEach(function(selectId) {
-                const select = document.getElementById(selectId);
-                const currentValue = select.value;
-                
-                // オプションをクリア（「選択してください」以外）
-                while (select.options.length > 1) {
-                    select.remove(1);
-                }
-                
-                // 新しいオプションを追加
-                staffArray.forEach(function(staff) {
-                    const option = document.createElement('option');
-                    option.value = staff;
-                    option.textContent = staff;
-                    select.appendChild(option);
-                });
-                
-                // 以前の選択を復元（存在する場合）
-                if (staffArray.indexOf(currentValue) !== -1) {
-                    select.value = currentValue;
-                }
-            });
-        }
-
-        // ページ読み込み時に保存された社員リストを復元
-        function loadStaffFromStorage() {
-            const savedStaff = localStorage.getItem('staffList');
-            if (savedStaff) {
-                try {
-                    const staffArray = JSON.parse(savedStaff);
-                    updateStaffDropdowns(staffArray);
-                } catch (e) {
-                    console.error('社員リスト読み込みエラー:', e);
-                }
-            }
-        }
-
-        // ページ読み込み時に実行
-        loadStaffFromStorage();
+        // ページ読み込み時にリストを構築
+        migrateOldStorage();
+        renderPropertySelects();
+        renderBankSelect();
+        renderStaffSelects();
 
         document.getElementById('customProperty').addEventListener('input', updateSubject);
 
@@ -683,8 +838,32 @@
             } else {
                 customGroup.style.display = 'none';
                 document.getElementById('customBank').value = '';
+                document.getElementById('saveBankToList').checked = false;
             }
         });
+
+        // 手入力欄の内容をリストへ追加し、その項目を選択状態にする
+        function saveCustomEntryIfRequested(listType, selectId, inputId, groupId, checkboxId) {
+            const select = document.getElementById(selectId);
+            const checkbox = document.getElementById(checkboxId);
+
+            if (select.value !== 'その他' || !checkbox.checked) return;
+
+            const name = document.getElementById(inputId).value.trim();
+            if (!name) return;
+
+            const added = addToList(listType, name);
+
+            // 追加した項目を選択状態にして手入力欄を閉じる
+            select.value = name;
+            document.getElementById(groupId).style.display = 'none';
+            document.getElementById(inputId).value = '';
+            checkbox.checked = false;
+
+            if (added) {
+                showToast('「' + name + '」をリストに追加しました', 'success');
+            }
+        }
 
         // 生成処理（成功=true／未入力=false）
         function generateReport() {
@@ -723,7 +902,7 @@
             
             // 物件振替の場合は振替前物件名もチェック
             if (reportType === '物件振替') {
-                if (!beforePropertyName || beforePropertyName === '新規追加') {
+                if (!beforePropertyName) {
                     alert('振替前物件名を選択してください');
                     return false;
                 }
@@ -733,7 +912,7 @@
                 }
             }
             
-            if (!propertyName || propertyName === '新規追加') {
+            if (!propertyName) {
                 alert('物件名を選択してください');
                 return false;
             }
@@ -812,6 +991,12 @@
             document.getElementById('previewBox').textContent = report;
             document.getElementById('previewSection').classList.add('active');
             document.getElementById('previewSection').scrollIntoView({ behavior: 'smooth' });
+
+            // 手入力した内容を、チェックが入っていればリストへ保存
+            saveCustomEntryIfRequested('property', 'propertyName', 'customProperty', 'customPropertyGroup', 'savePropertyToList');
+            saveCustomEntryIfRequested('bank', 'bank', 'customBank', 'customBankGroup', 'saveBankToList');
+
+            updateSubject();
 
             return true;
         }
