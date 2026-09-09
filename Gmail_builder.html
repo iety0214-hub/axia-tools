@@ -454,6 +454,9 @@
                 <select id="department">
                     <option value="">選択してください</option>
                 </select>
+                <div class="list-tools">
+                    <button type="button" class="btn-mini" data-edit-list="department">所属リストを編集</button>
+                </div>
             </div>
 
             <div class="form-group">
@@ -533,10 +536,15 @@
             '木村社員', '後藤社員', '糸永社員', '堀社員'
         ];
 
+        const DEFAULT_DEPARTMENTS = [
+            '笠原課', '土屋課', '安部課', '高野課', '佐野課', '儀間課'
+        ];
+
         const LIST_DEFS = {
             property: { key: 'propertyList_v2', label: '物件リスト', placeholder: '物件名を入力', defaults: DEFAULT_PROPERTIES, render: renderPropertySelects },
             bank:     { key: 'bankList_v2',     label: '銀行リスト', placeholder: '銀行名を入力', defaults: DEFAULT_BANKS,      render: renderBankSelect },
-            staff:    { key: 'staffList_v2',    label: '社員リスト', placeholder: '社員名を入力', defaults: DEFAULT_STAFF,      render: renderStaffSelects }
+            staff:    { key: 'staffList_v2',    label: '社員リスト', placeholder: '社員名を入力', defaults: DEFAULT_STAFF,      render: renderStaffSelects },
+            department: { key: 'departmentList_v2', label: '所属リスト', placeholder: '所属を入力', defaults: DEFAULT_DEPARTMENTS, render: renderDepartmentSelect }
         };
 
         // 旧バージョンで追加した物件名を引き継ぐ
@@ -642,9 +650,13 @@
 
         function renderStaffSelects() {
             const items = getList('staff');
-            ['personInCharge', 'accompany', 'department'].forEach(function(id) {
+            ['personInCharge', 'accompany'].forEach(function(id) {
                 fillSelect(id, items, {});
             });
+        }
+
+        function renderDepartmentSelect() {
+            fillSelect('department', getList('department'), {});
         }
 
         // ========== リスト編集モーダル ==========
@@ -828,6 +840,7 @@
         renderPropertySelects();
         renderBankSelect();
         renderStaffSelects();
+        renderDepartmentSelect();
 
         document.getElementById('customProperty').addEventListener('input', updateSubject);
 
