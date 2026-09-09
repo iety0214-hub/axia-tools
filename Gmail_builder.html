@@ -15,7 +15,7 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #FFD700 0%, #000000 100%);
             min-height: 100vh;
-            padding: 20px;
+            padding: 20px 20px 110px;
         }
 
         .container {
@@ -81,11 +81,85 @@
             color: #ef4444;
         }
 
-        .button-group {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 12px;
-            margin-top: 30px;
+        /* 画面下に固定する送信バー */
+        .action-bar {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 12px 16px;
+            padding-bottom: calc(12px + env(safe-area-inset-bottom));
+            background: rgba(255, 255, 255, 0.97);
+            border-top: 1px solid #e0e0e0;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.12);
+            z-index: 500;
+        }
+
+        .action-bar-inner {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .action-bar .btn-gmail {
+            width: 100%;
+            padding: 16px;
+            font-size: 17px;
+        }
+
+        /* ラベルと編集ボタンを1行に */
+        .label-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .label-row label {
+            margin-bottom: 0;
+        }
+
+        .btn-gear {
+            background: none;
+            border: none;
+            color: #667eea;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 6px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .btn-gear:hover {
+            text-decoration: underline;
+        }
+
+        /* 未入力のその場表示 */
+        .error-msg {
+            display: none;
+            color: #ef4444;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 6px;
+        }
+
+        .field-error .error-msg {
+            display: block;
+        }
+
+        .field-error select,
+        .field-error input,
+        .field-error textarea {
+            border-color: #ef4444;
+            background: #fff5f5;
+        }
+
+        .preview-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 15px;
         }
 
         button {
@@ -96,27 +170,6 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
-        }
-
-        .btn-generate {
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #000;
-        }
-
-        .btn-generate:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(255, 215, 0, 0.4);
-        }
-
-        .btn-copy {
-            background: #10b981;
-            color: white;
-        }
-
-        .btn-copy:hover {
-            background: #059669;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
         }
 
         .btn-gmail {
@@ -189,13 +242,6 @@
             font-size: 12px;
             color: #666;
             margin-top: 4px;
-        }
-
-        .list-tools {
-            display: flex;
-            gap: 8px;
-            margin-top: 8px;
-            flex-wrap: wrap;
         }
 
         .btn-mini {
@@ -379,13 +425,13 @@
             </div>
 
             <div class="form-group">
-                <label class="required">物件名</label>
+                <div class="label-row">
+                    <label class="required" for="propertyName">物件名</label>
+                    <button type="button" class="btn-gear" data-edit-list="property">⚙ 物件リスト</button>
+                </div>
                 <select id="propertyName">
                     <option value="">選択してください</option>
                 </select>
-                <div class="list-tools">
-                    <button type="button" class="btn-mini" data-edit-list="property">物件リストを編集</button>
-                </div>
                 <div class="info-text">「その他（手入力）」で入力した物件名は、リストに追加するか選べます</div>
             </div>
 
@@ -404,13 +450,13 @@
             </div>
 
             <div class="form-group">
-                <label class="required">銀行</label>
+                <div class="label-row">
+                    <label class="required" for="bank">銀行</label>
+                    <button type="button" class="btn-gear" data-edit-list="bank">⚙ 銀行リスト</button>
+                </div>
                 <select id="bank">
                     <option value="">選択してください</option>
                 </select>
-                <div class="list-tools">
-                    <button type="button" class="btn-mini" data-edit-list="bank">銀行リストを編集</button>
-                </div>
             </div>
 
             <div class="form-group" id="customBankGroup" style="display: none;">
@@ -433,30 +479,31 @@
             </div>
 
             <div class="form-group">
-                <label class="required">担当</label>
+                <div class="label-row">
+                    <label class="required" for="personInCharge">担当</label>
+                    <button type="button" class="btn-gear" data-edit-list="staff">⚙ 社員リスト</button>
+                </div>
                 <select id="personInCharge">
                     <option value="">選択してください</option>
                 </select>
-                <div class="list-tools">
-                    <button type="button" class="btn-mini" data-edit-list="staff">社員リストを編集</button>
-                </div>
+                <div class="info-text">前回選んだ担当・所属は次回も自動で入ります</div>
             </div>
 
             <div class="form-group">
-                <label>同行</label>
+                <label for="accompany">同行</label>
                 <select id="accompany">
                     <option value="">選択してください</option>
                 </select>
             </div>
 
             <div class="form-group">
-                <label>所属</label>
+                <div class="label-row">
+                    <label for="department">所属</label>
+                    <button type="button" class="btn-gear" data-edit-list="department">⚙ 所属リスト</button>
+                </div>
                 <select id="department">
                     <option value="">選択してください</option>
                 </select>
-                <div class="list-tools">
-                    <button type="button" class="btn-mini" data-edit-list="department">所属リストを編集</button>
-                </div>
             </div>
 
             <div class="form-group">
@@ -465,19 +512,22 @@
                 <div class="info-text">複数物件同時などのメモを記入できます</div>
             </div>
 
-            <div class="button-group">
-                <button class="btn-generate" type="button" id="btnGenerate">生成</button>
-                <button class="btn-copy" type="button" id="btnCopy">コピー</button>
-                <button class="btn-gmail" type="button" id="btnGmail">Gmail送信</button>
-            </div>
-
             <!-- 件名プレビュー（非表示・JavaScript用） -->
             <input type="hidden" id="subjectPreview">
         </div>
 
         <div class="preview-section" id="previewSection">
-            <h3 style="margin-bottom: 15px; color: #333;">📋 プレビュー</h3>
+            <div class="preview-head">
+                <h3 style="color: #333;">📋 プレビュー</h3>
+                <button type="button" class="btn-mini secondary" id="btnCopy">コピー</button>
+            </div>
             <div class="preview-box" id="previewBox"></div>
+        </div>
+    </div>
+
+    <div class="action-bar">
+        <div class="action-bar-inner">
+            <button class="btn-gmail" type="button" id="btnGmail">Gmail送信</button>
         </div>
     </div>
 
@@ -841,6 +891,8 @@
         renderBankSelect();
         renderStaffSelects();
         renderDepartmentSelect();
+        restoreSelection('personInCharge', 'lastPersonInCharge');
+        restoreSelection('department', 'lastDepartment');
 
         document.getElementById('customProperty').addEventListener('input', updateSubject);
 
@@ -854,6 +906,75 @@
                 document.getElementById('saveBankToList').checked = false;
             }
         });
+
+        // ========== 未入力の案内（その場に赤字で表示） ==========
+        function showFieldError(elementId, message) {
+            const el = document.getElementById(elementId);
+            const group = el.closest('.form-group');
+            if (!group) {
+                alert(message);
+                return false;
+            }
+
+            let msg = group.querySelector('.error-msg');
+            if (!msg) {
+                msg = document.createElement('div');
+                msg.className = 'error-msg';
+                group.appendChild(msg);
+            }
+            msg.textContent = message;
+            group.classList.add('field-error');
+            group.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            try {
+                el.focus({ preventScroll: true });
+            } catch (e) {
+                el.focus();
+            }
+            return false;
+        }
+
+        function clearFieldErrors() {
+            Array.prototype.forEach.call(document.querySelectorAll('.field-error'), function(group) {
+                group.classList.remove('field-error');
+            });
+        }
+
+        // 入力し直したらその欄の赤表示を消す
+        function clearErrorOnEdit(e) {
+            if (!e.target || !e.target.closest) return;
+            const group = e.target.closest('.form-group.field-error');
+            if (group) group.classList.remove('field-error');
+        }
+        document.addEventListener('input', clearErrorOnEdit);
+        document.addEventListener('change', clearErrorOnEdit);
+
+        // ========== 担当・所属を記憶 ==========
+        function rememberSelection(elementId, storageKey) {
+            const select = document.getElementById(elementId);
+            select.addEventListener('change', function() {
+                try {
+                    localStorage.setItem(storageKey, this.value);
+                } catch (err) {
+                    console.error('選択の保存エラー:', err);
+                }
+            });
+        }
+
+        function restoreSelection(elementId, storageKey) {
+            try {
+                const value = localStorage.getItem(storageKey);
+                if (!value) return;
+                const select = document.getElementById(elementId);
+                select.value = value;
+                if (select.value !== value) select.value = '';
+            } catch (err) {
+                console.error('選択の復元エラー:', err);
+            }
+        }
+
+        rememberSelection('personInCharge', 'lastPersonInCharge');
+        rememberSelection('department', 'lastDepartment');
 
         // 手入力欄の内容をリストへ追加し、その項目を選択状態にする
         function saveCustomEntryIfRequested(listType, selectId, inputId, groupId, checkboxId) {
@@ -880,6 +1001,8 @@
 
         // 生成処理（成功=true／未入力=false）
         function generateReport() {
+            clearFieldErrors();
+
             const reportType = document.getElementById('reportType').value;
             const category = document.getElementById('category').value;
             const customerName = document.getElementById('customerName').value.trim();
@@ -901,49 +1024,39 @@
 
             // 必須チェック
             if (!reportType) {
-                alert('種別を選択してください');
-                return false;
+                return showFieldError('reportType', '種別を選んでください');
             }
             if (!category) {
-                alert('区分を選択してください');
-                return false;
+                return showFieldError('category', '区分を選んでください');
             }
             if (!customerName) {
-                alert('顧客名を入力してください');
-                return false;
+                return showFieldError('customerName', '顧客名を入力してください');
             }
             
             // 物件振替の場合は振替前物件名もチェック
             if (reportType === '物件振替') {
                 if (!beforePropertyName) {
-                    alert('振替前物件名を選択してください');
-                    return false;
+                    return showFieldError('beforePropertyName', '振替前の物件名を選んでください');
                 }
                 if (beforePropertyName === 'その他' && !customBeforeProperty) {
-                    alert('振替前物件名を入力してください');
-                    return false;
+                    return showFieldError('customBeforeProperty', '振替前の物件名を入力してください');
                 }
             }
             
             if (!propertyName) {
-                alert('物件名を選択してください');
-                return false;
+                return showFieldError('propertyName', '物件名を選んでください');
             }
             if (propertyName === 'その他' && !customProperty) {
-                alert('物件名を入力してください');
-                return false;
+                return showFieldError('customProperty', '物件名を入力してください');
             }
             if (!bank) {
-                alert('銀行を選択してください');
-                return false;
+                return showFieldError('bank', '銀行を選んでください');
             }
             if (bank === 'その他' && !customBank) {
-                alert('銀行名を入力してください');
-                return false;
+                return showFieldError('customBank', '銀行名を入力してください');
             }
             if (!personInCharge) {
-                alert('担当を選択してください');
-                return false;
+                return showFieldError('personInCharge', '担当を選んでください');
             }
 
             // 値の確定
@@ -1014,18 +1127,13 @@
             return true;
         }
 
-        // 生成ボタン
-        document.getElementById('btnGenerate').addEventListener('click', function() {
-            generateReport();
-        });
-
         // コピーボタン
         document.getElementById('btnCopy').addEventListener('click', function() {
             const previewBox = document.getElementById('previewBox');
             const text = previewBox.textContent;
             
             if (!text || text.trim() === '') {
-                alert('先に「生成」ボタンを押してください');
+                showToast('先に「Gmail送信」を押してください', 'error');
                 return;
             }
             
@@ -1117,7 +1225,7 @@
             const subject = document.getElementById('subjectPreview').value;
 
             if (!subject || subject.trim() === '') {
-                alert('件名が生成されていません');
+                showToast('件名を作れませんでした。種別を選び直してください', 'error');
                 return;
             }
 
