@@ -686,8 +686,8 @@
             }
         });
 
-        // 生成ボタン
-        document.getElementById('btnGenerate').addEventListener('click', function() {
+        // 生成処理（成功=true／未入力=false）
+        function generateReport() {
             const reportType = document.getElementById('reportType').value;
             const category = document.getElementById('category').value;
             const customerName = document.getElementById('customerName').value.trim();
@@ -710,48 +710,48 @@
             // 必須チェック
             if (!reportType) {
                 alert('種別を選択してください');
-                return;
+                return false;
             }
             if (!category) {
                 alert('区分を選択してください');
-                return;
+                return false;
             }
             if (!customerName) {
                 alert('顧客名を入力してください');
-                return;
+                return false;
             }
             
             // 物件振替の場合は振替前物件名もチェック
             if (reportType === '物件振替') {
                 if (!beforePropertyName || beforePropertyName === '新規追加') {
                     alert('振替前物件名を選択してください');
-                    return;
+                    return false;
                 }
                 if (beforePropertyName === 'その他' && !customBeforeProperty) {
                     alert('振替前物件名を入力してください');
-                    return;
+                    return false;
                 }
             }
             
             if (!propertyName || propertyName === '新規追加') {
                 alert('物件名を選択してください');
-                return;
+                return false;
             }
             if (propertyName === 'その他' && !customProperty) {
                 alert('物件名を入力してください');
-                return;
+                return false;
             }
             if (!bank) {
                 alert('銀行を選択してください');
-                return;
+                return false;
             }
             if (bank === 'その他' && !customBank) {
                 alert('銀行名を入力してください');
-                return;
+                return false;
             }
             if (!personInCharge) {
                 alert('担当を選択してください');
-                return;
+                return false;
             }
 
             // 値の確定
@@ -812,6 +812,13 @@
             document.getElementById('previewBox').textContent = report;
             document.getElementById('previewSection').classList.add('active');
             document.getElementById('previewSection').scrollIntoView({ behavior: 'smooth' });
+
+            return true;
+        }
+
+        // 生成ボタン
+        document.getElementById('btnGenerate').addEventListener('click', function() {
+            generateReport();
         });
 
         // コピーボタン
@@ -856,6 +863,33 @@
             document.body.removeChild(textarea);
         });
 
+        // クリップボードへコピー（トースト表示なし・保険用）
+        function copyToClipboard(text) {
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.top = '0';
+                ta.style.left = '0';
+                ta.style.width = '2em';
+                ta.style.height = '2em';
+                ta.style.padding = '0';
+                ta.style.border = 'none';
+                ta.style.outline = 'none';
+                ta.style.boxShadow = 'none';
+                ta.style.background = 'transparent';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                const ok = document.execCommand('copy');
+                document.body.removeChild(ta);
+                return ok;
+            } catch (err) {
+                console.error('コピーエラー:', err);
+                return false;
+            }
+        }
+
         function showToast(message, type) {
             const toast = document.getElementById('toast');
             toast.textContent = message;
@@ -872,44 +906,61 @@
             }, 3000);
         }
 
-        // Gmail送信ボタン
+        // Gmail送信ボタン（生成 → コピー → Gmail起動 を一括）
         document.getElementById('btnGmail').addEventListener('click', function() {
-            const previewBox = document.getElementById('previewBox');
-            const emailBody = previewBox.textContent;
-            const subject = document.getElementById('subjectPreview').value;
-            
-            // メール生成チェック
-            if (!emailBody || emailBody.trim() === '') {
-                alert('先に「生成」ボタンを押してください');
+            // 1) まず生成（未入力があればここで中断）
+            if (!generateReport()) {
                 return;
             }
-            
-            // 件名チェック
+
+            updateSubject();
+
+            const emailBody = document.getElementById('previewBox').textContent;
+            const subject = document.getElementById('subjectPreview').value;
+
             if (!subject || subject.trim() === '') {
                 alert('件名が生成されていません');
                 return;
             }
-            
+
+            // 2) 本文をクリップボードへコピー
+            const copied = copyToClipboard(emailBody);
+
+            const TO = 'axia-japan@googlegroups.com';
+            const encodedSubject = encodeURIComponent(subject);
+            const encodedBody = encodeURIComponent(emailBody);
+            const gmailWebUrl = 'https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(TO) +
+                '&su=' + encodedSubject + '&body=' + encodedBody;
+
             // スマホ判定
             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            
+
+            // 3) Gmailを開く
             if (isMobile) {
-                // スマホ：Gmail起動のみ（本文は手動コピー）
-                const encodedSubject = encodeURIComponent(subject);
-                const encodedTo = encodeURIComponent('axia-japan@googlegroups.com');
-                const mailtoLink = 'mailto:' + encodedTo + '?subject=' + encodedSubject;
-                window.location.href = mailtoLink;
-                
-                // メッセージ表示
-                showToast('プレビューの本文を長押しコピー→Gmail貼り付け', 'success');
+                // Gmailアプリ専用スキームで起動（mailto:だと既定メール＝iCloudに飛ぶ）
+                const gmailAppUrl = 'googlegmail:///co?to=' + encodeURIComponent(TO) +
+                    '&subject=' + encodedSubject + '&body=' + encodedBody;
+
+                let left = false;
+                const onHide = function() { if (document.hidden) left = true; };
+                document.addEventListener('visibilitychange', onHide);
+                window.addEventListener('pagehide', function() { left = true; });
+
+                window.location.href = gmailAppUrl;
+
+                // アプリが開かなかった場合（未インストール等）はGmailのWeb版へ
+                setTimeout(function() {
+                    document.removeEventListener('visibilitychange', onHide);
+                    if (!left && !document.hidden) {
+                        window.location.href = gmailWebUrl;
+                    }
+                }, 1200);
+
+                showToast(copied ? '生成＋コピー完了。Gmailを開きます' : '生成完了。Gmailを開きます', 'success');
             } else {
-                // PC：ブラウザでGmail開く（宛先・件名・本文すべて自動入力）
-                const encodedSubject = encodeURIComponent(subject);
-                const encodedBody = encodeURIComponent(emailBody);
-                const gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1&to=axia-japan@googlegroups.com&su=' + encodedSubject + '&body=' + encodedBody;
-                window.open(gmailUrl, '_blank');
-                
-                showToast('Gmailを開きました。送信ボタンを押すだけ！', 'success');
+                window.open(gmailWebUrl, '_blank');
+
+                showToast(copied ? '生成＋コピー完了。Gmailを開きました' : '生成完了。Gmailを開きました', 'success');
             }
         });
     </script>
