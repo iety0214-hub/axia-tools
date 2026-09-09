@@ -76,8 +76,8 @@
             box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
         }
 
-        .required::after {
-            content: " *";
+        /* 必須項目は項目名そのものを赤字にする */
+        .required {
             color: #ef4444;
         }
 
@@ -366,7 +366,7 @@
     <div class="container">
         <div class="header">
             <h1>📧 契約・金消完了報告メール</h1>
-            <p>項目を入力してGmail報告メールを生成</p>
+            <p>赤い項目は必ず入力してください</p>
         </div>
 
         <div class="form-section">
@@ -552,6 +552,17 @@
     <script>
         // ========== マスターリスト（初期値） ==========
         const DEFAULT_PROPERTIES = [
+            'AXIA M-City大阪加賀屋',
+            'AXIA CITY神戸松原',
+            'AXIA CITY武蔵小山',
+            'AXIA CITY大阪瑞光',
+            'AXIA CITY浮間舟渡',
+            'AXIA CITY 下井草全',
+            'AXIA CITY 亀有'
+        ];
+
+        // 旧バージョンの初期値（自分で追加した物件だけを引き継ぐために使う）
+        const OLD_DEFAULT_PROPERTIES = [
             'ライジングプレイス綾瀬',
             'プレサンスジェネ千種内山2',
             'MAXIV代田橋',
@@ -574,9 +585,15 @@
         const DEFAULT_BANKS = [
             '楽天銀行',
             'SBJ銀行',
-            'イオン銀行',
-            'SBI新生銀行'
+            'イオン住宅ローンサービス',
+            'SBI新生アセットファイナンス'
         ];
+
+        // 名称が変わった銀行（保存済みのリストも読み替える）
+        const BANK_RENAMES = {
+            'イオン銀行': 'イオン住宅ローンサービス',
+            'SBI新生銀行': 'SBI新生アセットファイナンス'
+        };
 
         const DEFAULT_STAFF = [
             '茂木社長', '井上常務', '笠原部長', '土屋次長', '家原部長',
@@ -591,28 +608,60 @@
         ];
 
         const LIST_DEFS = {
-            property: { key: 'propertyList_v2', label: '物件リスト', placeholder: '物件名を入力', defaults: DEFAULT_PROPERTIES, render: renderPropertySelects },
-            bank:     { key: 'bankList_v2',     label: '銀行リスト', placeholder: '銀行名を入力', defaults: DEFAULT_BANKS,      render: renderBankSelect },
+            property: { key: 'propertyList_v3', label: '物件リスト', placeholder: '物件名を入力', defaults: DEFAULT_PROPERTIES, render: renderPropertySelects },
+            bank:     { key: 'bankList_v3',     label: '銀行リスト', placeholder: '銀行名を入力', defaults: DEFAULT_BANKS,      render: renderBankSelect },
             staff:    { key: 'staffList_v2',    label: '社員リスト', placeholder: '社員名を入力', defaults: DEFAULT_STAFF,      render: renderStaffSelects },
             department: { key: 'departmentList_v2', label: '所属リスト', placeholder: '所属を入力', defaults: DEFAULT_DEPARTMENTS, render: renderDepartmentSelect }
         };
 
-        // 旧バージョンで追加した物件名を引き継ぐ
+        // 旧バージョンのリストを引き継ぐ
         function migrateOldStorage() {
             try {
-                if (localStorage.getItem(LIST_DEFS.property.key)) return;
-                const old = localStorage.getItem('customProperties');
-                if (!old) return;
-                const oldArray = JSON.parse(old);
-                if (!Array.isArray(oldArray) || oldArray.length === 0) return;
-                const merged = DEFAULT_PROPERTIES.slice();
-                oldArray.forEach(function(name) {
-                    if (merged.indexOf(name) === -1) merged.push(name);
-                });
-                localStorage.setItem(LIST_DEFS.property.key, JSON.stringify(merged));
+                migrateProperties();
+                migrateBanks();
             } catch (e) {
                 console.error('リスト移行エラー:', e);
             }
+        }
+
+        // 物件：初期値は新しいものに入れ替え、自分で追加した分だけ残す
+        function migrateProperties() {
+            if (localStorage.getItem(LIST_DEFS.property.key)) return;
+
+            let inherited = null;
+            const saved = localStorage.getItem('propertyList_v2');
+            if (saved) {
+                inherited = JSON.parse(saved);
+            } else {
+                const oldest = localStorage.getItem('customProperties');
+                if (oldest) inherited = JSON.parse(oldest);
+            }
+            if (!Array.isArray(inherited) || inherited.length === 0) return;
+
+            const merged = DEFAULT_PROPERTIES.slice();
+            inherited.forEach(function(name) {
+                if (OLD_DEFAULT_PROPERTIES.indexOf(name) !== -1) return;
+                if (merged.indexOf(name) === -1) merged.push(name);
+            });
+            localStorage.setItem(LIST_DEFS.property.key, JSON.stringify(merged));
+        }
+
+        // 銀行：改称した名前に読み替えて引き継ぐ
+        function migrateBanks() {
+            if (localStorage.getItem(LIST_DEFS.bank.key)) return;
+
+            const saved = localStorage.getItem('bankList_v2');
+            if (!saved) return;
+
+            const oldArray = JSON.parse(saved);
+            if (!Array.isArray(oldArray) || oldArray.length === 0) return;
+
+            const renamed = [];
+            oldArray.forEach(function(name) {
+                const fixed = BANK_RENAMES[name] || name;
+                if (renamed.indexOf(fixed) === -1) renamed.push(fixed);
+            });
+            localStorage.setItem(LIST_DEFS.bank.key, JSON.stringify(renamed));
         }
 
         // リスト取得（保存が無ければ初期値）
