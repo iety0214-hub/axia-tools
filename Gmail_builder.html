@@ -1261,6 +1261,13 @@
             }, 3000);
         }
 
+        // iPhone / iPad かどうか（iPadOSはUserAgentがMacintoshになる）
+        function isIOSDevice() {
+            const ua = navigator.userAgent;
+            if (/iPhone|iPad|iPod/i.test(ua)) return true;
+            return /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+        }
+
         // Gmail送信ボタン（生成 → コピー → Gmail起動 を一括）
         document.getElementById('btnGmail').addEventListener('click', function() {
             // 1) まず生成（未入力があればここで中断）
@@ -1287,12 +1294,16 @@
             const gmailWebUrl = 'https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(TO) +
                 '&su=' + encodedSubject + '&body=' + encodedBody;
 
-            // スマホ判定
-            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            // GmailのWeb版を開く（Androidでは端末のGmailアプリがこのURLを拾う）
+            function openGmailWeb() {
+                const win = window.open(gmailWebUrl, '_blank');
+                if (!win) window.location.href = gmailWebUrl;
+            }
 
             // 3) Gmailを開く
-            if (isMobile) {
-                // Gmailアプリ専用スキームで起動（mailto:だと既定メール＝iCloudに飛ぶ）
+            // googlegmail:// はiOS専用のスキーム。Androidで使うと
+            // ERR_UNKNOWN_URL_SCHEME になって画面ごと飛ぶので、iPhone/iPadだけに限定する。
+            if (isIOSDevice()) {
                 const gmailAppUrl = 'googlegmail:///co?to=' + encodeURIComponent(TO) +
                     '&subject=' + encodedSubject + '&body=' + encodedBody;
 
@@ -1310,13 +1321,11 @@
                         window.location.href = gmailWebUrl;
                     }
                 }, 1200);
-
-                showToast(copied ? '生成＋コピー完了。Gmailを開きます' : '生成完了。Gmailを開きます', 'success');
             } else {
-                window.open(gmailWebUrl, '_blank');
-
-                showToast(copied ? '生成＋コピー完了。Gmailを開きました' : '生成完了。Gmailを開きました', 'success');
+                openGmailWeb();
             }
+
+            showToast(copied ? '生成＋コピー完了。Gmailを開きます' : '生成完了。Gmailを開きます', 'success');
         });
     </script>
 </body>
