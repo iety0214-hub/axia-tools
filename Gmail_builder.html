@@ -841,6 +841,7 @@
             const reportType = document.getElementById('reportType').value;
             const propertyName = document.getElementById('propertyName').value;
             const customProperty = document.getElementById('customProperty').value.trim();
+            const roomNumber = document.getElementById('roomNumber').value.trim();
             const subjectPreview = document.getElementById('subjectPreview');
             
             if (!reportType) {
@@ -858,6 +859,9 @@
             let subject = '【' + reportType + '】';
             if (finalProperty) {
                 subject += finalProperty;
+                if (roomNumber) {
+                    subject += ' ' + roomNumber;
+                }
             }
             
             subjectPreview.value = subject;
@@ -944,6 +948,7 @@
         restoreSelection('department', 'lastDepartment');
 
         document.getElementById('customProperty').addEventListener('input', updateSubject);
+        document.getElementById('roomNumber').addEventListener('input', updateSubject);
 
         document.getElementById('bank').addEventListener('change', function() {
             const customGroup = document.getElementById('customBankGroup');
