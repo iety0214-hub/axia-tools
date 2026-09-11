@@ -372,7 +372,11 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
                     padding: '3px 10px', borderRadius: 7, maxWidth: '100%', fontSize: 13, fontWeight: 700,
                     background: tone.bg, border: `1px solid ${tone.bd}`, color: tone.fg
                   }}>
-                    <span style={{ flexShrink: 0 }}>🗓 {(f.label || '?').slice(0, 1)}</span>
+                    <span style={{
+                      flexShrink: 0, width: 17, height: 17, borderRadius: '50%',
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 10.5, background: tone.fg, color: '#fff'
+                    }}>{(f.label || '?').slice(0, 1)}</span>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{txt || '記載なし'}</span>
                   </div>
                 );
@@ -1132,7 +1136,7 @@ tr.band { page-break-after:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.5
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.6
         </div>
       </div>
 
