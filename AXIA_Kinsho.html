@@ -323,6 +323,12 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
   const main = F.find(f => f.key === settings.mainKey);
   const mainTxt = main ? fmtField(main, fv[main.key]) : '';
   const mainOn = main && hasVal(main, fv[main.key]);
+  const mainIsDate = main && (main.type === 'date' || main.type === 'datetime');
+  // 日付系バッジ（金消予定日・承認日など）は入力欄の並び順で表示する
+  const dateBadges = [
+    ...dateSubs.map(f => ({ f, isMain: false })),
+    ...(mainIsDate ? [{ f: main, isMain: true }] : []),
+  ].sort((a, b) => F.indexOf(a.f) - F.indexOf(b.f));
 
   const set = (k, v) => onPatch({ fields: { ...fv, [k]: v } });
 
@@ -351,40 +357,28 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
               ))}
             </div>
           )}
-          {!!dateSubs.length && (
+          {!!dateBadges.length && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-              {dateSubs.map(f => {
+              {dateBadges.map(({ f, isMain }) => {
                 const v = fv[f.key];
                 const on = hasVal(f, v);
-                const tone = on ? KINSHO_PINK : { bg: '#eef1f7', bd: '#d8dee9', fg: SUBTXT };
                 const txt = fmtField(f, v);
+                const tone = isMain
+                  ? dateTone(on, f.type === 'datetime' ? dtVal(v).d : (v || ''))
+                  : (on ? KINSHO_PINK : { bg: '#eef1f7', bd: '#d8dee9', fg: SUBTXT });
                 return (
                   <div key={f.key} className="mono" style={{
                     display: 'inline-flex', alignItems: 'center', gap: 5,
-                    padding: '3px 10px', borderRadius: 7, maxWidth: '100%', fontSize: 12.5, fontWeight: 700,
+                    padding: '3px 10px', borderRadius: 7, maxWidth: '100%', fontSize: 13, fontWeight: 700,
                     background: tone.bg, border: `1px solid ${tone.bd}`, color: tone.fg
                   }}>
-                    <span style={{ flexShrink: 0 }}>🗓</span>
+                    <span style={{ flexShrink: 0 }}>🗓 {(f.label || '?').slice(0, 1)}</span>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{txt || '記載なし'}</span>
                   </div>
                 );
               })}
             </div>
           )}
-          {main && (main.type === 'date' || main.type === 'datetime') && (() => {
-            const rawD = main.type === 'datetime' ? dtVal(fv[main.key]).d : (fv[main.key] || '');
-            const tone = dateTone(mainOn, rawD);
-            return (
-              <div className="mono" style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 6,
-                padding: '3px 10px', borderRadius: 7, maxWidth: '100%', fontSize: 13, fontWeight: 700,
-                background: tone.bg, border: `1px solid ${tone.bd}`, color: tone.fg
-              }}>
-                <span style={{ flexShrink: 0 }}>🗓</span>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mainTxt || '記載なし'}</span>
-              </div>
-            );
-          })()}
           {main && main.type !== 'date' && main.type !== 'datetime' && mainOn && (
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 6,
@@ -1138,7 +1132,7 @@ tr.band { page-break-after:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.4
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.5
         </div>
       </div>
 
