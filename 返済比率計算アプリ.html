@@ -24,7 +24,7 @@ input[type=number]{-moz-appearance:textfield}
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const {useState,useMemo}=React;
+const {useState,useMemo,useEffect}=React;
 
 const PR={
 "北海道":10.29,"青森県":9.79,"岩手県":9.77,"宮城県":10.05,"秋田県":9.86,
@@ -148,18 +148,33 @@ function Field({label,value,onChange,unit,children}){
   </div>
 }
 
+const STORE_KEY='axia_hensai_v1';
+function loadSaved(){try{return JSON.parse(localStorage.getItem(STORE_KEY))||{}}catch(e){return {}}}
+const SAVED=loadSaved();
+const sv=(k,d)=>SAVED[k]!==undefined?SAVED[k]:d;
+
 function App(){
-  const [salary,setSalary]=useState(6100000);
-  const [age,setAge]=useState(26);
-  const [years,setYears]=useState(3);
-  const [members,setMembers]=useState(1);
-  const [pref,setPref]=useState("千葉県");
-  const [owned,setOwned]=useState([{payment:0,rent:0,mgmt:0}]);
-  const [others,setOthers]=useState([{payment:0}]);
-  const [homeRent,setHomeRent]=useState(30000);
-  const [props,setProps]=useState([{price:30000000,bonus:0,rent:80000,mgmt:0}]);
-  const [calcRate,setCalcRate]=useState(4.0);
+  const [salary,setSalary]=useState(sv('salary',6100000));
+  const [age,setAge]=useState(sv('age',26));
+  const [years,setYears]=useState(sv('years',3));
+  const [members,setMembers]=useState(sv('members',1));
+  const [pref,setPref]=useState(sv('pref',"千葉県"));
+  const [owned,setOwned]=useState(sv('owned',[{debt:0,payment:0,rent:0,mgmt:0}]));
+  const [others,setOthers]=useState(sv('others',[{debt:0,payment:0}]));
+  const [homeRent,setHomeRent]=useState(sv('homeRent',30000));
+  const [props,setProps]=useState(sv('props',[{price:30000000,bonus:0,rent:80000,mgmt:0}]));
+  const [calcRate,setCalcRate]=useState(sv('calcRate',4.0));
   const [tab,setTab]=useState("input");
+
+  useEffect(()=>{
+    try{localStorage.setItem(STORE_KEY,JSON.stringify({salary,age,years,members,pref,owned,others,homeRent,props,calcRate}))}catch(e){}
+  },[salary,age,years,members,pref,owned,others,homeRent,props,calcRate]);
+  const resetAll=()=>{
+    if(!confirm('入力内容をすべて初期値に戻す？'))return;
+    setSalary(6100000);setAge(26);setYears(3);setMembers(1);setPref("千葉県");
+    setOwned([{debt:0,payment:0,rent:0,mgmt:0}]);setOthers([{debt:0,payment:0}]);
+    setHomeRent(30000);setProps([{price:30000000,bonus:0,rent:80000,mgmt:0}]);setCalcRate(4.0);
+  };
 
   const uOwn=(i,k,v)=>setOwned(p=>p.map((x,j)=>j===i?{...x,[k]:v}:x));
   const uOth=(i,k,v)=>setOthers(p=>p.map((x,j)=>j===i?{...x,[k]:v}:x));
@@ -176,6 +191,7 @@ function App(){
     const otherPayY=others.reduce((t,o)=>t+(Number(o.payment)||0)*12,0);
     const homeRentY=(Number(homeRent)||0)*12;
     const existTotalY=existPayY+otherPayY+homeRentY;
+    const existDebt=owned.reduce((t,o)=>t+(Number(o.debt)||0),0)+others.reduce((t,o)=>t+(Number(o.debt)||0),0);
 
     const pc=props.map(p=>{
       const price=Number(p.price)||0;
@@ -191,7 +207,8 @@ function App(){
 
     const totalAP=existTotalY+propYearlyTotal;
     const totalRent=existRentY+propRentTotal;
-    const totalDebt=propPriceTotal;
+    // 年収倍率の分子＝既存借入の残債＋今回物件価格（Excel 入力シート!C24）
+    const totalDebt=existDebt+propPriceTotal;
 
     const ratioNet=s>0?totalAP/s:0;
     const ratio70=(s+totalRent*0.7)>0?totalAP/(s+totalRent*0.7):0;
@@ -202,7 +219,7 @@ function App(){
     const tax=calcTax(s,si);
 
     const rkDebtH=totalDebt*0.5;
-    const rkRepay=-PMT(0.03127/12,300,rkDebtH)*12;
+    const rkRepay=PMT(0.03127/12,300,rkDebtH)*12;
     const rkB=s*0.7-2000000;
     const rkC=rkB-homeRentY;
     const rkD=rkC-otherPayY;
@@ -214,7 +231,8 @@ function App(){
     const sbjTotalRepay=sbjPWB+existPayY+otherPayY;
     const sbjYM=s>0?totalDebt/s:99;
     const sbjA1=s+existRentY*0.7+propRentTotal*0.7-si-tax.total;
-    const sbjB=sbjTotalRepay+homeRentY;
+    // Excel SBJ合否!H21＝入力シート!H17(自宅家賃込)＋本件＋自宅家賃
+    const sbjB=sbjTotalRepay+homeRentY+homeRentY;
     const sbjRatio=sbjA1>0?sbjB/sbjA1:99;
     const sbjFam=960000*mem;
     const sbjDisp=sbjA1-(sbjB+sbjFam);
@@ -222,21 +240,22 @@ function App(){
     const ionR1=s>0?totalAP/s:99;
     const ionR2=(s+totalRent)>0?totalAP/(s+totalRent):99;
     const ionBM=s<=7000000?7:s<=8500000?9:s<=10000000?11:12;
-    const ionDisp=(s-si-tax.total)-(homeRentY+3360000+homeRentY);
+    // Excel イオン合否!H38＝入力シート!H17(既存借入＋自宅家賃)＋336万＋自宅家賃
+    const ionDisp=(s-si-tax.total)-(existTotalY+3360000+homeRentY);
 
     const sbiRatio=(s+totalRent)>0?totalAP/(s+totalRent):99;
     const sbiBR=0.4;const sbiBM=s<=10000000?10:12;
-    const sbiRate2=s<=5000000?0.022:s<=10000000?0.018:0.016;
+    const sbiRate2=s<5000000?0.022:s<=10000000?0.018:0.016;
 
-    const hPR=pc[0]?-PMT(0.035/12,35*12,pc[0].price)*12:0;
+    const hPR=pc[0]&&pc[0].price>0?PMT(0.035/12,35*12,pc[0].price)*12:0;
     const hTR=hPR+existTotalY;
     const hS35=s*0.35;
-    const hR70=(propRentTotal-propMgmtTotal)*0.7;
+    const hR70=(totalRent-(existMgmtY+propMgmtTotal))*0.7;
     const hMargin=(hS35+hR70)-hTR;
 
     return{
       pc,propYearlyTotal,propRentTotal,propPriceTotal,
-      existTotalY,totalAP,totalRent,totalDebt,
+      existTotalY,existDebt,totalAP,totalRent,totalDebt,
       ratioNet,ratio70,ratio100,yrMult,si,tax,
       rk:{repay:rkRepay,b:rkB,c:rkC,d:rkD,margin:rkMargin,pass:rkMargin>0},
       sbj:{ym:sbjYM,mPass:sbjYM<10,a1:sbjA1,b:sbjB,ratio:sbjRatio,disp:sbjDisp,dPass:sbjDisp>=1000000,pass:sbjYM<10&&sbjDisp>=1000000},
@@ -301,22 +320,24 @@ function App(){
               <span style={{fontSize:11,color:C.sub}}>物件 {i+1}</span>
               {owned.length>1&&rmBtn(()=>setOwned(p=>p.filter((_,j)=>j!==i)))}
             </div>
+            <Field label="残債" value={o.debt||0} onChange={v=>uOwn(i,'debt',v)} unit="円"/>
             <div style={{display:'flex',gap:8}}>
               <div style={{flex:2}}><Field label="月支払額" value={o.payment} onChange={v=>uOwn(i,'payment',v)} unit="円"/></div>
               <div style={{flex:1}}><Field label="賃料" value={o.rent} onChange={v=>uOwn(i,'rent',v)} unit="円"/></div>
               <div style={{flex:1}}><Field label="管積" value={o.mgmt} onChange={v=>uOwn(i,'mgmt',v)} unit="円"/></div>
             </div>
           </div>)}
-          {owned.length<4&&addBtn('＋ 物件追加',()=>setOwned(p=>[...p,{payment:0,rent:0,mgmt:0}]))}
+          {owned.length<4&&addBtn('＋ 物件追加',()=>setOwned(p=>[...p,{debt:0,payment:0,rent:0,mgmt:0}]))}
         </div>
 
         <div style={sCard}>
           <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:12}}>💳 その他借入</div>
           {others.map((o,i)=><div key={i} style={{display:'flex',gap:8,alignItems:'end'}}>
+            <div style={{flex:1}}><Field label={`借入${i+1} 残債`} value={o.debt||0} onChange={v=>uOth(i,'debt',v)} unit="円"/></div>
             <div style={{flex:1}}><Field label={`借入${i+1} 月額`} value={o.payment} onChange={v=>uOth(i,'payment',v)} unit="円"/></div>
             {others.length>1&&<div style={{marginBottom:12}}>{rmBtn(()=>setOthers(p=>p.filter((_,j)=>j!==i)))}</div>}
           </div>)}
-          {others.length<4&&addBtn('＋ 借入追加',()=>setOthers(p=>[...p,{payment:0}]))}
+          {others.length<4&&addBtn('＋ 借入追加',()=>setOthers(p=>[...p,{debt:0,payment:0}]))}
           <div style={{marginTop:10}}><Field label="家賃（自宅/社宅）" value={homeRent} onChange={setHomeRent} unit="円/月"/></div>
         </div>
 
@@ -337,6 +358,11 @@ function App(){
           {props.length<6&&addBtn('＋ 物件追加',()=>setProps(p=>[...p,{price:0,bonus:0,rent:0,mgmt:0}]))}
           <div style={{marginTop:10}}><Field label="計算金利" value={calcRate} onChange={setCalcRate} unit="%"/></div>
         </div>
+        <div style={{...sCard,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <span style={{fontSize:12,color:C.label}}>年収倍率 <span style={{fontSize:10,color:C.sub}}>（残債＋購入価格）÷年収</span></span>
+          <span style={{fontSize:16,fontWeight:700,fontFamily:'DM Mono'}}>{fmtR(calc.yrMult)}倍</span>
+        </div>
+        <button onClick={resetAll} style={{background:'none',border:`1px solid ${C.border}`,color:C.sub,padding:8,borderRadius:8,width:'100%',cursor:'pointer',fontSize:12,marginBottom:14}}>入力をリセット</button>
       </>}
 
       {tab==="summary"&&<>
@@ -373,7 +399,10 @@ function App(){
           <RRow label="合計年間返済額" value={`¥${fmt(calc.totalAP)}`}/>
           <Divider/>
           <RRow label="合計年間賃料収入" value={`¥${fmt(calc.totalRent)}`}/>
+          <RRow label="既存借入 残債" value={`¥${fmt(calc.existDebt)}`}/>
+          <RRow label="今回物件 価格合計" value={`¥${fmt(calc.propPriceTotal)}`}/>
           <RRow label="総借入額" value={`¥${fmt(calc.totalDebt)}`}/>
+          <RRow label="年収倍率" value={`${fmtR(calc.yrMult)}倍`}/>
         </div>
       </>}
 
@@ -389,6 +418,7 @@ function App(){
           <RRow label="D（C − その他借入）" value={`¥${fmt(calc.rk.d)}`}/>
           <Divider/>
           <RRow label="余裕額（D − A）" value={`¥${fmt(calc.rk.margin)}`}/>
+          <RRow label="年収倍率（参考）" value={`${fmtR(calc.yrMult)}倍`} sub={`総借入 ¥${fmt(calc.totalDebt)}`}/>
         </div>
       </>}
 
@@ -462,6 +492,7 @@ function App(){
           <RRow label="家賃収入−管積×70%" value={`¥${fmt(calc.hig.r70)}`}/>
           <Divider/>
           <RRow label="余裕額" value={`¥${fmt(calc.hig.margin)}`}/>
+          <RRow label="年収倍率（参考）" value={`${fmtR(calc.yrMult)}倍`} sub={`総借入 ¥${fmt(calc.totalDebt)}`}/>
         </div>
       </>}
 
