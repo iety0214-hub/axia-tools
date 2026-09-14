@@ -888,12 +888,15 @@ function App() {
   };
 
   const mainF = settings.fields.find(f => f.key === settings.mainKey);
-  const dateKey = (r) => {
-    if (!mainF) return '9999';
-    const v = (r.fields || {})[mainF.key];
-    if (mainF.type === 'datetime') { const o = dtVal(v); return (o.d || '9999') + ' ' + (o.t || ''); }
-    return v || '9999';
+  // 承認日の早い順に自動で並べる（承認日が空の行は下にまとめ、同じ日は今までの並び順）
+  const apprF = settings.fields.find(f => /承認/.test(f.label || ''));
+  const apprKey = (r) => {
+    if (!apprF) return '9999';
+    const v = (r.fields || {})[apprF.key];
+    if (apprF.type === 'datetime') { const o = dtVal(v); return o.d ? o.d + ' ' + (o.t || '') : '9999'; }
+    return (typeof v === 'string' && v) ? v : '9999';
   };
+  const byAppr = (a, b) => apprKey(a).localeCompare(apprKey(b)) || (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id;
   const pendingCount = Object.keys(pending).length;
 
   // 過去に入力した値を候補にして、2回目からは選ぶだけで済むようにする
@@ -923,22 +926,8 @@ function App() {
     const txt = [r.name || '', ...settings.fields.map(f => fmtField(f, fv[f.key]))].join(' ').toLowerCase();
     return q.split(/\s+/).every(w => txt.includes(w));
   };
-  const sorted = [...rows].filter(hit).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id);
+  const sorted = [...rows].filter(hit).sort(byAppr);
   const otherMonthHits = query.trim() ? all.filter(r => r.month !== month && hit(r)).length : 0;
-
-  // 日付順に一括で並べ直す
-  const resortByDate = async () => {
-    if (!rows.length) return;
-    if (!confirm('日付の早い順に並べ直す？（今の手動の並びは消えるよ）')) return;
-    const ordered = [...rows].sort((a, b) => dateKey(a).localeCompare(dateKey(b)));
-    lock.current = Date.now();
-    const map = {};
-    ordered.forEach((r, i) => { map[r.id] = (i + 1) * 1000; });
-    setAll(all => all.map(r => map[r.id] != null ? { ...r, sort_order: map[r.id] } : r));
-    const rs = await Promise.all(ordered.map(r => dbUpdate(r.id, { sort_order: map[r.id] })));
-    const ng = rs.filter(x => !x.ok).length;
-    flash(ng ? `⚠ ${ng}件の並び順が保存できとらん（もう一回押して）` : '日付順にしたばい', !!ng);
-  };
 
   // 出力用の列順：物件名・号室 → 名前 → 残りの項目
   const exportCols = () => {
@@ -966,10 +955,9 @@ function App() {
   // months＝印刷したい月の配列。複数選んだときは改ページせず、月の区切り帯を挟んで続けて流し込む
   const printTable = (months) => {
     const ms = (months && months.length ? [...months] : [month]).sort();
-    // 選んだ月の行を「月順 → その月の並び順」でひとつなぎにする
+    // 選んだ月の行を「月順 → その月の承認日順」でひとつなぎにする
     const target = ms.flatMap(k =>
-      all.filter(r => r.month === k && hit(r))
-        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id)
+      all.filter(r => r.month === k && hit(r)).sort(byAppr)
     );
     if (!target.length) return flash('印刷する行がなかばい');
     const cols = exportCols();
@@ -1136,7 +1124,7 @@ tr.band { page-break-after:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.6
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.7
         </div>
       </div>
 
@@ -1184,9 +1172,6 @@ tr.band { page-break-after:avoid; }
               <button onClick={() => setPrintPick([month])} style={subBtn}>🖨 印刷する</button>
               <button onClick={carryOver} style={subBtn}>↪ 前月から繰越</button>
             </div>
-            {sorted.length > 1 && (
-              <button onClick={resortByDate} style={{ ...subBtn, width: '100%', marginTop: 8 }}>🔢 日付の早い順に並べ直す</button>
-            )}
           </div>
         )}
       </div>
