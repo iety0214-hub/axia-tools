@@ -324,10 +324,12 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
   const mainTxt = main ? fmtField(main, fv[main.key]) : '';
   const mainOn = main && hasVal(main, fv[main.key]);
   const mainIsDate = main && (main.type === 'date' || main.type === 'datetime');
+  // メイン項目も「閉じた状態でも表示」のチェックに従う（外したらバッジを出さん）
+  const mainShow = !!(main && main.sub);
   // 日付系バッジ（金消予定日・承認日など）は入力欄の並び順で表示する
   const dateBadges = [
     ...dateSubs.map(f => ({ f, isMain: false })),
-    ...(mainIsDate ? [{ f: main, isMain: true }] : []),
+    ...(mainIsDate && mainShow ? [{ f: main, isMain: true }] : []),
   ].sort((a, b) => F.indexOf(a.f) - F.indexOf(b.f));
 
   const set = (k, v) => onPatch({ fields: { ...fv, [k]: v } });
@@ -383,7 +385,7 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
               })}
             </div>
           )}
-          {main && main.type !== 'date' && main.type !== 'datetime' && mainOn && (
+          {mainShow && !mainIsDate && mainOn && (
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 6,
               padding: '3px 10px', borderRadius: 7, maxWidth: '100%',
@@ -1124,7 +1126,7 @@ tr.band { page-break-after:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.7
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.8
         </div>
       </div>
 
