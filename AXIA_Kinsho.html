@@ -309,12 +309,20 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
   const headRef = useRef(null);
   const anchorTop = useRef(null);
   const toggle = () => {
-    anchorTop.current = headRef.current ? headRef.current.getBoundingClientRect().top : null;
+    anchorTop.current = headRef.current ? { edge: 'top', y: headRef.current.getBoundingClientRect().top } : null;
+    onToggle();
+  };
+  // 下の「カードを閉じる」から閉じた時は、閉じたカードが押したボタンの位置に来るようにする
+  // （そのままだとページが縮んで一番下まで飛び、カードが画面の外に消える）
+  const closeFromBottom = (e) => {
+    anchorTop.current = { edge: 'bottom', y: e.currentTarget.getBoundingClientRect().bottom };
     onToggle();
   };
   useLayoutEffect(() => {
-    if (anchorTop.current == null || !headRef.current) return;
-    const diff = headRef.current.getBoundingClientRect().top - anchorTop.current;
+    const a = anchorTop.current;
+    if (a == null || !headRef.current) return;
+    const rect = headRef.current.getBoundingClientRect();
+    const diff = (a.edge === 'bottom' ? rect.bottom : rect.top) - a.y;
     anchorTop.current = null;
     if (Math.abs(diff) > 1) window.scrollBy(0, diff);
   }, [open]);
@@ -554,7 +562,7 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
 
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button onClick={onDup} style={{ ...subBtn, padding: '10px', fontSize: 12, whiteSpace: 'nowrap' }}>⧉ この行を複製</button>
-            <button onClick={onToggle} style={{
+            <button onClick={closeFromBottom} style={{
               flex: 1, padding: '10px', border: `1px solid ${LINE}`, background: '#f7f8fa',
               color: NAVY, borderRadius: 10, fontSize: 12, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap'
             }}>▲ カードを閉じる</button>
@@ -1157,7 +1165,7 @@ tr.band { page-break-after:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.11
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.12
         </div>
       </div>
 
