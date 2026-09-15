@@ -43,6 +43,13 @@ const LOGO = 'https://raw.githubusercontent.com/iety0214-hub/axia-tools/main/%E9
 const NAVY = '#1e2a4a', GOLD = '#c8a94a', LINE = '#e3e6ec', SUB = '#6b7280';
 const SUBTXT = '#33405e';              // カードの氏名・銀行など（濃いめ）
 const KINSHO_PINK = { bg: '#fdeaf3', bd: '#f0b8d6', fg: '#9c2b63' };  // 金消日バッジは期日に関係なくピンク固定
+// 承認・契約・金消の日付バッジは項目ごとに色を分ける（進捗の丸と同じ系統の色）
+const BADGE_TONES = [
+  { re: /承認/, tone: { bg: '#e8f0fc', bd: '#b9cff0', fg: '#1565c0' } },
+  { re: /契約/, tone: { bg: '#fdecea', bd: '#f3b9b3', fg: '#b3261e' } },
+  { re: /金消/, tone: { bg: '#f3edfa', bd: '#d6c6ec', fg: '#7b4bb0' } },
+];
+const badgeTone = (label) => { const m = BADGE_TONES.find(t => t.re.test(label || '')); return m ? m.tone : null; };
 const PROG_COLORS = ['#2e7d32', '#1565c0', '#b3261e', '#7b4bb0', '#0f766e', '#b06a00'];  // 承・契・金＋追加分
 const WD = ['日','月','火','水','木','金','土'];
 const TYPES = [
@@ -257,6 +264,9 @@ const IcoClock = () => (
 );
 // 時計ボタン：スマホ標準の時刻ピッカーを直接開く
 const openPicker = (el) => { if (!el) return; try { el.showPicker(); } catch (e) { el.focus(); } };
+// 時刻は15分刻みだけ選べるようにする（00:00〜23:45）
+const TIME_15 = Array.from({ length: 96 }, (_, i) => `${String(Math.floor(i / 4)).padStart(2, '0')}:${String((i % 4) * 15).padStart(2, '0')}`);
+const clrBtn = { width: 46, height: 46, flexShrink: 0, borderRadius: 10, cursor: 'pointer', padding: 0, border: '1px solid #f0c9c9', background: '#fff6f6', color: '#c14040', fontSize: 16, fontWeight: 700 };
 const TIME_QUICK = ['10:00', '11:00', '13:00', '14:00', '15:00', '16:00'];
 
 function Row({ label, children }) {
@@ -365,9 +375,9 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
                 const v = fv[f.key];
                 const on = hasVal(f, v);
                 const txt = fmtField(f, v);
-                const tone = isMain
+                const tone = (on && badgeTone(f.label)) || (isMain
                   ? dateTone(on, f.type === 'datetime' ? dtVal(v).d : (v || ''))
-                  : (on ? KINSHO_PINK : { bg: '#eef1f7', bd: '#d8dee9', fg: SUBTXT });
+                  : (on ? KINSHO_PINK : { bg: '#eef1f7', bd: '#d8dee9', fg: SUBTXT }));
                 return (
                   <div key={f.key} className="mono" style={{
                     display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -483,6 +493,8 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
                     <input type="date" value={fv[f.key] || ''} onChange={e => set(f.key, e.target.value)} style={{ ...inpM, flex: 1, height: 46, borderRadius: 10, fontSize: 15 }} />
                     <button type="button" aria-label="カレンダーから選ぶ"
                       onClick={() => setCalKey(calKey === f.key ? null : f.key)} style={icoBtn(calKey === f.key)}><IcoCal /></button>
+                    {!!fv[f.key] && <button type="button" aria-label="日付を消す" title="日付を消す"
+                      onClick={() => { set(f.key, ''); setCalKey(null); }} style={clrBtn}>✕</button>}
                   </div>
                   {calKey === f.key && (
                     <MiniCal value={fv[f.key] || ''}
@@ -499,17 +511,22 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
                       <input type="date" value={o.d} onChange={e => set(f.key, { ...o, d: e.target.value, none: !e.target.value })} style={{ ...inpM, flex: 1, height: 46, borderRadius: 10, fontSize: 15 }} />
                       <button type="button" aria-label="カレンダーから選ぶ"
                         onClick={() => setCalKey(calKey === f.key ? null : f.key)} style={icoBtn(calKey === f.key)}><IcoCal /></button>
+                      {!!(o.d || o.t) && <button type="button" aria-label="日付と時刻を消す" title="日付と時刻をまとめて消す"
+                        onClick={() => { set(f.key, { d: '', t: '', none: true }); setCalKey(null); }} style={clrBtn}>✕</button>}
                     </div>
                     <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                      <input type="time" ref={el => (timeRef.current[f.key] = el)} value={o.t}
-                        onChange={e => set(f.key, { ...o, t: e.target.value })} style={{ ...inpM, flex: 1, height: 46, borderRadius: 10, fontSize: 15 }} />
-                      <button type="button" aria-label="時刻を選ぶ"
-                        onClick={() => openPicker(timeRef.current[f.key])} style={icoBtn(false)}><IcoClock /></button>
+                      <select value={o.t || ''} onChange={e => set(f.key, { ...o, t: e.target.value })}
+                        style={{ ...inpM, flex: 1, height: 46, borderRadius: 10, fontSize: 15, color: o.t ? NAVY : '#9ca3af' }}>
+                        <option value="">時刻（15分単位）</option>
+                        {/* 以前に15分刻み以外で入れた時刻も消えんように残す */}
+                        {o.t && !TIME_15.includes(o.t) && <option value={o.t}>{o.t}</option>}
+                        {TIME_15.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
                     </div>
                     {calKey === f.key && (
                       <MiniCal value={o.d}
                         onPick={v => { set(f.key, { ...o, d: v, none: false }); setCalKey(null); }}
-                        onClear={() => { set(f.key, { ...o, d: '', none: true }); setCalKey(null); }} />
+                        onClear={() => { set(f.key, { d: '', t: '', none: true }); setCalKey(null); }} />
                     )}
                     <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: o.d ? '#b6bcc7' : SUB, marginTop: 8 }}>
                       <input type="checkbox" checked={!o.d} readOnly disabled style={{ cursor: 'default' }} />
@@ -1126,7 +1143,7 @@ tr.band { page-break-after:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.8
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.10
         </div>
       </div>
 
