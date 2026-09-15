@@ -382,8 +382,10 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
   const set = (k, v) => onPatch({ fields: { ...fv, [k]: v } });
 
   return (
-    <div style={{ background: '#fff', borderRadius: 12, marginBottom: 10, border: `1px solid ${unsaved ? '#f3b9b3' : LINE}`, overflow: 'hidden', boxShadow: unsaved ? '0 0 0 2px rgba(179,38,30,.10)' : '0 1px 2px rgba(30,42,74,.05)' }}>
-      <div ref={headRef} onClick={toggle} style={{ padding: '12px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center' }}>
+    <div style={{ background: '#fff', borderRadius: 12, marginBottom: 10, border: `1px solid ${unsaved ? '#f3b9b3' : LINE}`, overflow: open ? 'visible' : 'hidden', boxShadow: unsaved ? '0 0 0 2px rgba(179,38,30,.10)' : '0 1px 2px rgba(30,42,74,.05)' }}>
+      <div ref={headRef} onClick={toggle} style={{ padding: '12px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center',
+        // 開いとる間は見出し（物件名・名前・日付バッジ・進捗の丸）を紺色ヘッダーのすぐ下に固定して、中身だけスクロールさせる
+        ...(open ? { position: 'sticky', top: 'var(--barH, 0px)', zIndex: 5, background: '#fff', borderRadius: '12px 12px 0 0', borderBottom: `1px solid ${LINE}`, boxShadow: '0 4px 8px -6px rgba(30,42,74,.25)' } : {}) }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
             {unsaved && <span style={{
@@ -853,6 +855,16 @@ function App() {
 
   pendingRef.current = pending;
 
+  // 紺色ヘッダーの高さを --barH に入れて、開いたカードの見出しをその真下に固定する
+  const barObs = useRef(null);
+  const barRef = useCallback((el) => {
+    if (barObs.current) { barObs.current.disconnect(); barObs.current = null; }
+    if (!el) return;
+    const setH = () => document.documentElement.style.setProperty('--barH', el.getBoundingClientRect().height + 'px');
+    setH();
+    if (window.ResizeObserver) { barObs.current = new ResizeObserver(setH); barObs.current.observe(el); }
+  }, []);
+
   const rows = all.filter(r => r.month === month);
 
   // ===== 未保存キュー：保存に失敗した分をためて自動で再送する =====
@@ -1152,7 +1164,7 @@ tr.band { page-break-after:avoid; }
 
   return (
     <div style={{ maxWidth: 560, margin: '0 auto', paddingBottom: 90 }}>
-      <div data-sticky-bar style={{ background: NAVY, color: '#fff', padding: '14px 16px', position: 'sticky', top: 0, zIndex: 10 }}>
+      <div data-sticky-bar ref={barRef} style={{ background: NAVY, color: '#fff', padding: '14px 16px', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: '.02em' }}>{settings.appTitle}</div>
@@ -1180,7 +1192,7 @@ tr.band { page-break-after:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.13
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.14
         </div>
       </div>
 
