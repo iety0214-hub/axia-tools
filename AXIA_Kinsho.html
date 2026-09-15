@@ -29,7 +29,7 @@
 <div id="root"></div>
 
 <script type="text/babel">
-const { useState, useEffect, useRef, useCallback } = React;
+const { useState, useEffect, useLayoutEffect, useRef, useCallback } = React;
 
 /* ===== Supabase ===== */
 const SUPABASE_URL = 'https://zrqdoorolwvjlwuatlkc.supabase.co';
@@ -304,6 +304,20 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
   const timeRef = useRef({});
   // カードを閉じたらカレンダーも畳んでおく（次に開いた時に開きっぱなしにせん）
   useEffect(() => { if (!open) setCalKey(null); }, [open]);
+  // 開閉しても、タップしたカードの見出しが画面上の同じ位置に留まるようにする
+  // （上の開いとったカードが閉じて、タップしたカードが上にずれるのを防ぐ）
+  const headRef = useRef(null);
+  const anchorTop = useRef(null);
+  const toggle = () => {
+    anchorTop.current = headRef.current ? headRef.current.getBoundingClientRect().top : null;
+    onToggle();
+  };
+  useLayoutEffect(() => {
+    if (anchorTop.current == null || !headRef.current) return;
+    const diff = headRef.current.getBoundingClientRect().top - anchorTop.current;
+    anchorTop.current = null;
+    if (Math.abs(diff) > 1) window.scrollBy(0, diff);
+  }, [open]);
   const F = settings.fields;
   const fv = r.fields || {};
   const prog = F.filter(f => f.progress).slice(0, 6);   // 横一列に収めるため最大6個
@@ -346,7 +360,7 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
 
   return (
     <div style={{ background: '#fff', borderRadius: 12, marginBottom: 10, border: `1px solid ${unsaved ? '#f3b9b3' : LINE}`, overflow: 'hidden', boxShadow: unsaved ? '0 0 0 2px rgba(179,38,30,.10)' : '0 1px 2px rgba(30,42,74,.05)' }}>
-      <div onClick={onToggle} style={{ padding: '12px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center' }}>
+      <div ref={headRef} onClick={toggle} style={{ padding: '12px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
             {unsaved && <span style={{
@@ -1143,7 +1157,7 @@ tr.band { page-break-after:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.10
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.11
         </div>
       </div>
 
