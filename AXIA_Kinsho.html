@@ -11,6 +11,8 @@
 <style>
   :root { color-scheme: light; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  /* ブラウザ側の自動スクロール補正は切って、カード開閉時の位置合わせはアプリ側だけでやる */
+  html, body { overflow-anchor: none; }
   body { margin:0; background:#f5f6f8; font-family:'Noto Sans JP',sans-serif; color:#1e2a4a; }
   input, select, button, textarea { font-family:'Noto Sans JP',sans-serif; color:#1e2a4a; color-scheme: light; }
   input:focus, select:focus, textarea:focus { outline:2px solid #c8a94a; outline-offset:0; }
@@ -321,10 +323,23 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
   useLayoutEffect(() => {
     const a = anchorTop.current;
     if (a == null || !headRef.current) return;
-    const rect = headRef.current.getBoundingClientRect();
-    const diff = (a.edge === 'bottom' ? rect.bottom : rect.top) - a.y;
     anchorTop.current = null;
-    if (Math.abs(diff) > 1) window.scrollBy(0, diff);
+    // 上に固定しとる紺色のヘッダーの下端（ここより上に来ると隠れる）
+    const bar = document.querySelector('[data-sticky-bar]');
+    const barBottom = bar ? bar.getBoundingClientRect().bottom : 0;
+    const fix = () => {
+      if (!headRef.current) return;
+      const rect = headRef.current.getBoundingClientRect();
+      let diff = (a.edge === 'bottom' ? rect.bottom : rect.top) - a.y;
+      // 位置を合わせた結果、見出しがヘッダーの裏に隠れるなら、見出しがヘッダーのすぐ下に来るようにする
+      if (rect.top - diff < barBottom + 8) diff = rect.top - (barBottom + 8);
+      if (Math.abs(diff) > 1) window.scrollBy(0, diff);
+    };
+    fix();
+    // 描画直後や通信の再読み込みで遅れてずれた分も、少し後にもう一度だけ直す
+    const startY = window.scrollY;
+    const t = setTimeout(() => { if (Math.abs(window.scrollY - startY) > 1) return; fix(); }, 350);
+    return () => clearTimeout(t);
   }, [open]);
   const F = settings.fields;
   const fv = r.fields || {};
@@ -1137,7 +1152,7 @@ tr.band { page-break-after:avoid; }
 
   return (
     <div style={{ maxWidth: 560, margin: '0 auto', paddingBottom: 90 }}>
-      <div style={{ background: NAVY, color: '#fff', padding: '14px 16px', position: 'sticky', top: 0, zIndex: 10 }}>
+      <div data-sticky-bar style={{ background: NAVY, color: '#fff', padding: '14px 16px', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: '.02em' }}>{settings.appTitle}</div>
@@ -1165,7 +1180,7 @@ tr.band { page-break-after:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.12
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.13
         </div>
       </div>
 
