@@ -232,7 +232,6 @@ function App(){
     const rkC=rkB-homeRentY;
     const rkD=rkC-(otherPayY+otherBonusY);
     const rkMargin=rkD-rkRepay;
-    const rkBM=s<=10000000?10:12;
 
     const sbjR=0.01975;
     const sbjPY=pc.reduce((t,p)=>{return t+(p.price>0?PMT(sbjR/12,35*12,p.price)*12:0)},0);
@@ -266,8 +265,8 @@ function App(){
       pc,propYearlyTotal,propRentTotal,propPriceTotal,
       existTotalY,existDebt,totalAP,totalRent,totalDebt,existBonusY,otherBonusY,
       ratioNet,ratio70,ratio100,yrMult,si,tax,siAuto,dedManual,
-      rk:{repay:rkRepay,b:rkB,c:rkC,d:rkD,margin:rkMargin,bm:rkBM,mPass:yrMult<rkBM,pass:rkMargin>0&&yrMult<rkBM},
-      sbj:{ym:sbjYM,mPass:sbjYM<10,a1:sbjA1,b:sbjB,ratio:sbjRatio,disp:sbjDisp,dPass:sbjDisp>=1000000,pass:sbjYM<10&&sbjDisp>=1000000},
+      rk:{repay:rkRepay,b:rkB,c:rkC,d:rkD,margin:rkMargin,pass:rkMargin>0},
+      sbj:{ym:sbjYM,bm:12,mPass:sbjYM<12,a1:sbjA1,b:sbjB,ratio:sbjRatio,disp:sbjDisp,dPass:sbjDisp>=1000000,pass:sbjYM<12&&sbjDisp>=1000000},
       ion:{r1:ionR1,r2:ionR2,bm:ionBM,disp:ionDisp,rPass:ionR1<0.5&&ionR2<0.35,mPass:yrMult<ionBM,dPass:ionDisp>100000,pass:ionR1<0.5&&ionR2<0.35&&yrMult<ionBM&&a>=25&&yrs>=2&&ionDisp>100000},
       sbi:{ratio:sbiRatio,br:sbiBR,bm:sbiBM,rate:sbiRate2,pass:sbiRatio<sbiBR&&yrMult<sbiBM&&a>=25&&yrs>=3},
       hig:{pr:hPR,tr:hTR,s35:hS35,r70:hR70,margin:hMargin,bm:hBM,mPass:yrMult<hBM,pass:hMargin>0&&yrMult<hBM}
@@ -435,9 +434,7 @@ function App(){
           <RRow label="D（C − その他借入）" value={`¥${fmt(calc.rk.d)}`}/>
           <Divider/>
           <RRow label="余裕額（D − A）" value={`¥${fmt(calc.rk.margin)}`}/>
-          <Divider/>
-          <RRow label="年収倍率" value={`${fmtR(calc.yrMult)}倍`} sub={`基準${calc.rk.bm}倍`}/>
-          <Badge pass={calc.rk.mPass}/>
+          <RRow label="年収倍率（参考・判定対象外）" value={`${fmtR(calc.yrMult)}倍`}/>
         </div>
       </>}
 
@@ -449,7 +446,7 @@ function App(){
           <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>基準1：年収倍率</div>
           <RRow label="借入総額" value={`¥${fmt(calc.totalDebt)}`}/>
           <RRow label="年収" value={`¥${fmt(salary)}`}/>
-          <RRow label="年収倍率" value={`${fmtR(calc.sbj.ym)}倍`} sub={calc.sbj.mPass?"（10倍未満）":"（10倍以上）"}/>
+          <RRow label="年収倍率" value={`${fmtR(calc.sbj.ym)}倍`} sub={calc.sbj.mPass?"（12倍未満）":"（12倍以上）"}/>
           <Badge pass={calc.sbj.mPass}/>
         </div>
         <div style={sCard}>
