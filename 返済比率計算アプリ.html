@@ -231,8 +231,7 @@ function App(){
     const sbjTotalRepay=sbjPWB+existPayY+otherPayY;
     const sbjYM=s>0?totalDebt/s:99;
     const sbjA1=s+existRentY*0.7+propRentTotal*0.7-si-tax.total;
-    // Excel SBJ合否!H21＝入力シート!H17(自宅家賃込)＋本件＋自宅家賃
-    const sbjB=sbjTotalRepay+homeRentY+homeRentY;
+    const sbjB=sbjTotalRepay+homeRentY;
     const sbjRatio=sbjA1>0?sbjB/sbjA1:99;
     const sbjFam=960000*mem;
     const sbjDisp=sbjA1-(sbjB+sbjFam);
@@ -240,8 +239,8 @@ function App(){
     const ionR1=s>0?totalAP/s:99;
     const ionR2=(s+totalRent)>0?totalAP/(s+totalRent):99;
     const ionBM=s<=7000000?7:s<=8500000?9:s<=10000000?11:12;
-    // Excel イオン合否!H38＝入力シート!H17(既存借入＋自宅家賃)＋336万＋自宅家賃
-    const ionDisp=(s-si-tax.total)-(existTotalY+3360000+homeRentY);
+    // existTotalYに自宅家賃を含むため、ここで家賃を再度足さない（二重計上防止）
+    const ionDisp=(s-si-tax.total)-(existTotalY+propYearlyTotal+3360000);
 
     const sbiRatio=(s+totalRent)>0?totalAP/(s+totalRent):99;
     const sbiBR=0.4;const sbiBM=s<=10000000?10:12;
