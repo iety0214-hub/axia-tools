@@ -349,6 +349,37 @@
             color: #333;
         }
 
+        /* 行を追加するボタン */
+        .btn-add-row {
+            width: 100%;
+            padding: 12px;
+            background: #fff;
+            border: 2px dashed #667eea;
+            color: #667eea;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .btn-add-row:hover {
+            background: #f2f4ff;
+        }
+
+        .btn-row-del {
+            background: none;
+            border: none;
+            color: #ef4444;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 6px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .sub-input {
+            margin-top: 8px;
+        }
+
         .btn-del {
             background: #ef4444;
             color: #fff;
@@ -429,7 +460,7 @@
                     <label class="required" for="propertyName">物件名</label>
                     <button type="button" class="btn-gear" data-edit-list="property">⚙ 物件リスト</button>
                 </div>
-                <select id="propertyName">
+                <select id="propertyName" class="js-property-select">
                     <option value="">選択してください</option>
                 </select>
                 <div class="info-text">「その他（手入力）」で入力した物件名は、リストに追加するか選べます</div>
@@ -447,6 +478,13 @@
             <div class="form-group">
                 <label>号室</label>
                 <input type="text" id="roomNumber" placeholder="例：203号室">
+            </div>
+
+            <div id="extraProperties"></div>
+
+            <div class="form-group">
+                <button type="button" class="btn-add-row" id="btnAddProperty">＋ 物件を追加</button>
+                <div class="info-text">2件以上のときは【物件名】に「物件名 号室」をまとめて書き出します</div>
             </div>
 
             <div class="form-group">
@@ -491,9 +529,16 @@
 
             <div class="form-group">
                 <label for="accompany">同行</label>
-                <select id="accompany">
+                <select id="accompany" class="js-accompany-select">
                     <option value="">選択してください</option>
                 </select>
+            </div>
+
+            <div id="extraAccompany"></div>
+
+            <div class="form-group">
+                <button type="button" class="btn-add-row" id="btnAddAccompany">＋ 同行者を追加</button>
+                <div class="info-text">複数いるときは「、」でつないで書き出します</div>
             </div>
 
             <div class="form-group">
@@ -701,7 +746,10 @@
 
         // セレクトを組み立て直す（選択中の値はできるだけ維持）
         function fillSelect(selectId, items, options) {
-            const select = document.getElementById(selectId);
+            fillSelectEl(document.getElementById(selectId), items, options);
+        }
+
+        function fillSelectEl(select, items, options) {
             if (!select) return;
             const current = select.value;
             const opts = options || {};
@@ -739,7 +787,9 @@
 
         function renderPropertySelects() {
             const items = getList('property');
-            fillSelect('propertyName', items, { undecided: true, custom: true });
+            Array.prototype.forEach.call(document.querySelectorAll('.js-property-select'), function(select) {
+                fillSelectEl(select, items, { undecided: true, custom: true });
+            });
             fillSelect('beforePropertyName', items, { undecided: true, custom: true });
         }
 
@@ -749,13 +799,191 @@
 
         function renderStaffSelects() {
             const items = getList('staff');
-            ['personInCharge', 'accompany'].forEach(function(id) {
-                fillSelect(id, items, {});
+            fillSelect('personInCharge', items, {});
+            Array.prototype.forEach.call(document.querySelectorAll('.js-accompany-select'), function(select) {
+                fillSelectEl(select, items, {});
             });
         }
 
         function renderDepartmentSelect() {
             fillSelect('department', getList('department'), {});
+        }
+
+        // ========== 物件の追加行（2件目以降は物件名＋号室でセット） ==========
+        function addPropertyRow() {
+            const wrap = document.createElement('div');
+            wrap.className = 'form-group extra-property';
+
+            const labelRow = document.createElement('div');
+            labelRow.className = 'label-row';
+            const label = document.createElement('label');
+            const del = document.createElement('button');
+            del.type = 'button';
+            del.className = 'btn-row-del';
+            del.textContent = '✕ 削除';
+            del.addEventListener('click', function() {
+                wrap.remove();
+                renumberPropertyRows();
+                updateSubject();
+            });
+            labelRow.appendChild(label);
+            labelRow.appendChild(del);
+
+            const select = document.createElement('select');
+            select.className = 'js-property-select extra-prop-select';
+
+            const custom = document.createElement('input');
+            custom.type = 'text';
+            custom.className = 'sub-input extra-prop-custom';
+            custom.placeholder = '物件名を入力してください';
+            custom.style.display = 'none';
+
+            const room = document.createElement('input');
+            room.type = 'text';
+            room.className = 'sub-input extra-prop-room';
+            room.placeholder = '号室（例：203号室）';
+
+            select.addEventListener('change', function() {
+                if (select.value === 'その他') {
+                    custom.style.display = 'block';
+                } else {
+                    custom.style.display = 'none';
+                    custom.value = '';
+                }
+                updateSubject();
+            });
+            custom.addEventListener('input', updateSubject);
+            room.addEventListener('input', updateSubject);
+
+            wrap.appendChild(labelRow);
+            wrap.appendChild(select);
+            wrap.appendChild(custom);
+            wrap.appendChild(room);
+            document.getElementById('extraProperties').appendChild(wrap);
+
+            fillSelectEl(select, getList('property'), { undecided: true, custom: true });
+            renumberPropertyRows();
+            updateSubject();
+        }
+
+        function renumberPropertyRows() {
+            Array.prototype.forEach.call(document.querySelectorAll('.extra-property'), function(row, i) {
+                row.querySelector('label').textContent = '物件名（' + (i + 2) + '件目）';
+            });
+        }
+
+        // 入力されている物件を上から順に集める（失敗時は null）
+        function collectProperties(report) {
+            const list = [];
+
+            const first = document.getElementById('propertyName').value;
+            const firstCustom = document.getElementById('customProperty').value.trim();
+            const firstRoom = document.getElementById('roomNumber').value.trim();
+
+            if (report) {
+                if (!first) {
+                    showFieldError('propertyName', '物件名を選んでください');
+                    return null;
+                }
+                if (first === 'その他' && !firstCustom) {
+                    showFieldError('customProperty', '物件名を入力してください');
+                    return null;
+                }
+            }
+
+            if (first) {
+                list.push({ name: first === 'その他' ? firstCustom : first, room: firstRoom });
+            }
+
+            const rows = document.querySelectorAll('.extra-property');
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                const select = row.querySelector('.extra-prop-select');
+                const custom = row.querySelector('.extra-prop-custom').value.trim();
+                const room = row.querySelector('.extra-prop-room').value.trim();
+
+                if (!select.value || (select.value === 'その他' && !custom)) {
+                    if (report) {
+                        showRowError(row, select, (i + 2) + '件目の物件名を入力してください');
+                        return null;
+                    }
+                    continue;
+                }
+                list.push({ name: select.value === 'その他' ? custom : select.value, room: room });
+            }
+
+            return list;
+        }
+
+        // 追加行用の赤字エラー
+        function showRowError(row, focusEl, message) {
+            let msg = row.querySelector('.error-msg');
+            if (!msg) {
+                msg = document.createElement('div');
+                msg.className = 'error-msg';
+                row.appendChild(msg);
+            }
+            msg.textContent = message;
+            row.classList.add('field-error');
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            try {
+                focusEl.focus({ preventScroll: true });
+            } catch (e) {
+                focusEl.focus();
+            }
+        }
+
+        // 物件を1行の文字列にする（1件のときは号室を別行に出すので名前だけ）
+        function formatProperties(list) {
+            return list.map(function(p) {
+                return p.room ? p.name + ' ' + p.room : p.name;
+            }).join('／');
+        }
+
+        // ========== 同行者の追加行 ==========
+        function addAccompanyRow() {
+            const wrap = document.createElement('div');
+            wrap.className = 'form-group extra-accompany';
+
+            const labelRow = document.createElement('div');
+            labelRow.className = 'label-row';
+            const label = document.createElement('label');
+            const del = document.createElement('button');
+            del.type = 'button';
+            del.className = 'btn-row-del';
+            del.textContent = '✕ 削除';
+            del.addEventListener('click', function() {
+                wrap.remove();
+                renumberAccompanyRows();
+            });
+            labelRow.appendChild(label);
+            labelRow.appendChild(del);
+
+            const select = document.createElement('select');
+            select.className = 'js-accompany-select extra-accompany-select';
+
+            wrap.appendChild(labelRow);
+            wrap.appendChild(select);
+            document.getElementById('extraAccompany').appendChild(wrap);
+
+            fillSelectEl(select, getList('staff'), {});
+            renumberAccompanyRows();
+        }
+
+        function renumberAccompanyRows() {
+            Array.prototype.forEach.call(document.querySelectorAll('.extra-accompany'), function(row, i) {
+                row.querySelector('label').textContent = '同行（' + (i + 2) + '人目）';
+            });
+        }
+
+        // 同行者を重複なしで集める
+        function collectAccompany() {
+            const list = [];
+            Array.prototype.forEach.call(document.querySelectorAll('.js-accompany-select'), function(select) {
+                const name = select.value;
+                if (name && list.indexOf(name) === -1) list.push(name);
+            });
+            return list;
         }
 
         // ========== リスト編集モーダル ==========
@@ -839,31 +1067,20 @@
         // 件名自動更新
         function updateSubject() {
             const reportType = document.getElementById('reportType').value;
-            const propertyName = document.getElementById('propertyName').value;
-            const customProperty = document.getElementById('customProperty').value.trim();
-            const roomNumber = document.getElementById('roomNumber').value.trim();
             const subjectPreview = document.getElementById('subjectPreview');
-            
+
             if (!reportType) {
                 subjectPreview.value = '';
                 return;
             }
-            
-            let finalProperty = '';
-            if (propertyName === 'その他' && customProperty) {
-                finalProperty = customProperty;
-            } else if (propertyName && propertyName !== 'その他') {
-                finalProperty = propertyName;
-            }
-            
+
+            const properties = collectProperties(false) || [];
+
             let subject = '【' + reportType + '】';
-            if (finalProperty) {
-                subject += finalProperty;
-                if (roomNumber) {
-                    subject += ' ' + roomNumber;
-                }
+            if (properties.length > 0) {
+                subject += formatProperties(properties);
             }
-            
+
             subjectPreview.value = subject;
         }
 
@@ -925,6 +1142,9 @@
                 openListModal(btn.getAttribute('data-edit-list'));
             });
         });
+
+        document.getElementById('btnAddProperty').addEventListener('click', addPropertyRow);
+        document.getElementById('btnAddAccompany').addEventListener('click', addAccompanyRow);
 
         document.getElementById('listModalAdd').addEventListener('click', addFromListModal);
         document.getElementById('listModalClose').addEventListener('click', closeListModal);
@@ -1071,7 +1291,7 @@
             const contractDate = document.getElementById('contractDate').value;
             const settlementDate = document.getElementById('settlementDate').value;
             const personInCharge = document.getElementById('personInCharge').value;
-            const accompany = document.getElementById('accompany').value;
+            const accompanyList = collectAccompany();
             const department = document.getElementById('department').value;
             const remarks = document.getElementById('remarks').value.trim();
             const subject = document.getElementById('subjectPreview').value;
@@ -1097,11 +1317,9 @@
                 }
             }
             
-            if (!propertyName) {
-                return showFieldError('propertyName', '物件名を選んでください');
-            }
-            if (propertyName === 'その他' && !customProperty) {
-                return showFieldError('customProperty', '物件名を入力してください');
+            const properties = collectProperties(true);
+            if (!properties) {
+                return false;
             }
             if (!bank) {
                 return showFieldError('bank', '銀行を選んでください');
@@ -1115,7 +1333,6 @@
 
             // 値の確定
             const finalBeforePropertyName = beforePropertyName === 'その他' ? customBeforeProperty : beforePropertyName;
-            const finalPropertyName = propertyName === 'その他' ? customProperty : propertyName;
             const finalBank = bank === 'その他' ? customBank : bank;
             const finalCustomerName = customerName.endsWith('様') ? customerName : customerName + '様';
 
@@ -1154,13 +1371,18 @@
                 report += '【振替前】' + beforeInfo + '\n';
             }
             
-            report += '【物件名】' + finalPropertyName + '\n';
-            report += '【号室】' + (roomNumber || '－') + '\n';
+            // 1件なら今まで通り物件名と号室を分けて、2件以上なら【物件名】に「物件名 号室」でまとめる
+            if (properties.length === 1) {
+                report += '【物件名】' + properties[0].name + '\n';
+                report += '【号室】' + (roomNumber || '－') + '\n';
+            } else {
+                report += '【物件名】' + formatProperties(properties) + '\n';
+            }
             report += '【銀行】' + finalBank + '\n';
             report += '【契約】' + (formattedContractDate || '－') + '\n';
             report += '【決済予定】' + (formattedSettlementDate || '－') + '\n';
             report += '【担当】' + (personInCharge || '－') + '\n';
-            report += '【同行】' + (accompany || '－') + '\n';
+            report += '【同行】' + (accompanyList.length ? accompanyList.join('、') : '－') + '\n';
             report += '【所属】' + (department || '－');
             
             // 備考欄がある場合のみ追加
