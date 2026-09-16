@@ -1164,6 +1164,7 @@
         renderStaffSelects();
         renderDepartmentSelect();
         restoreSelection('personInCharge', 'lastPersonInCharge');
+        restoreSelection('accompany', 'lastAccompany');
         restoreSelection('department', 'lastDepartment');
 
         document.getElementById('customProperty').addEventListener('input', updateSubject);
@@ -1247,6 +1248,7 @@
         }
 
         rememberSelection('personInCharge', 'lastPersonInCharge');
+        rememberSelection('accompany', 'lastAccompany');
         rememberSelection('department', 'lastDepartment');
 
         // 手入力欄の内容をリストへ追加し、その項目を選択状態にする
