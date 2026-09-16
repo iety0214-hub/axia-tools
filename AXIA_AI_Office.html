@@ -94,7 +94,8 @@
     background:linear-gradient(180deg,#fffaf0,#f0e5cf);
   }
   #stage:fullscreen canvas{border-radius:0;}
-  .cam-btns{position:absolute; right:12px; top:12px; z-index:3; display:flex; gap:6px;}
+  .cam-btns{position:absolute; right:12px; top:12px; z-index:3; display:flex; gap:6px;
+    flex-wrap:wrap; justify-content:flex-end; max-width:calc(100% - 24px);}
   .cam-btn{
     border:none; background:rgba(255,255,255,0.9); color:var(--ink);
     font-family:'M PLUS Rounded 1c',sans-serif; font-weight:800; font-size:10.5px;
@@ -133,6 +134,41 @@
   .throne button:active{transform:translateY(2px); box-shadow:0 1px 0 var(--gold-dark);}
   .throne button:disabled{opacity:.5;}
   .toast{font-size:10.5px; color:#9be8a8; margin-top:8px; min-height:14px;}
+
+  /* ===== アプリランチャー（追加） ===== */
+  .launch-btn{border:none; border-radius:10px; padding:6px 11px; font-size:11px; font-weight:800;
+    background:var(--gold); color:#2b2440; box-shadow:0 2px 0 var(--gold-dark); cursor:pointer;}
+  .sheet-mask{position:fixed; inset:0; background:rgba(43,36,64,.35); z-index:50; display:none;}
+  .sheet-mask.open{display:block;}
+  .sheet{position:fixed; left:0; right:0; bottom:0; z-index:51; background:var(--paper);
+    border-radius:18px 18px 0 0; box-shadow:0 -6px 24px rgba(43,36,64,.22);
+    padding:14px 16px calc(18px + env(safe-area-inset-bottom)); transform:translateY(110%);
+    transition:transform .22s ease; max-height:72vh; overflow:auto;}
+  .sheet.open{transform:translateY(0);}
+  .sheet-grip{width:38px; height:4px; border-radius:2px; background:#e0d7ee; margin:0 auto 10px;}
+  .sheet-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:4px;}
+  .sheet-title{font-family:'M PLUS Rounded 1c',sans-serif; font-weight:800; font-size:15px; color:var(--ink);}
+  .sheet-sub{font-size:10.5px; color:var(--ink-soft); margin-bottom:12px;}
+  .sheet-close{border:none; background:#efe9f8; color:var(--ink-soft); border-radius:9px;
+    padding:5px 10px; font-size:11px; font-weight:700; cursor:pointer;}
+  .app-list{display:flex; flex-direction:column; gap:8px;}
+  .app-link{display:flex; align-items:center; gap:10px; text-decoration:none;
+    background:#fff; border:1px solid #ece5f7; border-radius:12px; padding:11px 13px;
+    box-shadow:0 2px 0 rgba(43,36,64,.06);}
+  .app-link .ico{font-size:19px; width:24px; text-align:center;}
+  .app-link .tx{flex:1; min-width:0;}
+  .app-link .nm2{font-size:13px; font-weight:800; color:var(--ink); line-height:1.3;}
+  .app-link .ds{font-size:10px; color:var(--ink-soft); margin-top:2px;}
+  .app-link .ar{font-size:14px; color:var(--gold-dark); font-weight:800;}
+  .app-empty{font-size:11.5px; color:var(--ink-soft); background:#fff; border:1px dashed #ddd3ee;
+    border-radius:12px; padding:14px; text-align:center;}
+  @media (max-width:560px){
+    #btnApps{position:fixed; right:14px; bottom:calc(14px + env(safe-area-inset-bottom));
+      z-index:40; padding:11px 15px; font-size:13px; border-radius:999px;
+      box-shadow:0 4px 12px rgba(43,36,64,.28);}
+  }
+  .sheet-order{margin-top:12px; width:100%; border:none; border-radius:11px; padding:11px;
+    font-size:12px; font-weight:800; background:var(--ink); color:#fff; cursor:pointer;}
 </style>
 </head>
 <body>
@@ -153,11 +189,12 @@
       <div id="stage">
         <div class="loading" id="loading">3Dオフィスを読み込み中…</div>
         <div class="label-layer" id="labels"></div>
-        <div class="hint">ドラッグで回転 / ピンチでズーム / 社員をタップで選択</div>
+        <div class="hint">ドラッグで回転 / ピンチでズーム / 社員をタップで担当アプリを開く</div>
         <div class="cam-btns">
           <button class="cam-btn on" id="btnSpin">自動回転 ON</button>
           <button class="cam-btn" id="btnReset">視点リセット</button>
           <button class="cam-btn" id="btnFull">全画面</button>
+          <button class="cam-btn" id="btnApps" style="background:var(--gold);color:#2b2440;font-weight:800">📱 アプリ一覧</button>
         </div>
       </div>
     </div>
@@ -183,6 +220,19 @@
       </div>
     </div>
   </div>
+</div>
+
+
+<div class="sheet-mask" id="sheetMask"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head">
+    <div class="sheet-title" id="sheetTitle">担当アプリ</div>
+    <button class="sheet-close" id="sheetClose">閉じる</button>
+  </div>
+  <div class="sheet-sub" id="sheetSub"></div>
+  <div class="app-list" id="appList"></div>
+  <button class="sheet-order" id="sheetOrder">この社員に指示を出す</button>
 </div>
 
 <script type="module">
@@ -215,6 +265,21 @@ const DESKS = {
        approach: { x: 7.8, z: -5.5 },
      }},
 };
+
+/* ═══════════ 担当アプリ（ここを書き換えれば紐付け変更OK） ═══════════ */
+const APP_BASE = './';              // 同じフォルダ内のHTMLを開く
+const APPS = {
+  1: [ {ico:'📂', nm:'Driveランチャー', ds:'マイソク等のDriveフォルダ閲覧', file:'AXIA_Drive_Launcher.html'},
+       {ico:'✅', nm:'仕入れTODO',     ds:'仕入れチェックリスト',          file:'AXIA_stock_todo.html'} ],
+  2: [ {ico:'📒', nm:'契約管理（金消）', ds:'承認日・契約日・金消日の台帳',  file:'AXIA_Kinsho.html'},
+       {ico:'🏠', nm:'物件TODO',        ds:'物件ごとの進捗チェック',        file:'AXIA_buken_todo.html'} ],
+  3: [ {ico:'📚', nm:'金融例ランチャー', ds:'資料フォルダ閲覧',             file:'AXIA_Kinyurei_Launcher.html'} ],
+  4: [],
+  5: [ {ico:'🏢', nm:'Coworkオフィス',  ds:'タスク全体の一覧',             file:'AXIA_Cowork_Office.html'} ],
+  6: [ {ico:'✉️', nm:'メール生成ツール', ds:'定型文を作ってGmail送信',      file:'Gmail_builder.html'} ],
+  7: [],
+};
+
 const SPACING = 3.4;
 const gridX = c => (c - 1) * SPACING;
 const gridZ = r => (r - 1) * SPACING;
@@ -809,6 +874,74 @@ function renderSelect(){
   syncSendBtn();
 }
 
+
+/* ═══════════ アプリランチャー（追加） ═══════════ */
+const sheet = document.getElementById('sheet');
+const sheetMask = document.getElementById('sheetMask');
+const sheetTitle = document.getElementById('sheetTitle');
+const sheetSub = document.getElementById('sheetSub');
+const appList = document.getElementById('appList');
+const sheetOrder = document.getElementById('sheetOrder');
+
+function empName(id){
+  const r = rows.find(x => x.id === id);
+  return (r && r.avatar && r.avatar.name) || (DESKS[id] && DESKS[id].plate) || '社員';
+}
+function closeSheet(){ sheet.classList.remove('open'); sheetMask.classList.remove('open'); }
+function openSheet(){ sheet.classList.add('open'); sheetMask.classList.add('open'); }
+
+function buildAppList(list){
+  appList.innerHTML = '';
+  if (!list || !list.length){
+    const d = document.createElement('div');
+    d.className = 'app-empty';
+    d.textContent = 'この社員に紐付いたアプリはまだ無かよ。APPS に追加してね。';
+    appList.appendChild(d);
+    return;
+  }
+  list.forEach(app => {
+    const a = document.createElement('a');
+    a.className = 'app-link';
+    a.href = APP_BASE + app.file;
+    a.innerHTML = `<span class="ico">${app.ico}</span>
+      <span class="tx"><span class="nm2">${app.nm}</span><span class="ds">${app.ds}</span></span>
+      <span class="ar">›</span>`;
+    appList.appendChild(a);
+  });
+}
+
+function showEmployeeSheet(id){
+  sheetTitle.textContent = empName(id);
+  sheetSub.textContent = (DESKS[id] && DESKS[id].plate) ? DESKS[id].plate + ' 担当のアプリ' : '担当アプリ';
+  buildAppList(APPS[id]);
+  sheetOrder.style.display = '';
+  sheetOrder.onclick = () => {
+    closeSheet();
+    const w = document.getElementById('who');
+    w.value = String(id);
+    w.dispatchEvent(new Event('change'));
+    document.getElementById('msg').scrollIntoView({behavior:'smooth', block:'center'});
+    setTimeout(() => document.getElementById('msg').focus(), 350);
+  };
+  openSheet();
+}
+
+function showAllApps(){
+  sheetTitle.textContent = '📱 アプリ一覧';
+  sheetSub.textContent = 'AXIAツールを全部ここから開けるばい';
+  const all = [];
+  Object.keys(APPS).forEach(k => (APPS[k] || []).forEach(a => {
+    if (!all.some(x => x.file === a.file)) all.push(a);
+  }));
+  buildAppList(all);
+  sheetOrder.style.display = 'none';
+  openSheet();
+}
+
+document.getElementById('btnApps').addEventListener('click', showAllApps);
+document.getElementById('sheetClose').addEventListener('click', closeSheet);
+sheetMask.addEventListener('click', closeSheet);
+
 /* ═══════════ 操作 ═══════════ */
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
@@ -826,13 +959,14 @@ renderer.domElement.addEventListener('pointerup', e => {
   pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
   const hits = raycaster.intersectObjects(pickables, true);
-  if (!hits.length){ selectedId = null; renderAll(); return; }
+  if (!hits.length){ selectedId = null; renderAll(); closeSheet(); return; }
 
   let o = hits[0].object;
   while (o && o.userData.deskId === undefined) o = o.parent;
   if (!o) return;
   selectedId = (selectedId === o.userData.deskId) ? null : o.userData.deskId;
   renderAll();
+  if (selectedId !== null) showEmployeeSheet(selectedId); else closeSheet();
 });
 
 document.getElementById('btnSpin').addEventListener('click', e => {
