@@ -213,8 +213,8 @@
         <h2>🚶 社員の行動ルール</h2>
         <div class="rule">
           <b>進行中</b> … 席に着いて作業（腕が動く）<br>
-          <b>未着手</b> … 社内をうろうろ歩き回る<br>
-          <b>保留・完了</b> … 休憩室のソファでひと休み<br>
+          <b>未着手</b> … 席で待機（タップしやすいよう固定）<br>
+          <b>家原だけ</b> … 未着手ならうろうろ／保留・完了は休憩室<br>
           <b>活動ログ</b> … 奥の壁掛けモニターに表示
         </div>
       </div>
@@ -785,7 +785,11 @@ function goWander(a){
   a.path = [...seg(a, nearestLaneX(wp.x), wp.z, wasLounge), V3(wp.x, wp.z)];
 }
 
-function desiredMode(status){
+/* 歩き回ってよい社員（タップしにくくなるけん1人だけ）。null にすると全員動く */
+const MOBILE_ID = 5;   // 家原
+
+function desiredMode(status, id){
+  if (id !== MOBILE_ID) return 'desk';          // 他の社員はずっと自席
   if (status === '進行中') return 'desk';
   if (status === '保留' || status === '完了') return 'lounge';
   return 'wander';
@@ -812,7 +816,7 @@ function applyRow(r){
   if (scr) scr.material.color.set(r.status === '進行中' ? '#8fd4ff' : '#7d8494');
 
   // 状態が変わったら行動を切り替える（前回statusと比較して確実に検知）
-  const want = desiredMode(r.status);
+  const want = desiredMode(r.status, r.id);
   const statusChanged = (a.status !== r.status);
   if (want !== a.mode || (want === 'desk' && statusChanged)){
     if (want === 'desk')        goDesk(a);
@@ -1037,7 +1041,7 @@ send.addEventListener('click', async () => {
   rows.forEach(r => {
     const a = A[r.id];
     if (!a) return;
-    const want = desiredMode(r.status);
+    const want = desiredMode(r.status, r.id);
     if (want === 'lounge')      goLounge(a);
     else if (want === 'wander') goWander(a);
     else                        goDesk(a);
