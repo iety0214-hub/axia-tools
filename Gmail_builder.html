@@ -561,6 +561,16 @@
             </div>
 
             <div class="form-group">
+                <div class="label-row">
+                    <label for="attendee">立会</label>
+                    <button type="button" class="btn-gear" data-edit-list="attendee">⚙ 立会リスト</button>
+                </div>
+                <select id="attendee">
+                    <option value="">選択してください</option>
+                </select>
+            </div>
+
+            <div class="form-group">
                 <label>備考</label>
                 <textarea id="remarks" rows="3" placeholder="例：2物件同時、決済日変更予定など" style="width: 100%; padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
             </div>
@@ -660,11 +670,16 @@
             '笠原課', '土屋課', '安部課', '高野課', '佐野課', '儀間課'
         ];
 
+        const DEFAULT_ATTENDEES = [
+            '深谷部長', '家原部長'
+        ];
+
         const LIST_DEFS = {
             property: { key: 'propertyList_v3', label: '物件リスト', placeholder: '物件名を入力', defaults: DEFAULT_PROPERTIES, render: renderPropertySelects },
             bank:     { key: 'bankList_v3',     label: '銀行リスト', placeholder: '銀行名を入力', defaults: DEFAULT_BANKS,      render: renderBankSelect },
             staff:    { key: 'staffList_v2',    label: '社員リスト', placeholder: '社員名を入力', defaults: DEFAULT_STAFF,      render: renderStaffSelects },
-            department: { key: 'departmentList_v2', label: '所属リスト', placeholder: '所属を入力', defaults: DEFAULT_DEPARTMENTS, render: renderDepartmentSelect }
+            department: { key: 'departmentList_v2', label: '所属リスト', placeholder: '所属を入力', defaults: DEFAULT_DEPARTMENTS, render: renderDepartmentSelect },
+            attendee: { key: 'attendeeList_v1', label: '立会リスト', placeholder: '立会者を入力', defaults: DEFAULT_ATTENDEES, render: renderAttendeeSelect }
         };
 
         // 旧バージョンのリストを引き継ぐ
@@ -815,6 +830,10 @@
 
         function renderDepartmentSelect() {
             fillSelect('department', getList('department'), {});
+        }
+
+        function renderAttendeeSelect() {
+            fillSelect('attendee', getList('attendee'), {});
         }
 
         // ========== 物件の追加行（2件目以降は物件名＋号室でセット） ==========
@@ -1172,6 +1191,7 @@
         renderBankSelect();
         renderStaffSelects();
         renderDepartmentSelect();
+        renderAttendeeSelect();
         restoreSelection('personInCharge', 'lastPersonInCharge');
         restoreSelection('accompany', 'lastAccompany');
         restoreSelection('department', 'lastDepartment');
@@ -1303,6 +1323,7 @@
             const personInCharge = document.getElementById('personInCharge').value;
             const accompanyList = collectAccompany();
             const department = document.getElementById('department').value;
+            const attendee = document.getElementById('attendee').value;
             const remarks = document.getElementById('remarks').value.trim();
             const subject = document.getElementById('subjectPreview').value;
 
@@ -1393,7 +1414,8 @@
             report += '【決済予定】' + (formattedSettlementDate || '－') + '\n';
             report += '【担当】' + (personInCharge || '－') + '\n';
             report += '【同行】' + (accompanyList.length ? accompanyList.join('、') : '－') + '\n';
-            report += '【所属】' + (department || '－');
+            report += '【所属】' + (department || '－') + '\n';
+            report += '【立会】' + (attendee || '－');
             
             // 備考欄がある場合のみ追加
             if (remarks) {
