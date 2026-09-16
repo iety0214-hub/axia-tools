@@ -164,16 +164,17 @@ function App(){
   const [homeRent,setHomeRent]=useState(sv('homeRent',30000));
   const [props,setProps]=useState(sv('props',[{price:30000000,bonus:0,rent:80000,mgmt:0}]));
   const [calcRate,setCalcRate]=useState(sv('calcRate',4.0));
+  const [deduction,setDeduction]=useState(sv('deduction',''));
   const [tab,setTab]=useState("input");
 
   useEffect(()=>{
-    try{localStorage.setItem(STORE_KEY,JSON.stringify({salary,age,years,members,pref,owned,others,homeRent,props,calcRate}))}catch(e){}
-  },[salary,age,years,members,pref,owned,others,homeRent,props,calcRate]);
+    try{localStorage.setItem(STORE_KEY,JSON.stringify({salary,age,years,members,pref,owned,others,homeRent,props,calcRate,deduction}))}catch(e){}
+  },[salary,age,years,members,pref,owned,others,homeRent,props,calcRate,deduction]);
   const resetAll=()=>{
     if(!confirm('入力内容をすべて初期値に戻す？'))return;
     setSalary(6100000);setAge(26);setYears(3);setMembers(1);setPref("千葉県");
-    setOwned([{debt:0,payment:0,rent:0,mgmt:0}]);setOthers([{debt:0,payment:0}]);
-    setHomeRent(30000);setProps([{price:30000000,bonus:0,rent:80000,mgmt:0}]);setCalcRate(4.0);
+    setOwned([{debt:0,payment:0,bonus:0,rent:0,mgmt:0}]);setOthers([{debt:0,payment:0,bonus:0}]);
+    setHomeRent(30000);setProps([{price:30000000,bonus:0,rent:80000,mgmt:0}]);setCalcRate(4.0);setDeduction('');
   };
 
   const uOwn=(i,k,v)=>setOwned(p=>p.map((x,j)=>j===i?{...x,[k]:v}:x));
@@ -189,8 +190,11 @@ function App(){
     const existRentY=owned.reduce((t,o)=>t+(Number(o.rent)||0)*12,0);
     const existMgmtY=owned.reduce((t,o)=>t+(Number(o.mgmt)||0)*12,0);
     const otherPayY=others.reduce((t,o)=>t+(Number(o.payment)||0)*12,0);
+    // ボーナス払いは年2回（Excel 入力シート!H17＝年額＋ボーナス×2）
+    const existBonusY=owned.reduce((t,o)=>t+(Number(o.bonus)||0)*2,0);
+    const otherBonusY=others.reduce((t,o)=>t+(Number(o.bonus)||0)*2,0);
     const homeRentY=(Number(homeRent)||0)*12;
-    const existTotalY=existPayY+otherPayY+homeRentY;
+    const existTotalY=existPayY+otherPayY+existBonusY+otherBonusY+homeRentY;
     const existDebt=owned.reduce((t,o)=>t+(Number(o.debt)||0),0)+others.reduce((t,o)=>t+(Number(o.debt)||0),0);
 
     const pc=props.map(p=>{
@@ -215,20 +219,25 @@ function App(){
     const ratio100=(s+totalRent)>0?totalAP/(s+totalRent):0;
     const yrMult=s>0?totalDebt/s:0;
 
-    const si=calcIns(s,a,pref);
+    // 所得控除の額を手入力したときはそれを優先（Excel 給与計算Seat!E35）
+    const dedIn=Number(String(deduction).trim());
+    const dedManual=String(deduction).trim()!==''&&!isNaN(dedIn)&&dedIn>0;
+    const siAuto=calcIns(s,a,pref);
+    const si=dedManual?Math.max(0,dedIn-480000):siAuto;
     const tax=calcTax(s,si);
 
     const rkDebtH=totalDebt*0.5;
     const rkRepay=PMT(0.03127/12,300,rkDebtH)*12;
     const rkB=s*0.7-2000000;
     const rkC=rkB-homeRentY;
-    const rkD=rkC-otherPayY;
+    const rkD=rkC-(otherPayY+otherBonusY);
     const rkMargin=rkD-rkRepay;
+    const rkBM=s<=10000000?10:12;
 
     const sbjR=0.01975;
     const sbjPY=pc.reduce((t,p)=>{return t+(p.price>0?PMT(sbjR/12,35*12,p.price)*12:0)},0);
     const sbjPWB=sbjPY+pc.reduce((t,p)=>t+p.bonus*2,0);
-    const sbjTotalRepay=sbjPWB+existPayY+otherPayY;
+    const sbjTotalRepay=sbjPWB+existPayY+otherPayY+existBonusY+otherBonusY;
     const sbjYM=s>0?totalDebt/s:99;
     const sbjA1=s+existRentY*0.7+propRentTotal*0.7-si-tax.total;
     const sbjB=sbjTotalRepay+homeRentY;
@@ -246,23 +255,24 @@ function App(){
     const sbiBR=0.4;const sbiBM=s<=10000000?10:12;
     const sbiRate2=s<5000000?0.022:s<=10000000?0.018:0.016;
 
-    const hPR=pc[0]&&pc[0].price>0?PMT(0.035/12,35*12,pc[0].price)*12:0;
+    const hPR=pc.reduce((t,p)=>t+(p.price>0?PMT(0.035/12,35*12,p.price)*12+p.bonus*2:0),0);
     const hTR=hPR+existTotalY;
     const hS35=s*0.35;
     const hR70=(totalRent-(existMgmtY+propMgmtTotal))*0.7;
     const hMargin=(hS35+hR70)-hTR;
+    const hBM=s<=10000000?10:12;
 
     return{
       pc,propYearlyTotal,propRentTotal,propPriceTotal,
-      existTotalY,existDebt,totalAP,totalRent,totalDebt,
-      ratioNet,ratio70,ratio100,yrMult,si,tax,
-      rk:{repay:rkRepay,b:rkB,c:rkC,d:rkD,margin:rkMargin,pass:rkMargin>0},
+      existTotalY,existDebt,totalAP,totalRent,totalDebt,existBonusY,otherBonusY,
+      ratioNet,ratio70,ratio100,yrMult,si,tax,siAuto,dedManual,
+      rk:{repay:rkRepay,b:rkB,c:rkC,d:rkD,margin:rkMargin,bm:rkBM,mPass:yrMult<rkBM,pass:rkMargin>0&&yrMult<rkBM},
       sbj:{ym:sbjYM,mPass:sbjYM<10,a1:sbjA1,b:sbjB,ratio:sbjRatio,disp:sbjDisp,dPass:sbjDisp>=1000000,pass:sbjYM<10&&sbjDisp>=1000000},
-      ion:{r1:ionR1,r2:ionR2,bm:ionBM,disp:ionDisp,rPass:ionR1<0.5&&ionR2<0.35,mPass:yrMult<ionBM,dPass:ionDisp>100000,pass:ionR1<0.5&&ionR2<0.35&&yrMult<ionBM&&a>=25&&yrs>=2},
+      ion:{r1:ionR1,r2:ionR2,bm:ionBM,disp:ionDisp,rPass:ionR1<0.5&&ionR2<0.35,mPass:yrMult<ionBM,dPass:ionDisp>100000,pass:ionR1<0.5&&ionR2<0.35&&yrMult<ionBM&&a>=25&&yrs>=2&&ionDisp>100000},
       sbi:{ratio:sbiRatio,br:sbiBR,bm:sbiBM,rate:sbiRate2,pass:sbiRatio<sbiBR&&yrMult<sbiBM&&a>=25&&yrs>=3},
-      hig:{pr:hPR,tr:hTR,s35:hS35,r70:hR70,margin:hMargin,pass:hMargin>0}
+      hig:{pr:hPR,tr:hTR,s35:hS35,r70:hR70,margin:hMargin,bm:hBM,mPass:yrMult<hBM,pass:hMargin>0&&yrMult<hBM}
     };
-  },[salary,age,years,members,pref,owned,others,homeRent,props,calcRate]);
+  },[salary,age,years,members,pref,owned,others,homeRent,props,calcRate,deduction]);
 
   const banks=[
     {key:"rk",label:"楽天",pass:calc.rk.pass},
@@ -310,6 +320,8 @@ function App(){
             <div style={{flex:1}}><Field label="世帯" value={members} onChange={setMembers} unit="人"/></div>
           </div>
           <Field label="住民票住所"><select value={pref} onChange={e=>setPref(e.target.value)} style={sInput}>{PREFS.map(p=><option key={p} value={p}>{p}</option>)}</select></Field>
+          <Field label="所得控除の額（源泉徴収票／空欄なら自動計算）" value={deduction} onChange={setDeduction} unit="円"/>
+          <div style={{fontSize:10,color:C.sub,marginTop:-4}}>{calc.dedManual?`手入力を使用中（社保相当 ¥${fmt(calc.si)}）`:`自動計算中（社会保険料 ¥${fmt(calc.siAuto)}）`}</div>
         </div>
 
         <div style={sCard}>
@@ -321,12 +333,16 @@ function App(){
             </div>
             <Field label="残債" value={o.debt||0} onChange={v=>uOwn(i,'debt',v)} unit="円"/>
             <div style={{display:'flex',gap:8}}>
-              <div style={{flex:2}}><Field label="月支払額" value={o.payment} onChange={v=>uOwn(i,'payment',v)} unit="円"/></div>
+              <div style={{flex:1}}><Field label="月支払額" value={o.payment} onChange={v=>uOwn(i,'payment',v)} unit="円"/></div>
+              <div style={{flex:1}}><Field label="ボーナス" value={o.bonus||0} onChange={v=>uOwn(i,'bonus',v)} unit="円"/></div>
+            </div>
+            <div style={{display:'flex',gap:8}}>
               <div style={{flex:1}}><Field label="賃料" value={o.rent} onChange={v=>uOwn(i,'rent',v)} unit="円"/></div>
               <div style={{flex:1}}><Field label="管積" value={o.mgmt} onChange={v=>uOwn(i,'mgmt',v)} unit="円"/></div>
             </div>
           </div>)}
-          {owned.length<4&&addBtn('＋ 物件追加',()=>setOwned(p=>[...p,{debt:0,payment:0,rent:0,mgmt:0}]))}
+          <div style={{fontSize:10,color:C.sub,marginTop:4}}>※ボーナスは1回あたりの額（年2回で計算）</div>
+          {owned.length<4&&addBtn('＋ 物件追加',()=>setOwned(p=>[...p,{debt:0,payment:0,bonus:0,rent:0,mgmt:0}]))}
         </div>
 
         <div style={sCard}>
@@ -334,9 +350,10 @@ function App(){
           {others.map((o,i)=><div key={i} style={{display:'flex',gap:8,alignItems:'end'}}>
             <div style={{flex:1}}><Field label={`借入${i+1} 残債`} value={o.debt||0} onChange={v=>uOth(i,'debt',v)} unit="円"/></div>
             <div style={{flex:1}}><Field label={`借入${i+1} 月額`} value={o.payment} onChange={v=>uOth(i,'payment',v)} unit="円"/></div>
+            <div style={{flex:1}}><Field label={`ボーナス`} value={o.bonus||0} onChange={v=>uOth(i,'bonus',v)} unit="円"/></div>
             {others.length>1&&<div style={{marginBottom:12}}>{rmBtn(()=>setOthers(p=>p.filter((_,j)=>j!==i)))}</div>}
           </div>)}
-          {others.length<4&&addBtn('＋ 借入追加',()=>setOthers(p=>[...p,{debt:0,payment:0}]))}
+          {others.length<4&&addBtn('＋ 借入追加',()=>setOthers(p=>[...p,{debt:0,payment:0,bonus:0}]))}
           <div style={{marginTop:10}}><Field label="家賃（自宅/社宅）" value={homeRent} onChange={setHomeRent} unit="円/月"/></div>
         </div>
 
@@ -351,6 +368,7 @@ function App(){
             <div style={{display:'flex',gap:8}}>
               <div style={{flex:1}}><Field label="賃料" value={p.rent} onChange={v=>uProp(i,'rent',v)} unit="円/月"/></div>
               <div style={{flex:1}}><Field label="管積" value={p.mgmt} onChange={v=>uProp(i,'mgmt',v)} unit="円/月"/></div>
+              <div style={{flex:1}}><Field label="ボーナス" value={p.bonus||0} onChange={v=>uProp(i,'bonus',v)} unit="円"/></div>
             </div>
             <div style={{fontSize:11,color:C.sub,marginTop:2}}>月支払: ¥{fmt(calc.pc[i]?.mp)}</div>
           </div>)}
@@ -386,14 +404,14 @@ function App(){
         </div>
         <div style={sCard}>
           <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>💰 控除内訳</div>
-          <RRow label="社会保険料（年額）" value={`¥${fmt(calc.si)}`}/>
+          <RRow label={calc.dedManual?"所得控除（手入力−48万）":"社会保険料（年額）"} value={`¥${fmt(calc.si)}`}/>
           <RRow label="所得税＋復興特別税" value={`¥${fmt(calc.tax.incomeTax)}`}/>
           <RRow label="住民税" value={`¥${fmt(calc.tax.residentTax)}`}/>
           <RRow label="税金合計" value={`¥${fmt(calc.tax.total)}`}/>
         </div>
         <div style={sCard}>
           <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>🔢 返済額内訳</div>
-          <RRow label="既存借入（年額）" value={`¥${fmt(calc.existTotalY)}`}/>
+          <RRow label="既存借入（年額）" value={`¥${fmt(calc.existTotalY)}`} sub={(calc.existBonusY+calc.otherBonusY)>0?`ボーナス ¥${fmt(calc.existBonusY+calc.otherBonusY)}含む`:null}/>
           <RRow label="今回物件（年額）" value={`¥${fmt(calc.propYearlyTotal)}`}/>
           <RRow label="合計年間返済額" value={`¥${fmt(calc.totalAP)}`}/>
           <Divider/>
@@ -417,7 +435,9 @@ function App(){
           <RRow label="D（C − その他借入）" value={`¥${fmt(calc.rk.d)}`}/>
           <Divider/>
           <RRow label="余裕額（D − A）" value={`¥${fmt(calc.rk.margin)}`}/>
-          <RRow label="年収倍率（参考）" value={`${fmtR(calc.yrMult)}倍`} sub={`総借入 ¥${fmt(calc.totalDebt)}`}/>
+          <Divider/>
+          <RRow label="年収倍率" value={`${fmtR(calc.yrMult)}倍`} sub={`基準${calc.rk.bm}倍`}/>
+          <Badge pass={calc.rk.mPass}/>
         </div>
       </>}
 
@@ -468,8 +488,8 @@ function App(){
           <div style={{fontSize:16,fontWeight:700}}>SBI <Badge pass={calc.sbi.pass}/></div>{backBtn}
         </div>
         <div style={sCard}>
-          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>返済比率計算</div>
-          <RRow label="返済比率（賃料合算）" value={fmtP(calc.sbi.ratio)} sub={`基準${fmtP(calc.sbi.br)}`}/>
+          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>返済比率計算<span style={{fontSize:10,fontWeight:400,color:C.sub,marginLeft:6}}>（Excel「DAF合否」準拠）</span></div>
+          <RRow label="返済比率（賃料100%合算）" value={fmtP(calc.sbi.ratio)} sub={`基準${fmtP(calc.sbi.br)}`}/>
           <RRow label="年収倍率" value={`${fmtR(calc.yrMult)}倍`} sub={`基準${calc.sbi.bm}倍`}/>
           <RRow label="適用金利" value={fmtP(calc.sbi.rate)}/>
           <Divider/>
@@ -484,14 +504,16 @@ function App(){
         </div>
         <div style={sCard}>
           <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>返済比率計算</div>
-          <RRow label="本件3.5%計算（年額）" value={`¥${fmt(calc.hig.pr)}`}/>
+          <RRow label="本件3.5%計算（年額・全物件）" value={`¥${fmt(calc.hig.pr)}`}/>
           <RRow label="支出合計" value={`¥${fmt(calc.hig.tr)}`}/>
           <Divider/>
           <RRow label="年収×35%" value={`¥${fmt(calc.hig.s35)}`}/>
           <RRow label="家賃収入−管積×70%" value={`¥${fmt(calc.hig.r70)}`}/>
           <Divider/>
           <RRow label="余裕額" value={`¥${fmt(calc.hig.margin)}`}/>
-          <RRow label="年収倍率（参考）" value={`${fmtR(calc.yrMult)}倍`} sub={`総借入 ¥${fmt(calc.totalDebt)}`}/>
+          <Divider/>
+          <RRow label="年収倍率" value={`${fmtR(calc.yrMult)}倍`} sub={`基準${calc.hig.bm}倍`}/>
+          <Badge pass={calc.hig.mPass}/>
         </div>
       </>}
 
