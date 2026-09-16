@@ -1,6 +1,6 @@
 {
-  "name": "契約・金消完了報告メール",
-  "short_name": "報告メール",
+  "name": "完了報告メール",
+  "short_name": "完了報告メール",
   "description": "契約・金消などの完了報告メールをフォーム入力から作ってGmailで送るツール。",
   "lang": "ja",
   "start_url": "Gmail_builder.html",
