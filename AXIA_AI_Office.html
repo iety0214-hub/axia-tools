@@ -213,8 +213,8 @@
         <h2>🚶 社員の行動ルール</h2>
         <div class="rule">
           <b>進行中</b> … 席に着いて作業（腕が動く）<br>
-          <b>未着手</b> … 席で待機（タップしやすいよう固定）<br>
-          <b>家原だけ</b> … 未着手ならうろうろ／保留・完了は休憩室<br>
+          <b>未着手</b> … 席で待機（家原だけ社内をうろうろ）<br>
+          <b>保留・完了</b> … 休憩室のソファでひと休み<br>
           <b>活動ログ</b> … 奥の壁掛けモニターに表示
         </div>
       </div>
@@ -771,7 +771,8 @@ function goDesk(a){
 function goLounge(a){
   const wasLounge = (a.mode === 'lounge');
   const i = claimSeat(a);
-  if (i === null){ goWander(a); return; }   // 満席なら歩き回る
+  // 満席のとき：家原は歩き回る、他の社員は自席に戻る（うろうろさせない）
+  if (i === null){ (a.id === MOBILE_ID ? goWander : goDesk)(a); return; }
   a.mode = 'lounge';
   const s = SOFA_SEATS[i];
   const cz = s.z >= 0 ? 1.25 : -2.15;
@@ -785,14 +786,13 @@ function goWander(a){
   a.path = [...seg(a, nearestLaneX(wp.x), wp.z, wasLounge), V3(wp.x, wp.z)];
 }
 
-/* 歩き回ってよい社員（タップしにくくなるけん1人だけ）。null にすると全員動く */
+/* うろうろ歩き回ってよい社員（タップしにくくなるけん1人だけ）。null にすると全員うろつく */
 const MOBILE_ID = 5;   // 家原
 
 function desiredMode(status, id){
-  if (id !== MOBILE_ID) return 'desk';          // 他の社員はずっと自席
   if (status === '進行中') return 'desk';
-  if (status === '保留' || status === '完了') return 'lounge';
-  return 'wander';
+  if (status === '保留' || status === '完了') return 'lounge';   // 全員ソファへ
+  return id === MOBILE_ID ? 'wander' : 'desk';   // 未着手のうろうろは家原だけ
 }
 
 /* ═══════════ データ ═══════════ */
