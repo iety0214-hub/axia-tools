@@ -1069,7 +1069,7 @@ function App() {
         + `<span class="tag" style="background:${past ? '#e6e9ee' : tone.fg};color:${past ? tone.fg : '#fff'}">${esc(leftLabel(left))}</span>`;
     };
     const nameIdx = cols.findIndex(c => c.label === (settings.nameLabel || '名前'));
-    const th = cols.map(c => `<th>${esc(c.label)}</th>`).join('');
+    const th = cols.map((c, ci) => `<th${ci === nameIdx || /銀行/.test(c.label || '') ? ' class="nm"' : ''}>${esc(c.label)}</th>`).join('');
     const multi = ms.length > 1;
     let curM = null, zebra = 0;
     const tr = target.map(r => {
@@ -1081,7 +1081,9 @@ function App() {
       }
       const row = `<tr${zebra++ % 2 ? ' class="alt"' : ''}>` + cols.map((c, ci) => {
         const txt = c.get(r);
-        return `<td class="${ci === 0 || ci === nameIdx ? 'l' : 'c'}">${cell(c, r, txt) || '&nbsp;'}</td>`;
+        // 名前と銀行は途中で折り返さん（姓と名の間のスペースや「楽天」で改行させんため）
+        const nowrap = ci === nameIdx || /銀行/.test(c.label || '');
+        return `<td class="${ci === 0 || ci === nameIdx ? 'l' : 'c'}${nowrap ? ' nm' : ''}">${cell(c, r, txt) || '&nbsp;'}</td>`;
       }).join('') + '</tr>';
       return band + row;
     }).join('');
@@ -1118,12 +1120,14 @@ h1 { font-size:14pt; text-align:center; margin:0 0 1.5mm; padding:0 16mm;
      letter-spacing:.04em; line-height:1.25; }
 .meta { text-align:right; font-size:9pt; color:#555; margin:0; padding-right:14mm; }
 table { border-collapse:collapse; width:100%; }
+th.nm { white-space:nowrap; }
 th { background:#1F3864; color:#fff; font-size:10pt; font-weight:600;
      height:${TH_MM}mm; padding:0 1.5mm; vertical-align:middle;
      border:.3mm solid #9AA3B2; text-align:center; }
 td { font-size:11pt; height:${ROW_MM}mm; padding:0 1.5mm; vertical-align:middle;
      border:.3mm solid #C7CDD8; }
 td.c { text-align:center; } td.l { text-align:left; }
+td.nm { white-space:nowrap; }
 .tag { display:inline-block; margin-left:1.5mm; padding:0 1.2mm; border-radius:1mm;
      font-size:8pt; font-weight:700; line-height:1.5; vertical-align:.3mm; }
 tr.alt td { background:#F2F4F8; }
@@ -1234,7 +1238,7 @@ tr.band { page-break-after:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.18
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.20
         </div>
       </div>
 
