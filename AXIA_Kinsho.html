@@ -106,6 +106,16 @@ const hasVal = (f, v) => {
   return !!(v && String(v).length);
 };
 // 期日までの残り日数で色分け：3日以内＝赤／7日以内＝黄／それ以外＝紺（未入力は灰）
+// 今日を基準に、その日まであと何日か（マイナスなら過ぎとる）
+const daysLeft = (rawD) => {
+  if (!rawD) return null;
+  const d = new Date(rawD + 'T00:00:00');
+  if (isNaN(d)) return null;
+  return Math.round((d - new Date(new Date().toDateString())) / 86400000);
+};
+// 過ぎた日付は「済」の灰色にして、これから来る日だけ色を残す
+const PAST_TONE = { bg: '#f2f3f5', bd: '#e1e4ea', fg: '#8a92a3' };
+const leftLabel = (n) => (n == null ? '' : n < 0 ? '済' : n === 0 ? '今日' : `あと${n}日`);
 const dateTone = (on, rawD) => {
   let tone = { bg: '#eef1f7', bd: '#d8dee9', fg: SUBTXT };
   if (on && rawD) {
@@ -383,7 +393,7 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
 
   return (
     <div style={{ background: '#fff', borderRadius: 12, marginBottom: 10, border: `1px solid ${unsaved ? '#f3b9b3' : LINE}`, overflow: open ? 'visible' : 'hidden', boxShadow: unsaved ? '0 0 0 2px rgba(179,38,30,.10)' : '0 1px 2px rgba(30,42,74,.05)' }}>
-      <div ref={headRef} onClick={toggle} style={{ padding: '12px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center',
+      <div ref={headRef} onClick={toggle} style={{ padding: '12px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap',
         // 開いとる間は見出し（物件名・名前・日付バッジ・進捗の丸）を紺色ヘッダーのすぐ下に固定して、中身だけスクロールさせる
         ...(open ? { position: 'sticky', top: 'var(--barH, 0px)', zIndex: 5, background: '#fff', borderRadius: '12px 12px 0 0', borderBottom: `1px solid ${LINE}`, boxShadow: '0 4px 8px -6px rgba(30,42,74,.25)' } : {}) }}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -408,43 +418,6 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
               ))}
             </div>
           )}
-          {!!dateBadges.length && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-              {dateBadges.map(({ f, isMain }) => {
-                const v = fv[f.key];
-                const on = hasVal(f, v);
-                const txt = fmtField(f, v);
-                const tone = (on && badgeTone(f.label)) || (isMain
-                  ? dateTone(on, f.type === 'datetime' ? dtVal(v).d : (v || ''))
-                  : (on ? KINSHO_PINK : { bg: '#eef1f7', bd: '#d8dee9', fg: SUBTXT }));
-                return (
-                  <div key={f.key} className="mono" style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 5,
-                    padding: '3px 10px', borderRadius: 7, maxWidth: '100%', fontSize: 13, fontWeight: 700,
-                    background: tone.bg, border: `1px solid ${tone.bd}`, color: tone.fg
-                  }}>
-                    <span style={{
-                      flexShrink: 0, width: 17, height: 17, borderRadius: '50%',
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 10.5, background: tone.fg, color: '#fff'
-                    }}>{(f.label || '?').slice(0, 1)}</span>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{txt || '記載なし'}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          {mainShow && !mainIsDate && mainOn && (
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 6,
-              padding: '3px 10px', borderRadius: 7, maxWidth: '100%',
-              background: '#fff4d6', border: '1px solid #f0cf7a', color: '#8a5a00',
-              fontSize: 13, fontWeight: 700
-            }}>
-              <span style={{ flexShrink: 0 }}>⚠</span>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mainTxt}</span>
-            </div>
-          )}
         </div>
         <div style={{ textAlign: 'center', flexShrink: 0 }}>
           <div style={{ display: 'flex', gap: dotGap, marginBottom: 4, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
@@ -467,6 +440,56 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
             width: 34, height: 34, borderRadius: 9, border: `1px solid ${LINE}`,
             background: '#fff', color: NAVY, fontSize: 15, cursor: 'pointer', lineHeight: '32px', padding: 0
           }}>📋</button>
+        </div>
+        {/* 日付バッジはカードの横幅いっぱいに置く（右の丸と同じ行やと、スマホで日付が切れるけん） */}
+        <div style={{ width: '100%' }}>
+            {!!dateBadges.length && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                {dateBadges.map(({ f, isMain }) => {
+                  const v = fv[f.key];
+                  const on = hasVal(f, v);
+                  const txt = fmtField(f, v);
+                  const rawD = f.type === 'datetime' ? dtVal(v).d : (v || '');
+                  const left = on ? daysLeft(rawD) : null;
+                  const past = left != null && left < 0;
+                  const tone = past ? PAST_TONE : ((on && badgeTone(f.label)) || (isMain
+                    ? dateTone(on, rawD)
+                    : (on ? KINSHO_PINK : { bg: '#eef1f7', bd: '#d8dee9', fg: SUBTXT })));
+                  return (
+                    <div key={f.key} className="mono" style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      padding: '3px 10px', borderRadius: 7, maxWidth: '100%', fontSize: 13, fontWeight: 700,
+                      background: tone.bg, border: `1px solid ${tone.bd}`, color: tone.fg
+                    }}>
+                      <span style={{
+                        flexShrink: 0, width: 17, height: 17, borderRadius: '50%',
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 10.5, background: tone.fg, color: '#fff'
+                      }}>{(f.label || '?').slice(0, 1)}</span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{txt || '記載なし'}</span>
+                      {left != null && (
+                        <span style={{
+                          flexShrink: 0, fontSize: 10.5, fontWeight: 700, letterSpacing: '.02em',
+                          padding: '1px 5px', borderRadius: 5, marginLeft: 1,
+                          background: past ? '#e6e9ee' : tone.fg, color: past ? tone.fg : '#fff'
+                        }}>{leftLabel(left)}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {mainShow && !mainIsDate && mainOn && (
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 6,
+                padding: '3px 10px', borderRadius: 7, maxWidth: '100%',
+                background: '#fff4d6', border: '1px solid #f0cf7a', color: '#8a5a00',
+                fontSize: 13, fontWeight: 700
+              }}>
+                <span style={{ flexShrink: 0 }}>⚠</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mainTxt}</span>
+              </div>
+            )}
         </div>
       </div>
 
@@ -1192,7 +1215,7 @@ tr.band { page-break-after:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.14
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.17
         </div>
       </div>
 
