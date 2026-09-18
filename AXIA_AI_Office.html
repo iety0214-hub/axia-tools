@@ -58,6 +58,7 @@
     .main-layout{flex-direction:column; align-items:stretch;}   /* 縦並びでは幅いっぱいに */
     .side-col{display:contents;}                 /* 中身を直接並べて順番を入れ替える */
     #orderPanel{order:-1;}                       /* スマホでは依頼パネルを3Dの上に */
+    #logPanel{order:-1;}                         /* 活動ログ（成果物）もその下に */
     .stage-wrap{width:100%; flex:none; order:0;}
     .throne{order:1;}
     .side-col > .panel:not(.order){order:2;}
@@ -175,7 +176,8 @@
   .order-btn:active{transform:translateY(2px); box-shadow:0 1px 0 var(--gold-dark);}
   .order-btn:disabled{opacity:.45; box-shadow:none;}
   .order .toast{color:var(--gold-dark);}
-  .queue{display:flex; flex-direction:column; gap:6px; margin-top:10px;}
+  .queue{display:flex; flex-direction:column; gap:6px;}
+  .deliv-head{font-size:11px; font-weight:800; color:var(--ink-soft); margin:0 0 6px; letter-spacing:.5px;}
   .q{display:flex; align-items:center; gap:8px; background:#fff; border:1px solid #ece5f7; border-radius:10px; padding:8px 10px; font-size:11.5px;}
   .q .st{font-weight:800; white-space:nowrap; padding:3px 8px; border-radius:999px; font-size:10.5px;}
   .q .st.queued{background:#efe9f8; color:var(--ink-soft);}
@@ -261,11 +263,13 @@
         </div>
         <button class="order-btn" id="orderBtn" disabled>選別を依頼する</button>
         <div class="toast" id="orderToast"></div>
-        <div class="queue" id="queue"><div class="q-empty">依頼はまだ無かよ</div></div>
       </div>
 
       <div class="panel" id="logPanel">
-        <h2>📋 活動ログ <span style="font-size:10px;color:var(--ink-soft);font-weight:400">成果物はここから開ける</span></h2>
+        <h2>📋 活動ログ</h2>
+        <div class="deliv-head">📄 成果物</div>
+        <div class="queue" id="queue"><div class="q-empty">まだ成果物は無かよ</div></div>
+        <div class="deliv-head" style="margin-top:14px">🕘 履歴</div>
         <div class="log-list" id="logList"><div class="log-empty">まだ動きなし</div></div>
       </div>
 
@@ -1130,7 +1134,13 @@ function notifyDone(row){
 }
 function renderQueue(items){
   queueEl.innerHTML = '';
-  if (!items.length){ queueEl.innerHTML = '<div class="q-empty">依頼はまだ無かよ</div>'; return; }
+  const seen = new Set();
+  items = items.filter(it => {
+    if (it.status === 'queued' || it.status === 'running' || it.status === 'error') return true;
+    if (it.status !== 'done' || !it.result_url || seen.has(it.result_url)) return false;
+    seen.add(it.result_url); return true;
+  });
+  if (!items.length){ queueEl.innerHTML = '<div class="q-empty">まだ成果物は無かよ</div>'; return; }
   items.forEach(it => {
     const d = document.createElement('div');
     d.className = 'q';
@@ -1156,7 +1166,7 @@ function logFromInbox(rows){
 async function loadQueue(){
   const { data, error } = await sb.from(INBOX).select('*').order('id', { ascending:false }).limit(30);
   if (error || !data) return;
-  renderQueue(data.slice(0, 6));
+  renderQueue(data.slice(0, 12));
   logFromInbox(data);
 }
 loadQueue();
