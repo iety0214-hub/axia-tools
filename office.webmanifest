@@ -4,7 +4,7 @@
   "description": "AXIA AI社員オフィス。マイソク選別の依頼・活動ログ・各アプリへの入口",
   "id": "./AXIA_AI_Office.html",
   "start_url": "./AXIA_AI_Office.html",
-  "scope": "./",
+  "scope": "./AXIA_AI_Office.html",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#fdf1da",

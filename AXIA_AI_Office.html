@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>AIoffice</title>
 <!-- スマホのホーム画面アプリ化（PWA） -->
-<link rel="manifest" href="./office.webmanifest?v=2">
+<link rel="manifest" href="./office.webmanifest?v=3">
 <link rel="icon" type="image/png" sizes="192x192" href="./office-icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="./office-icon-180.png?v=2">
 <meta name="theme-color" content="#2b2440">
@@ -305,7 +305,11 @@
 </div>
 
 <script>
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('./office-sw.js').catch(() => {});
+if ('serviceWorker' in navigator) {
+  // SWの範囲はこのページだけ（フォルダ全体を握ると他アプリのホーム追加がAIofficeに化ける）
+  navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => { if (r.scope.endsWith('/')) r.unregister(); })).catch(() => {});
+  navigator.serviceWorker.register('./office-sw.js', { scope: './AXIA_AI_Office.html' }).catch(() => {});
+}
 </script>
 <script type="module">
 import * as THREE from 'three';
