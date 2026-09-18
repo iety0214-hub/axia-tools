@@ -435,7 +435,7 @@
                 </select>
             </div>
 
-            <div class="form-group">
+            <div class="form-group" id="categoryGroup">
                 <label class="required">区分</label>
                 <select id="category">
                     <option value="">選択してください</option>
@@ -498,7 +498,7 @@
                 <button type="button" class="btn-add-row" id="btnAddProperty">＋ 物件</button>
             </div>
 
-            <div class="form-group">
+            <div class="form-group" id="bankGroup">
                 <div class="label-row">
                     <label class="required" for="bank">銀行</label>
                     <button type="button" class="btn-gear" data-edit-list="bank">⚙ 銀行リスト</button>
@@ -560,7 +560,7 @@
                 </select>
             </div>
 
-            <div class="form-group">
+            <div class="form-group" id="attendeeGroup" style="display: none;">
                 <div class="label-row">
                     <label for="attendee">立会</label>
                     <button type="button" class="btn-gear" data-edit-list="attendee">⚙ 立会リスト</button>
@@ -1115,7 +1115,27 @@
         document.getElementById('reportType').addEventListener('change', function() {
             updateSubject();
             toggleBeforePropertyField();
+            toggleFieldsByReportType();
         });
+
+        // 種別によって出す欄を切り替える
+        // オープン：区分・銀行・立会を隠す／立会は契約のときだけ出す
+        function toggleFieldsByReportType() {
+            const reportType = document.getElementById('reportType').value;
+            const isOpen = reportType === 'オープン';
+            const isContract = reportType === '契約';
+
+            document.getElementById('categoryGroup').style.display = isOpen ? 'none' : 'block';
+            document.getElementById('bankGroup').style.display = isOpen ? 'none' : 'block';
+            document.getElementById('attendeeGroup').style.display = isContract ? 'block' : 'none';
+
+            // 銀行を隠すときは手入力欄も閉じる
+            if (isOpen) {
+                document.getElementById('customBankGroup').style.display = 'none';
+            } else if (document.getElementById('bank').value === 'その他') {
+                document.getElementById('customBankGroup').style.display = 'block';
+            }
+        }
         document.getElementById('category').addEventListener('change', updateSubject);
 
         // 振替前物件名フィールドの表示/非表示切り替え
@@ -1331,7 +1351,10 @@
             if (!reportType) {
                 return showFieldError('reportType', '種別を選んでください');
             }
-            if (!category) {
+            const isOpen = reportType === 'オープン';
+            const isContract = reportType === '契約';
+
+            if (!isOpen && !category) {
                 return showFieldError('category', '区分を選んでください');
             }
             if (!customerName) {
@@ -1352,10 +1375,10 @@
             if (!properties) {
                 return false;
             }
-            if (!bank) {
+            if (!isOpen && !bank) {
                 return showFieldError('bank', '銀行を選んでください');
             }
-            if (bank === 'その他' && !customBank) {
+            if (!isOpen && bank === 'その他' && !customBank) {
                 return showFieldError('customBank', '銀行名を入力してください');
             }
             if (!personInCharge) {
@@ -1389,8 +1412,12 @@
             }
 
             // メール本文生成（シンプル版）
-            let report = '【種別】' + reportType + '\n';
-            report += '【区分】' + category + '\n';
+            // オープンは件名で分かるので【種別】【区分】を出さない
+            let report = '';
+            if (!isOpen) {
+                report += '【種別】' + reportType + '\n';
+                report += '【区分】' + category + '\n';
+            }
             report += '【顧客名】' + finalCustomerName + '\n';
             
             // 物件振替の場合は振替前を追加（物件名 + 号室）
@@ -1409,13 +1436,17 @@
             } else {
                 report += '【物件名】' + formatProperties(properties) + '\n';
             }
-            report += '【銀行】' + finalBank + '\n';
+            if (!isOpen) {
+                report += '【銀行】' + finalBank + '\n';
+            }
             report += '【契約】' + (formattedContractDate || '－') + '\n';
             report += '【決済予定】' + (formattedSettlementDate || '－') + '\n';
             report += '【担当】' + (personInCharge || '－') + '\n';
             report += '【同行】' + (accompanyList.length ? accompanyList.join('、') : '－') + '\n';
-            report += '【所属】' + (department || '－') + '\n';
-            report += '【立会】' + (attendee || '－');
+            report += '【所属】' + (department || '－');
+            if (isContract) {
+                report += '\n【立会】' + (attendee || '－');
+            }
             
             // 備考欄がある場合のみ追加
             if (remarks) {
