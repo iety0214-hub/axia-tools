@@ -52,6 +52,8 @@ const BADGE_TONES = [
   { re: /金消/, tone: { bg: '#f3edfa', bd: '#d6c6ec', fg: '#7b4bb0' } },
 ];
 const badgeTone = (label) => { const m = BADGE_TONES.find(t => t.re.test(label || '')); return m ? m.tone : null; };
+// 印刷に含めるか（設定画面のチェック）。まだ一度も設定しとらん項目は、賃貸管理・建物管理（旧：賃管・建管）だけ外す
+const inPrint = (f) => (typeof f.print === 'boolean' ? f.print : !/賃管|建管|賃貸管理|建物管理/.test(f.label || ''));
 const PROG_COLORS = ['#2e7d32', '#1565c0', '#b3261e', '#7b4bb0', '#0f766e', '#b06a00'];  // 承・契・金＋追加分
 const WD = ['日','月','火','水','木','金','土'];
 const TYPES = [
@@ -622,7 +624,7 @@ function SettingsScreen({ settings, onSave, onClose }) {
   const [d, setD] = useState(() => JSON.parse(JSON.stringify(settings)));
   const up = (p) => setD(x => ({ ...x, ...p }));
   const updF = (i, p) => setD(x => ({ ...x, fields: x.fields.map((f, idx) => idx === i ? { ...f, ...p } : f) }));
-  const addF = () => up({ fields: [...d.fields, { key: genKey(), label: '', type: 'text', sub: false, progress: true, options: [] }] });
+  const addF = () => up({ fields: [...d.fields, { key: genKey(), label: '', type: 'text', sub: false, progress: true, print: true, options: [] }] });
   const delF = (i) => {
     if (!confirm(`「${d.fields[i].label || '(名前なし)'}」を削除する？\n※入力済みの中身も表示されんくなるよ`)) return;
     const nf = d.fields.filter((_, idx) => idx !== i);
@@ -780,6 +782,10 @@ function SettingsScreen({ settings, onSave, onClose }) {
                     <label style={chk}>
                       <input type="checkbox" checked={!!f.sub} onChange={e => updF(i, { sub: e.target.checked })} />
                       閉じた状態でも表示
+                    </label>
+                    <label style={chk}>
+                      <input type="checkbox" checked={inPrint(f)} onChange={e => updF(i, { print: e.target.checked })} />
+                      印刷に含む
                     </label>
                   </div>
                 </div>
@@ -1051,8 +1057,8 @@ function App() {
       all.filter(r => r.month === k && hit(r)).sort(byAppr)
     );
     if (!target.length) return flash('印刷する行がなかばい');
-    // 賃管手続き・建管手続きは紙には出さん
-    const cols = exportCols().filter(c => !/賃管|建管/.test(c.label || ''));
+    // 設定で「印刷に含む」を外した項目は紙には出さん（名前の列はいつも出す）
+    const cols = exportCols().filter(c => !c.f || inPrint(c.f));
     const esc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     // 日付のセルは画面のカードと同じ見え方にする：
     // 過ぎた日は灰色＋「済」、これから来る日は項目の色のまま「今日」「あと◯日」を添える
@@ -1238,7 +1244,7 @@ tr.band { page-break-after:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.20
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.21
         </div>
       </div>
 
