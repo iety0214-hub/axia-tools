@@ -47,8 +47,11 @@
   .side-col{width:310px; flex-shrink:0; display:flex; flex-direction:column; gap:14px;}
   @media (max-width:920px){
     .main-layout{flex-direction:column;}
-    .side-col{width:100%;}
-    .stage-wrap{width:100%; flex:none;}
+    .side-col{display:contents;}                 /* 中身を直接並べて順番を入れ替える */
+    #orderPanel{order:-1;}                       /* スマホでは依頼パネルを3Dの上に */
+    .stage-wrap{width:100%; flex:none; order:0;}
+    .throne{order:1;}
+    .side-col > .panel:not(.order){order:2;}
     #stage{height:60vh; max-height:560px;}
   }
 
