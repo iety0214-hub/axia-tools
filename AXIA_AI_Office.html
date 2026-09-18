@@ -46,7 +46,7 @@
   .stage-wrap{flex:1; min-width:0;}
   .side-col{width:310px; flex-shrink:0; display:flex; flex-direction:column; gap:14px;}
   @media (max-width:920px){
-    .main-layout{flex-direction:column;}
+    .main-layout{flex-direction:column; align-items:stretch;}   /* 縦並びでは幅いっぱいに */
     .side-col{display:contents;}                 /* 中身を直接並べて順番を入れ替える */
     #orderPanel{order:-1;}                       /* スマホでは依頼パネルを3Dの上に */
     .stage-wrap{width:100%; flex:none; order:0;}
@@ -1256,6 +1256,7 @@ send.addEventListener('click', async () => {
     else                        goDesk(a);
   });
   renderAll();
+  loadQueue();   // 社員名が入った状態でログを組み直す
 })();
 
 let realtimeOK = false;
