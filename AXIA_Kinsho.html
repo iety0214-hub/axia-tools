@@ -283,6 +283,20 @@ const TIME_15 = Array.from({ length: 96 }, (_, i) => `${String(Math.floor(i / 4)
 const clrBtn = { width: 46, height: 46, flexShrink: 0, borderRadius: 10, cursor: 'pointer', padding: 0, border: '1px solid #f0c9c9', background: '#fff6f6', color: '#c14040', fontSize: 16, fontWeight: 700 };
 const TIME_QUICK = ['10:00', '11:00', '13:00', '14:00', '15:00', '16:00'];
 
+// 開いたカードの入力欄1マス（2列グリッド用）。wide＝横幅いっぱい
+function Cell({ label, wide, children }) {
+  return (
+    <div style={{ gridColumn: wide ? '1 / -1' : 'auto', minWidth: 0, border: `1px solid ${LINE}`, borderRadius: 10, padding: '7px 8px 8px', background: '#fafbfc' }}>
+      <div style={{ fontSize: 11, color: SUB, marginBottom: 3, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
+      {children}
+    </div>
+  );
+}
+// 開いたカード用の詰めた入力欄（高さ40px）
+const inpS = { ...inp, padding: '8px 9px', height: 40, borderRadius: 9, fontSize: 14 };
+const dateS = { ...inpS, fontFamily: 'DM Mono, monospace', flex: 1, minWidth: 0, fontSize: 13, padding: '6px 6px' };
+const clrS = { width: 32, height: 40, flexShrink: 0, borderRadius: 9, cursor: 'pointer', padding: 0, border: '1px solid #f0c9c9', background: '#fff6f6', color: '#c14040', fontSize: 15, fontWeight: 700 };
+
 function Row({ label, children }) {
   return (
     <div style={{ marginTop: 10, border: `1px solid ${LINE}`, borderRadius: 10, padding: 10, background: '#fafbfc' }}>
@@ -314,10 +328,6 @@ function TextInput({ value, onCommit, placeholder, style, list, inputMode }) {
 
 /* ===== カード ===== */
 function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onPatch, onDelete, onCopy, onDup }) {
-  const [calKey, setCalKey] = useState(null);
-  const timeRef = useRef({});
-  // カードを閉じたらカレンダーも畳んでおく（次に開いた時に開きっぱなしにせん）
-  useEffect(() => { if (!open) setCalKey(null); }, [open]);
   // 開閉しても、タップしたカードの見出しが画面上の同じ位置に留まるようにする
   // （上の開いとったカードが閉じて、タップしたカードが上にずれるのを防ぐ）
   const headRef = useRef(null);
@@ -395,214 +405,222 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
 
   return (
     <div style={{ background: '#fff', borderRadius: 12, marginBottom: 10, border: `1px solid ${unsaved ? '#f3b9b3' : LINE}`, overflow: open ? 'visible' : 'hidden', boxShadow: unsaved ? '0 0 0 2px rgba(179,38,30,.10)' : '0 1px 2px rgba(30,42,74,.05)' }}>
-      <div ref={headRef} onClick={toggle} style={{ padding: '12px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap',
-        // 開いとる間は見出し（物件名・名前・日付バッジ・進捗の丸）を紺色ヘッダーのすぐ下に固定して、中身だけスクロールさせる
+      <div ref={headRef} onClick={toggle} style={{ padding: open ? '8px 14px' : '12px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap',
+        // 開いとる間は「物件名 ／ 名前」の1行だけを紺色ヘッダーのすぐ下に固定して、入力欄が見える範囲を広く取る
         ...(open ? { position: 'sticky', top: 'var(--barH, 0px)', zIndex: 5, background: '#fff', borderRadius: '12px 12px 0 0', borderBottom: `1px solid ${LINE}`, boxShadow: '0 4px 8px -6px rgba(30,42,74,.25)' } : {}) }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
-            {unsaved && <span style={{
-              flexShrink: 0, fontSize: 10, fontWeight: 700, color: '#fff', background: '#b3261e',
-              borderRadius: 5, padding: '2px 6px', letterSpacing: '.02em'
-            }}>未保存</span>}
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{headTxt || '（未入力）'}</span>
-          </div>
-          {!!lineItems.length && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 3 }}>
-              {lineItems.map(it => (
-                <span key={it.k} style={{
-                  fontSize: 12, fontWeight: 500, lineHeight: 1.4,
-                  padding: '2px 8px', borderRadius: 6,
-                  background: it.empty ? '#f7f8fa' : '#eef1f7',
-                  border: `1px solid ${it.empty ? '#e8eaef' : '#d8dee9'}`,
-                  color: it.empty ? '#a3a9b5' : SUBTXT,
-                  whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis'
-                }}>{it.t}</span>
-              ))}
+        {open ? (
+          <>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+              {unsaved && <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, color: '#fff', background: '#b3261e', borderRadius: 5, padding: '2px 6px' }}>未保存</span>}
+              <span style={{ fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{headTxt || '（未入力）'}</span>
+              {r.name && <span style={{ fontSize: 12.5, color: SUBTXT, whiteSpace: 'nowrap', flexShrink: 0 }}>／ {r.name}</span>}
             </div>
-          )}
-        </div>
-        <div style={{ textAlign: 'center', flexShrink: 0 }}>
-          <div style={{ display: 'flex', gap: dotGap, marginBottom: 4, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
-            {prog.map((f, pi) => {
-              const ok = hasVal(f, fv[f.key]);
-              return (
-                <div key={f.key} title={f.label} style={{
-                  width: dotSize, height: dotSize, flexShrink: 0, borderRadius: '50%',
-                  fontSize: Math.round(dotSize / 2), lineHeight: dotSize + 'px', textAlign: 'center',
-                  background: ok ? PROG_COLORS[pi % PROG_COLORS.length] : '#eef0f4',
-                  color: ok ? '#fff' : '#b6bcc7', fontWeight: 700
-                }}>{(f.label || '?').slice(0, 1)}</div>
-              );
-            })}
+            <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>{done}/{prog.length} ▲</span>
+          </>
+        ) : (
+          <>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+              {unsaved && <span style={{
+                flexShrink: 0, fontSize: 10, fontWeight: 700, color: '#fff', background: '#b3261e',
+                borderRadius: 5, padding: '2px 6px', letterSpacing: '.02em'
+              }}>未保存</span>}
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{headTxt || '（未入力）'}</span>
+            </div>
+            {!!lineItems.length && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 3 }}>
+                {lineItems.map(it => (
+                  <span key={it.k} style={{
+                    fontSize: 12, fontWeight: 500, lineHeight: 1.4,
+                    padding: '2px 8px', borderRadius: 6,
+                    background: it.empty ? '#f7f8fa' : '#eef1f7',
+                    border: `1px solid ${it.empty ? '#e8eaef' : '#d8dee9'}`,
+                    color: it.empty ? '#a3a9b5' : SUBTXT,
+                    whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis'
+                  }}>{it.t}</span>
+                ))}
+              </div>
+            )}
           </div>
-          <div style={{ fontSize: 10, color: '#9ca3af' }}>{done}/{prog.length} {open ? '▲' : '▼'}</div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', marginLeft: 2 }}>
-          <button onClick={e => { e.stopPropagation(); onCopy(); }} title="この1件をコピー" style={{
-            width: 34, height: 34, borderRadius: 9, border: `1px solid ${LINE}`,
-            background: '#fff', color: NAVY, fontSize: 15, cursor: 'pointer', lineHeight: '32px', padding: 0
-          }}>📋</button>
-        </div>
-        {/* 日付バッジはカードの横幅いっぱいに置く（右の丸と同じ行やと、スマホで日付が切れるけん） */}
-        <div style={{ width: '100%' }}>
-            {!!dateBadges.length && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-                {dateBadges.map(({ f, isMain }) => {
-                  const v = fv[f.key];
-                  const on = hasVal(f, v);
-                  const txt = fmtField(f, v);
-                  const rawD = f.type === 'datetime' ? dtVal(v).d : (v || '');
-                  const left = on ? daysLeft(rawD) : null;
-                  const past = left != null && left < 0;
-                  const tone = past ? PAST_TONE : ((on && badgeTone(f.label)) || (isMain
-                    ? dateTone(on, rawD)
-                    : (on ? KINSHO_PINK : { bg: '#eef1f7', bd: '#d8dee9', fg: SUBTXT })));
-                  return (
-                    <div key={f.key} className="mono" style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      padding: '3px 10px', borderRadius: 7, maxWidth: '100%', fontSize: 13, fontWeight: 700,
-                      background: tone.bg, border: `1px solid ${tone.bd}`, color: tone.fg
-                    }}>
-                      <span style={{
-                        flexShrink: 0, width: 17, height: 17, borderRadius: '50%',
-                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 10.5, background: tone.fg, color: '#fff'
-                      }}>{(f.label || '?').slice(0, 1)}</span>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{txt || '記載なし'}</span>
-                      {left != null && (
+          <div style={{ textAlign: 'center', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: dotGap, marginBottom: 4, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
+              {prog.map((f, pi) => {
+                const ok = hasVal(f, fv[f.key]);
+                return (
+                  <div key={f.key} title={f.label} style={{
+                    width: dotSize, height: dotSize, flexShrink: 0, borderRadius: '50%',
+                    fontSize: Math.round(dotSize / 2), lineHeight: dotSize + 'px', textAlign: 'center',
+                    background: ok ? PROG_COLORS[pi % PROG_COLORS.length] : '#eef0f4',
+                    color: ok ? '#fff' : '#b6bcc7', fontWeight: 700
+                  }}>{(f.label || '?').slice(0, 1)}</div>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: 10, color: '#9ca3af' }}>{done}/{prog.length} {open ? '▲' : '▼'}</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', marginLeft: 2 }}>
+            <button onClick={e => { e.stopPropagation(); onCopy(); }} title="この1件をコピー" style={{
+              width: 34, height: 34, borderRadius: 9, border: `1px solid ${LINE}`,
+              background: '#fff', color: NAVY, fontSize: 15, cursor: 'pointer', lineHeight: '32px', padding: 0
+            }}>📋</button>
+          </div>
+          {/* 日付バッジはカードの横幅いっぱいに置く（右の丸と同じ行やと、スマホで日付が切れるけん） */}
+          <div style={{ width: '100%' }}>
+              {!!dateBadges.length && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                  {dateBadges.map(({ f, isMain }) => {
+                    const v = fv[f.key];
+                    const on = hasVal(f, v);
+                    const txt = fmtField(f, v);
+                    const rawD = f.type === 'datetime' ? dtVal(v).d : (v || '');
+                    const left = on ? daysLeft(rawD) : null;
+                    const past = left != null && left < 0;
+                    const tone = past ? PAST_TONE : ((on && badgeTone(f.label)) || (isMain
+                      ? dateTone(on, rawD)
+                      : (on ? KINSHO_PINK : { bg: '#eef1f7', bd: '#d8dee9', fg: SUBTXT })));
+                    return (
+                      <div key={f.key} className="mono" style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                        padding: '3px 10px', borderRadius: 7, maxWidth: '100%', fontSize: 13, fontWeight: 700,
+                        background: tone.bg, border: `1px solid ${tone.bd}`, color: tone.fg
+                      }}>
                         <span style={{
-                          flexShrink: 0, fontSize: 10.5, fontWeight: 700, letterSpacing: '.02em',
-                          padding: '1px 5px', borderRadius: 5, marginLeft: 1,
-                          background: past ? '#e6e9ee' : tone.fg, color: past ? tone.fg : '#fff'
-                        }}>{leftLabel(left)}</span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {mainShow && !mainIsDate && mainOn && (
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 6,
-                padding: '3px 10px', borderRadius: 7, maxWidth: '100%',
-                background: '#fff4d6', border: '1px solid #f0cf7a', color: '#8a5a00',
-                fontSize: 13, fontWeight: 700
-              }}>
-                <span style={{ flexShrink: 0 }}>⚠</span>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mainTxt}</span>
-              </div>
-            )}
-        </div>
+                          flexShrink: 0, width: 17, height: 17, borderRadius: '50%',
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 10.5, background: tone.fg, color: '#fff'
+                        }}>{(f.label || '?').slice(0, 1)}</span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{txt || '記載なし'}</span>
+                        {left != null && (
+                          <span style={{
+                            flexShrink: 0, fontSize: 10.5, fontWeight: 700, letterSpacing: '.02em',
+                            padding: '1px 5px', borderRadius: 5, marginLeft: 1,
+                            background: past ? '#e6e9ee' : tone.fg, color: past ? tone.fg : '#fff'
+                          }}>{leftLabel(left)}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {mainShow && !mainIsDate && mainOn && (
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 6,
+                  padding: '3px 10px', borderRadius: 7, maxWidth: '100%',
+                  background: '#fff4d6', border: '1px solid #f0cf7a', color: '#8a5a00',
+                  fontSize: 13, fontWeight: 700
+                }}>
+                  <span style={{ flexShrink: 0 }}>⚠</span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mainTxt}</span>
+                </div>
+              )}
+          </div>
+          </>
+        )}
       </div>
 
       {open && (
-        <div style={{ padding: '4px 14px 14px', borderTop: `1px solid ${LINE}` }}>
-          <Row label={settings.nameLabel || '名前'}>
-            <TextInput value={r.name} onCommit={v => onPatch({ name: v })} placeholder={settings.nameLabel} />
-          </Row>
+        <div style={{ padding: '8px 12px 12px', borderTop: `1px solid ${LINE}` }}>
+          {/* 2列のグリッド。物件名・時刻つき日付・選択肢の多いプルダウンだけ横幅いっぱい（span 2）にする */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, gridAutoFlow: 'dense' }}>
+            <Cell label={settings.nameLabel || '名前'}>
+              <TextInput value={r.name} onCommit={v => onPatch({ name: v })} placeholder={settings.nameLabel} style={inpS} />
+            </Cell>
 
-          {F.map(f => (
-            <Row key={f.key} label={f.label}>
-              {f.type === 'text' && (() => {
-                const cur = fv[f.key] || '';
-                // 候補チップ（サジェスト）は「物件名」だけに残す。ほかの文字項目は普通の入力欄のみ
-                if (f.key !== 'bukken') {
-                  return <TextInput value={cur} onCommit={v => set(f.key, v)} placeholder={f.label} />;
-                }
-                const sg = (suggests || {})[f.key] || [];
-                // 出現回数が最も多い1件だけをチップにする（履歴が増えても選択肢は増やさない）
-                const top = sg.filter(s => s !== cur).slice(0, 1);
-                return (
-                  <div>
-                    <TextInput value={cur} onCommit={v => set(f.key, v)} placeholder={f.label} list={`dl_${r.id}_${f.key}`} />
-                    <datalist id={`dl_${r.id}_${f.key}`}>{sg.map(s => <option key={s} value={s} />)}</datalist>
-                    {!!top.length && (
-                      <Chips items={top.map(s => ({ v: s, l: s }))} value={cur} onPick={v => set(f.key, v)} />
-                    )}
-                  </div>
-                );
-              })()}
-              {f.type === 'select' && (() => {
-                const cur = fv[f.key] || '';
-                const opts = f.options || [];
-                const extra = cur && !opts.includes(cur);
-                // 選択肢が少なければ、プルダウンを開かずに1タップで選べるようにする
-                if (opts.length && opts.length <= 6 && !extra) {
-                  return (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                      {opts.map(o => (
-                        <button key={o} type="button" onClick={() => set(f.key, cur === o ? '' : o)} style={chipBtn(cur === o)}>{o}</button>
-                      ))}
-                      {cur && <button type="button" onClick={() => set(f.key, '')} style={{ ...chipBtn(false), color: '#c14040', borderColor: '#f0c9c9' }}>クリア</button>}
-                    </div>
-                  );
-                }
-                return (
-                  <select value={cur} onChange={e => set(f.key, e.target.value)} style={inp}>
-                    <option value="">— 未選択 —</option>
-                    {opts.map(o => <option key={o} value={o}>{o}</option>)}
-                    {extra && <option value={cur}>{cur}（一覧外）</option>}
-                  </select>
-                );
-              })()}
-              {f.type === 'money' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <TextInput value={fv[f.key] || ''} onCommit={v => set(f.key, String(v).replace(/[^\d.-]/g, ''))} placeholder="例：1700" inputMode="numeric" style={{ flex: 1, textAlign: 'right' }} />
-                  <span style={{ fontSize: 13, color: SUB, fontWeight: 600, flexShrink: 0 }}>万円</span>
-                </div>
-              )}
-              {f.type === 'date' && (
-                <div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <input type="date" value={fv[f.key] || ''} onChange={e => set(f.key, e.target.value)} style={{ ...inpM, flex: 1, height: 46, borderRadius: 10, fontSize: 15 }} />
-                    <button type="button" aria-label="カレンダーから選ぶ"
-                      onClick={() => setCalKey(calKey === f.key ? null : f.key)} style={icoBtn(calKey === f.key)}><IcoCal /></button>
-                    {!!fv[f.key] && <button type="button" aria-label="日付を消す" title="日付を消す"
-                      onClick={() => { set(f.key, ''); setCalKey(null); }} style={clrBtn}>✕</button>}
-                  </div>
-                  {calKey === f.key && (
-                    <MiniCal value={fv[f.key] || ''}
-                      onPick={v => { set(f.key, v); setCalKey(null); }}
-                      onClear={() => { set(f.key, ''); setCalKey(null); }} />
-                  )}
-                </div>
-              )}
-              {f.type === 'datetime' && (() => {
-                const o = dtVal(fv[f.key]);
-                return (
-                  <div>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <input type="date" value={o.d} onChange={e => set(f.key, { ...o, d: e.target.value, none: !e.target.value })} style={{ ...inpM, flex: 1, height: 46, borderRadius: 10, fontSize: 15 }} />
-                      <button type="button" aria-label="カレンダーから選ぶ"
-                        onClick={() => setCalKey(calKey === f.key ? null : f.key)} style={icoBtn(calKey === f.key)}><IcoCal /></button>
-                      {!!(o.d || o.t) && <button type="button" aria-label="日付と時刻を消す" title="日付と時刻をまとめて消す"
-                        onClick={() => { set(f.key, { d: '', t: '', none: true }); setCalKey(null); }} style={clrBtn}>✕</button>}
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                      <select value={o.t || ''} onChange={e => set(f.key, { ...o, t: e.target.value })}
-                        style={{ ...inpM, flex: 1, height: 46, borderRadius: 10, fontSize: 15, color: o.t ? NAVY : '#9ca3af' }}>
-                        <option value="">時刻（15分単位）</option>
-                        {/* 以前に15分刻み以外で入れた時刻も消えんように残す */}
-                        {o.t && !TIME_15.includes(o.t) && <option value={o.t}>{o.t}</option>}
-                        {TIME_15.map(t => <option key={t} value={t}>{t}</option>)}
+            {F.map((f, i) => {
+              const opts = f.options || [];
+              // 賃貸管理・建物管理みたいに「同じ数の選択肢を持つプルダウンが隣り合っとる対」は半分幅で横に並べる
+              const sib = (g) => g && g.type === 'select' && (g.options || []).length === opts.length;
+              const paired = f.type === 'select' && opts.length <= 4 && (sib(F[i - 1]) || sib(F[i + 1]));
+              const wide = (f.type === 'text' && f.key === 'bukken') || f.type === 'datetime'
+                || (f.type === 'select' && opts.length > 3 && !paired);
+              return (
+                <Cell key={f.key} label={f.label} wide={wide}>
+                  {f.type === 'text' && (() => {
+                    const cur = fv[f.key] || '';
+                    // 候補チップ（サジェスト）は「物件名」だけに残す。ほかの文字項目は普通の入力欄のみ
+                    if (f.key !== 'bukken') {
+                      return <TextInput value={cur} onCommit={v => set(f.key, v)} placeholder={f.label} style={inpS} />;
+                    }
+                    const sg = (suggests || {})[f.key] || [];
+                    // 出現回数が最も多い1件だけをチップにする（履歴が増えても選択肢は増やさない）
+                    const top = sg.filter(s => s !== cur).slice(0, 1);
+                    return (
+                      <div>
+                        <TextInput value={cur} onCommit={v => set(f.key, v)} placeholder={f.label} list={`dl_${r.id}_${f.key}`} style={inpS} />
+                        <datalist id={`dl_${r.id}_${f.key}`}>{sg.map(s => <option key={s} value={s} />)}</datalist>
+                        {!!top.length && (
+                          <Chips items={top.map(s => ({ v: s, l: s }))} value={cur} onPick={v => set(f.key, v)} />
+                        )}
+                      </div>
+                    );
+                  })()}
+                  {f.type === 'select' && (() => {
+                    const cur = fv[f.key] || '';
+                    const extra = cur && !opts.includes(cur);
+                    // 選択肢が少なければ、プルダウンを開かずに1タップで選べるようにする
+                    if (opts.length && opts.length <= 6 && !extra) {
+                      return (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                          {opts.map(o => (
+                            <button key={o} type="button" onClick={() => set(f.key, cur === o ? '' : o)} style={chipBtn(cur === o)}>{o}</button>
+                          ))}
+                          {cur && <button type="button" onClick={() => set(f.key, '')} style={{ ...chipBtn(false), color: '#c14040', borderColor: '#f0c9c9' }}>クリア</button>}
+                        </div>
+                      );
+                    }
+                    return (
+                      <select value={cur} onChange={e => set(f.key, e.target.value)} style={inpS}>
+                        <option value="">— 未選択 —</option>
+                        {opts.map(o => <option key={o} value={o}>{o}</option>)}
+                        {extra && <option value={cur}>{cur}（一覧外）</option>}
                       </select>
+                    );
+                  })()}
+                  {f.type === 'money' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <TextInput value={fv[f.key] || ''} onCommit={v => set(f.key, String(v).replace(/[^\d.-]/g, ''))} placeholder="例：1700" inputMode="numeric" style={{ ...inpS, flex: 1, textAlign: 'right', minWidth: 0 }} />
+                      <span style={{ fontSize: 12, color: SUB, fontWeight: 600, flexShrink: 0 }}>万円</span>
                     </div>
-                    {calKey === f.key && (
-                      <MiniCal value={o.d}
-                        onPick={v => { set(f.key, { ...o, d: v, none: false }); setCalKey(null); }}
-                        onClear={() => { set(f.key, { d: '', t: '', none: true }); setCalKey(null); }} />
-                    )}
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: o.d ? '#b6bcc7' : SUB, marginTop: 8 }}>
-                      <input type="checkbox" checked={!o.d} readOnly disabled style={{ cursor: 'default' }} />
-                      記載なし（日程未通知）<span style={{ fontSize: 10.5, color: '#9ca3af' }}>※日付を入れると自動で外れる</span>
-                    </label>
-                  </div>
-                );
-              })()}
-            </Row>
-          ))}
+                  )}
+                  {f.type === 'date' && (
+                    // 日付欄をタップしたらスマホ標準の日付選択を開く（自前カレンダーはやめた）
+                    <div style={{ display: 'flex', gap: 5 }}>
+                      <input type="date" value={fv[f.key] || ''} onChange={e => set(f.key, e.target.value)}
+                        onClick={e => openPicker(e.currentTarget)} style={dateS} />
+                      {!!fv[f.key] && <button type="button" aria-label="日付を消す" title="日付を消す"
+                        onClick={() => set(f.key, '')} style={clrS}>✕</button>}
+                    </div>
+                  )}
+                  {f.type === 'datetime' && (() => {
+                    const o = dtVal(fv[f.key]);
+                    return (
+                      <div>
+                        {/* 日付と時刻を同じ行に並べる。✕は日付も時刻もまとめて消す */}
+                        <div style={{ display: 'flex', gap: 5 }}>
+                          <input type="date" value={o.d} onChange={e => set(f.key, { ...o, d: e.target.value, none: !e.target.value })}
+                            onClick={e => openPicker(e.currentTarget)} style={{ ...dateS, flex: 3 }} />
+                          <select value={o.t || ''} onChange={e => set(f.key, { ...o, t: e.target.value })}
+                            style={{ ...dateS, flex: 2, color: o.t ? NAVY : '#9ca3af' }}>
+                            <option value="">時刻</option>
+                            {/* 以前に15分刻み以外で入れた時刻も消えんように残す */}
+                            {o.t && !TIME_15.includes(o.t) && <option value={o.t}>{o.t}</option>}
+                            {TIME_15.map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                          {!!(o.d || o.t) && <button type="button" aria-label="日付と時刻を消す" title="日付と時刻をまとめて消す"
+                            onClick={() => set(f.key, { d: '', t: '', none: true })} style={clrS}>✕</button>}
+                        </div>
+                        {!o.d && (
+                          <div style={{ fontSize: 11, color: SUB, marginTop: 4 }}>☐ 記載なし（日程未通知）<span style={{ color: '#9ca3af' }}>　※日付を入れると自動で外れる</span></div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </Cell>
+              );
+            })}
+          </div>
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
             <button onClick={onDup} style={{ ...subBtn, padding: '10px', fontSize: 12, whiteSpace: 'nowrap' }}>⧉ この行を複製</button>
             <button onClick={closeFromBottom} style={{
               flex: 1, padding: '10px', border: `1px solid ${LINE}`, background: '#f7f8fa',
@@ -1244,7 +1262,7 @@ tr.band { page-break-after:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.8.21
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.9.0
         </div>
       </div>
 
