@@ -135,6 +135,35 @@
   .throne button:disabled{opacity:.5;}
   .toast{font-size:10.5px; color:#9be8a8; margin-top:8px; min-height:14px;}
 
+  /* ===== マイソク選別の依頼パネル ===== */
+  .order{background:linear-gradient(160deg,#fff6e3,#fffdf8); border:2px solid var(--gold);}
+  .chips{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;}
+  .chip{border:1.5px solid #e0d7ee; background:#fff; color:var(--ink); border-radius:999px;
+    padding:7px 12px; font-size:12px; font-weight:800; cursor:pointer; font-family:'M PLUS Rounded 1c',sans-serif;}
+  .chip.on{background:var(--ink); color:#fff; border-color:var(--ink);}
+  .chip.ext{border-style:dashed;}
+  .order-row{display:flex; gap:6px; margin-bottom:8px;}
+  .order-row input{flex:1; min-width:0; border:1.5px solid #e0d7ee; border-radius:9px; padding:9px 10px;
+    font-size:13px; font-family:'Zen Maru Gothic',sans-serif; outline:none; background:#fff; color:var(--ink);}
+  .order-row input#pin{flex:0 0 84px; text-align:center; letter-spacing:2px;}
+  .order-btn{width:100%; border:none; border-radius:10px; padding:12px; font-size:13.5px; font-weight:800;
+    font-family:'M PLUS Rounded 1c',sans-serif; cursor:pointer;
+    background:var(--gold); color:#2b2440; box-shadow:0 3px 0 var(--gold-dark);}
+  .order-btn:active{transform:translateY(2px); box-shadow:0 1px 0 var(--gold-dark);}
+  .order-btn:disabled{opacity:.45; box-shadow:none;}
+  .order .toast{color:var(--gold-dark);}
+  .queue{display:flex; flex-direction:column; gap:6px; margin-top:10px;}
+  .q{display:flex; align-items:center; gap:8px; background:#fff; border:1px solid #ece5f7; border-radius:10px; padding:8px 10px; font-size:11.5px;}
+  .q .st{font-weight:800; white-space:nowrap; padding:3px 8px; border-radius:999px; font-size:10.5px;}
+  .q .st.queued{background:#efe9f8; color:var(--ink-soft);}
+  .q .st.running{background:#dbe9ff; color:#2457b8;}
+  .q .st.done{background:#d9f3e1; color:#1f7a3f;}
+  .q .st.error{background:#ffe1dc; color:#b8362a;}
+  .q .tx{flex:1; min-width:0; color:var(--ink); font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .q .tx small{display:block; font-weight:400; color:var(--ink-soft); font-size:10px; overflow:hidden; text-overflow:ellipsis;}
+  .q a{color:var(--gold-dark); font-weight:800; text-decoration:none; white-space:nowrap;}
+  .q-empty{font-size:11px; color:var(--ink-soft); opacity:.75;}
+
   /* ===== アプリランチャー（追加） ===== */
   .launch-btn{border:none; border-radius:10px; padding:6px 11px; font-size:11px; font-weight:800;
     background:var(--gold); color:#2b2440; box-shadow:0 2px 0 var(--gold-dark); cursor:pointer;}
@@ -191,7 +220,7 @@
         <div class="label-layer" id="labels"></div>
         <div class="hint">ドラッグで回転 / ピンチでズーム / 社員をタップで担当アプリを開く</div>
         <div class="cam-btns">
-          <button class="cam-btn on" id="btnSpin">自動回転 ON</button>
+          <button class="cam-btn" id="btnSpin">自動回転 OFF</button>
           <button class="cam-btn" id="btnReset">視点リセット</button>
           <button class="cam-btn" id="btnFull">全画面</button>
           <button class="cam-btn" id="btnApps" style="background:var(--gold);color:#2b2440;font-weight:800">📱 アプリ一覧</button>
@@ -200,6 +229,18 @@
     </div>
 
     <div class="side-col">
+      <div class="panel order" id="orderPanel">
+        <h2>📄 マイソク選別を頼む</h2>
+        <div class="chips" id="tgtChips"></div>
+        <div class="order-row">
+          <input type="date" id="tgtDate">
+          <input id="pin" inputmode="numeric" placeholder="PIN" maxlength="8" autocomplete="off">
+        </div>
+        <button class="order-btn" id="orderBtn" disabled>選別を依頼する</button>
+        <div class="toast" id="orderToast"></div>
+        <div class="queue" id="queue"><div class="q-empty">依頼はまだ無かよ</div></div>
+      </div>
+
       <div class="throne">
         <h2>🗣 くろへ指示</h2>
         <div class="desc">くろが受けて担当の社員に振るばい。指示された社員は席に戻って作業を始めるっちゃ。</div>
@@ -348,7 +389,7 @@ controls.minDistance = 7;
 controls.maxDistance = 24;
 controls.minPolarAngle = 0.25;
 controls.maxPolarAngle = Math.PI/2 - 0.12;
-controls.autoRotate = true;
+controls.autoRotate = false;
 controls.autoRotateSpeed = 0.5;
 controls.target.set(1.1, 0.9, 0);
 
@@ -945,6 +986,93 @@ function showAllApps(){
 document.getElementById('btnApps').addEventListener('click', showAllApps);
 document.getElementById('sheetClose').addEventListener('click', closeSheet);
 sheetMask.addEventListener('click', closeSheet);
+
+/* ═══════════ マイソク選別の依頼（axia_claude_inbox） ═══════════ */
+const INBOX = 'axia_claude_inbox';
+const MAISOKU_EMP = 1;                       // 仕入れ（マイソク）＝ヒビキ
+const TARGETS = [
+  {nm:'髙田'}, {nm:'長谷川'}, {nm:'家原'},
+  {nm:'Rich Door', ext:true}, {nm:'オーセントラスト', ext:true}, {nm:'NAX', ext:true},
+];
+let orderTarget = null;
+const tgtChips = document.getElementById('tgtChips');
+const tgtDate  = document.getElementById('tgtDate');
+const pinEl    = document.getElementById('pin');
+const orderBtn = document.getElementById('orderBtn');
+const orderToast = document.getElementById('orderToast');
+const queueEl  = document.getElementById('queue');
+
+const todayStr = () => { const d = new Date(); const z = n => String(n).padStart(2,'0'); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`; };
+const mdStr = iso => { const [,m,d] = iso.split('-'); return `${Number(m)}.${Number(d)}`; };
+tgtDate.value = todayStr();
+try { pinEl.value = localStorage.getItem('axia_order_pin') || ''; } catch(e){}
+
+TARGETS.forEach(t => {
+  const b = document.createElement('button');
+  b.className = 'chip' + (t.ext ? ' ext' : '');
+  b.textContent = t.nm;
+  b.onclick = () => {
+    orderTarget = (orderTarget === t.nm) ? null : t.nm;
+    [...tgtChips.children].forEach(c => c.classList.toggle('on', c.textContent === orderTarget));
+    syncOrderBtn();
+  };
+  tgtChips.appendChild(b);
+});
+function syncOrderBtn(){
+  orderBtn.disabled = !(orderTarget && tgtDate.value && pinEl.value.trim().length >= 4);
+  orderBtn.textContent = orderTarget ? `${orderTarget} マイソク${mdStr(tgtDate.value)} を選別` : '選別を依頼する';
+}
+tgtDate.addEventListener('input', syncOrderBtn);
+pinEl.addEventListener('input', syncOrderBtn);
+
+orderBtn.addEventListener('click', async () => {
+  const target = orderTarget, date = tgtDate.value, pin = pinEl.value.trim();
+  orderBtn.disabled = true; orderToast.textContent = '送信中…';
+  const { error } = await sb.rpc('axia_enqueue', { p_pin: pin, p_kind: 'maisoku', p_target: target, p_date: date });
+  if (error){
+    orderToast.textContent = '送れんかった：' + error.message;
+    syncOrderBtn(); return;
+  }
+  try { localStorage.setItem('axia_order_pin', pin); } catch(e){}
+  orderToast.textContent = '受け付けたばい。10分以内にヒビキが取りかかるけん';
+  pushLog(empName(MAISOKU_EMP), `「${target} マイソク${mdStr(date)}選別」を受付`);
+  await loadQueue();
+  syncOrderBtn();
+});
+
+const ST_LABEL = { queued:'⏳ 待ち', running:'🔧 作業中', done:'✅ 完了', error:'⚠️ 失敗' };
+function renderQueue(items){
+  queueEl.innerHTML = '';
+  if (!items.length){ queueEl.innerHTML = '<div class="q-empty">依頼はまだ無かよ</div>'; return; }
+  items.forEach(it => {
+    const d = document.createElement('div');
+    d.className = 'q';
+    const sub = (it.status === 'done' || it.status === 'error') ? (it.result_summary || '') : '';
+    d.innerHTML = `<span class="st ${it.status}">${ST_LABEL[it.status] || it.status}</span>
+      <span class="tx">${it.target} マイソク${mdStr(it.target_date)}${sub ? `<small>${sub}</small>` : ''}</span>
+      ${it.result_url ? `<a href="${it.result_url}" target="_blank" rel="noopener">開く ›</a>` : ''}`;
+    queueEl.appendChild(d);
+  });
+}
+async function loadQueue(){
+  const { data, error } = await sb.from(INBOX).select('*').order('id', { ascending:false }).limit(6);
+  if (error || !data) return;
+  renderQueue(data);
+}
+loadQueue();
+sb.channel('ai-office-inbox')
+  .on('postgres_changes', { event:'*', schema:'public', table:INBOX }, payload => {
+    const n = payload.new || {}, o = payload.old || {};
+    if (payload.eventType === 'UPDATE' && o.status !== n.status){
+      const nm = empName(MAISOKU_EMP), job = `${n.target} マイソク${mdStr(n.target_date)}`;
+      if (n.status === 'running')     pushLog(nm, `${job} に着手`);
+      else if (n.status === 'done')   pushLog(nm, `${job} 完了${n.result_summary ? '：' + n.result_summary : ''}`);
+      else if (n.status === 'error')  pushLog(nm, `${job} 失敗：${n.result_summary || ''}`);
+    }
+    loadQueue();
+  })
+  .subscribe();
+setInterval(loadQueue, 30000);   // Realtime取りこぼしの保険
 
 /* ═══════════ 操作 ═══════════ */
 const raycaster = new THREE.Raycaster();
