@@ -1,7 +1,7 @@
 /* AXIA AI Office — 最小のService Worker
    ・インストール（ホーム画面追加）を成立させるのが目的
    ・HTMLは常にネット優先（古い画面が残らんように）。落ちたときだけキャッシュ */
-const CACHE = 'axia-office-v3';
+const CACHE = 'axia-office-v4';
 const SHELL = ['./AXIA_AI_Office.html', './office.webmanifest', './office-icon-192.png', './office-icon-512.png'];
 
 self.addEventListener('install', e => {
