@@ -2,8 +2,17 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>AXIA AI社員オフィス 3D</title>
+<!-- スマホのホーム画面アプリ化（PWA） -->
+<link rel="manifest" href="./office.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="./office-icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="./office-icon-180.png">
+<meta name="theme-color" content="#2b2440">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AI Office">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&family=Zen+Maru+Gothic:wght@400;500;700&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -25,7 +34,7 @@
     color:var(--ink); min-height:100vh; -webkit-font-smoothing:antialiased;
   }
   ::-webkit-scrollbar{display:none;}
-  .chrome{max-width:100%; margin:0 auto; padding:10px 14px 18px;}
+  .chrome{max-width:100%; margin:0 auto; padding:calc(10px + env(safe-area-inset-top)) 14px calc(18px + env(safe-area-inset-bottom));}
 
   .hud{
     background:var(--ink); border-radius:18px 18px 8px 8px; padding:14px 20px;
@@ -295,6 +304,9 @@
   <button class="sheet-order" id="sheetOrder">この社員に指示を出す</button>
 </div>
 
+<script>
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('./office-sw.js').catch(() => {});
+</script>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
