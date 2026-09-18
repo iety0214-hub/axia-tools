@@ -1155,6 +1155,28 @@ sb.channel('ai-office-inbox')
   .subscribe();
 setInterval(loadQueue, 30000);   // Realtime取りこぼしの保険
 
+/* ═══════════ 活動ログ（axia_office_log：くろへの指示・状態変化を DB トリガーで記録） ═══════════ */
+const OLOG = 'axia_office_log';
+const OLOG_KIND = { memo:'order', status:'' };
+function pushOfficeLog(r){
+  const kind = r.kind === 'status'
+    ? (r.text === '進行中' ? 'running' : r.text === '完了' ? 'done' : '')
+    : 'order';
+  pushLog(r.name || '', r.text, { ts: r.ts, kind, url: r.url, key: `olog-${r.id}` });
+}
+async function loadOfficeLog(){
+  const { data, error } = await sb.from(OLOG).select('*').order('id', { ascending:false }).limit(40);
+  if (error || !data) return;
+  data.forEach(pushOfficeLog);
+}
+loadOfficeLog();
+sb.channel('ai-office-log')
+  .on('postgres_changes', { event:'INSERT', schema:'public', table:OLOG }, payload => {
+    if (payload.new) pushOfficeLog(payload.new);
+  })
+  .subscribe();
+setInterval(loadOfficeLog, 30000);
+
 /* ═══════════ 操作 ═══════════ */
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
@@ -1231,7 +1253,6 @@ send.addEventListener('click', async () => {
   // Realtimeを待たず、その場で反映して動かす
   const i = rows.findIndex(r => r.id === id);
   if (i >= 0) rows[i] = data[0]; else rows.push(data[0]);
-  pushLog((data[0].avatar && data[0].avatar.name) || DESKS[id].plate, `「${text}」`);
   renderAll();
   toast.textContent = '指示を送ったばい';
   toast.style.color = '#9be8a8';
@@ -1269,13 +1290,7 @@ sb.channel('ai-office-3d')
       if (i >= 0) rows[i] = payload.new; else rows.push(payload.new);
       rows.sort((a,b) => a.id - b.id);
     }
-    if (payload.eventType === 'UPDATE'){
-      const b = payload.old || {}, n = payload.new || {};
-      const nm = (n.avatar && n.avatar.name) || n.project_name || '';
-      if (b.memo !== n.memo && n.memo)      pushLog(nm, `「${n.memo}」`);
-      else if (b.status !== n.status)       pushLog(nm, n.status);
-    }
-    renderAll();
+    renderAll();   // 活動ログは axia_office_log（DBトリガー）から入る
   })
   .subscribe(status => {
     realtimeOK = (status === 'SUBSCRIBED');
@@ -1296,12 +1311,6 @@ async function poll(){
     const old = rows[i];
     if (old.status !== nr.status || old.memo !== nr.memo ||
         JSON.stringify(old.avatar) !== JSON.stringify(nr.avatar)){
-      // Realtimeが取りこぼした変化をログに出す
-      if (!realtimeOK){
-        const nm = (nr.avatar && nr.avatar.name) || nr.project_name || '';
-        if (old.memo !== nr.memo && nr.memo) pushLog(nm, `「${nr.memo}」`);
-        else if (old.status !== nr.status)   pushLog(nm, nr.status);
-      }
       rows[i] = nr; changed = true;
     }
   });
