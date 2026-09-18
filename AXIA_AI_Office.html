@@ -1037,6 +1037,8 @@ orderBtn.addEventListener('click', async () => {
     syncOrderBtn(); return;
   }
   try { localStorage.setItem('axia_order_pin', pin); } catch(e){}
+  // ボタン操作のタイミングでしか通知の許可は求められん
+  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
   orderToast.textContent = '受け付けたばい。10分以内にヒビキが取りかかるけん';
   pushLog(empName(MAISOKU_EMP), `「${target} マイソク${mdStr(date)}選別」を受付`);
   await loadQueue();
@@ -1044,6 +1046,20 @@ orderBtn.addEventListener('click', async () => {
 });
 
 const ST_LABEL = { queued:'⏳ 待ち', running:'🔧 作業中', done:'✅ 完了', error:'⚠️ 失敗' };
+/* 完了・失敗をスマホに通知（ページを開いとる／ホーム画面に追加しとる間） */
+function notifyDone(row){
+  const job = `${row.target} マイソク${mdStr(row.target_date)}`;
+  const ok = row.status === 'done';
+  const title = ok ? `✅ ${job} 選別完了` : `⚠️ ${job} 失敗`;
+  const body  = row.result_summary || '';
+  try { navigator.vibrate && navigator.vibrate(ok ? [120,60,120] : [300]); } catch(e){}
+  if ('Notification' in window && Notification.permission === 'granted'){
+    try {
+      const n = new Notification(title, { body, tag:'maisoku-' + row.id, icon:'./透過.png' });
+      if (row.result_url) n.onclick = () => { window.open(row.result_url, '_blank'); n.close(); };
+    } catch(e){}
+  }
+}
 function renderQueue(items){
   queueEl.innerHTML = '';
   if (!items.length){ queueEl.innerHTML = '<div class="q-empty">依頼はまだ無かよ</div>'; return; }
@@ -1069,8 +1085,8 @@ sb.channel('ai-office-inbox')
     if (payload.eventType === 'UPDATE' && o.status !== n.status){
       const nm = empName(MAISOKU_EMP), job = `${n.target} マイソク${mdStr(n.target_date)}`;
       if (n.status === 'running')     pushLog(nm, `${job} に着手`);
-      else if (n.status === 'done')   pushLog(nm, `${job} 完了${n.result_summary ? '：' + n.result_summary : ''}`);
-      else if (n.status === 'error')  pushLog(nm, `${job} 失敗：${n.result_summary || ''}`);
+      else if (n.status === 'done')  { pushLog(nm, `${job} 完了${n.result_summary ? '：' + n.result_summary : ''}`); notifyDone(n); }
+      else if (n.status === 'error') { pushLog(nm, `${job} 失敗：${n.result_summary || ''}`); notifyDone(n); }
     }
     loadQueue();
   })
