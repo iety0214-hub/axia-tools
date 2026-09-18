@@ -517,12 +517,12 @@
                 </div>
             </div>
 
-            <div class="form-group">
+            <div class="form-group" id="contractDateGroup">
                 <label>契約</label>
                 <input type="date" id="contractDate">
             </div>
 
-            <div class="form-group">
+            <div class="form-group" id="settlementDateGroup">
                 <label>決済予定</label>
                 <input type="date" id="settlementDate">
             </div>
@@ -1127,6 +1127,8 @@
 
             document.getElementById('categoryGroup').style.display = isOpen ? 'none' : 'block';
             document.getElementById('bankGroup').style.display = isOpen ? 'none' : 'block';
+            document.getElementById('contractDateGroup').style.display = isOpen ? 'none' : 'block';
+            document.getElementById('settlementDateGroup').style.display = isOpen ? 'none' : 'block';
             document.getElementById('attendeeGroup').style.display = isContract ? 'block' : 'none';
 
             // 銀行を隠すときは手入力欄も閉じる
@@ -1439,8 +1441,10 @@
             if (!isOpen) {
                 report += '【銀行】' + finalBank + '\n';
             }
-            report += '【契約】' + (formattedContractDate || '－') + '\n';
-            report += '【決済予定】' + (formattedSettlementDate || '－') + '\n';
+            if (!isOpen) {
+                report += '【契約】' + (formattedContractDate || '－') + '\n';
+                report += '【決済予定】' + (formattedSettlementDate || '－') + '\n';
+            }
             report += '【担当】' + (personInCharge || '－') + '\n';
             report += '【同行】' + (accompanyList.length ? accompanyList.join('、') : '－') + '\n';
             report += '【所属】' + (department || '－');
