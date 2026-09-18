@@ -1,6 +1,6 @@
 {
-  "name": "AXIA AI Office",
-  "short_name": "AI Office",
+  "name": "AIoffice",
+  "short_name": "AIoffice",
   "description": "AXIA AI社員オフィス。マイソク選別の依頼・活動ログ・各アプリへの入口",
   "id": "./AXIA_AI_Office.html",
   "start_url": "./AXIA_AI_Office.html",
@@ -11,8 +11,23 @@
   "theme_color": "#2b2440",
   "lang": "ja",
   "icons": [
-    { "src": "office-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "office-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "office-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "office-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "office-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "office-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
