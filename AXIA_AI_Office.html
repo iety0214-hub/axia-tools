@@ -114,9 +114,19 @@
 
   .panel{background:var(--paper); border-radius:14px; padding:14px 16px; box-shadow:0 4px 0 rgba(43,36,64,0.08);}
   .panel h2{font-family:'M PLUS Rounded 1c',sans-serif; font-size:13px; font-weight:800; margin:0 0 10px; display:flex; align-items:center; gap:6px;}
-  .log-list{display:flex; flex-direction:column; gap:7px; max-height:240px; overflow-y:auto;}
-  .log-item{font-size:11px; color:var(--ink-soft); line-height:1.5; border-left:3px solid var(--gold); padding-left:8px;}
-  .log-time{font-family:'DM Mono',monospace; font-size:9.5px; color:#a89ec4; margin-right:4px;}
+  .log-list{display:flex; flex-direction:column; gap:6px; max-height:360px; overflow-y:auto;}
+  .log-item{display:flex; align-items:flex-start; gap:8px; background:#fff; border:1px solid #ece5f7;
+    border-radius:10px; padding:8px 10px; font-size:12px; line-height:1.45; color:var(--ink);}
+  .log-item.done{border-left:4px solid #3fae6a;}
+  .log-item.error{border-left:4px solid #d35b4e;}
+  .log-item.running{border-left:4px solid #4f8ef7;}
+  .log-item.order{border-left:4px solid var(--gold);}
+  .log-item .lt{font-family:'DM Mono',monospace; font-size:10px; color:#a89ec4; white-space:nowrap; padding-top:2px;}
+  .log-item .lb{flex:1; min-width:0;}
+  .log-item .ln{font-weight:800; margin-right:4px;}
+  .log-item .lx{color:var(--ink-soft);}
+  .log-item a.lk{display:inline-block; margin-top:4px; font-size:11px; font-weight:800; color:#2b2440;
+    background:var(--gold); border-radius:999px; padding:4px 10px; text-decoration:none; box-shadow:0 2px 0 var(--gold-dark);}
   .log-empty{font-size:11px; color:var(--ink-soft); opacity:.7;}
   .rule{font-size:10.5px; color:var(--ink-soft); line-height:1.7;}
   .rule b{color:var(--ink);}
@@ -243,6 +253,11 @@
         <button class="order-btn" id="orderBtn" disabled>選別を依頼する</button>
         <div class="toast" id="orderToast"></div>
         <div class="queue" id="queue"><div class="q-empty">依頼はまだ無かよ</div></div>
+      </div>
+
+      <div class="panel" id="logPanel">
+        <h2>📋 活動ログ <span style="font-size:10px;color:var(--ink-soft);font-weight:400">成果物はここから開ける</span></h2>
+        <div class="log-list" id="logList"><div class="log-empty">まだ動きなし</div></div>
       </div>
 
       <div class="throne">
@@ -567,7 +582,7 @@ function drawLog(){
 
     lg.font = '27px "DM Mono", monospace';
     lg.fillStyle = '#8d84ad';
-    lg.fillText(l.time, 36, y);
+    lg.fillText(fmtLogTime(l.ts), 36, y);
 
     lg.font = 'bold 34px "M PLUS Rounded 1c", sans-serif';
     lg.fillStyle = '#e8a33d';
@@ -586,11 +601,40 @@ function drawLog(){
   logTexture.needsUpdate = true;
 }
 
-function pushLog(name, text){
-  const time = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
-  logs.unshift({ time, name, text });
-  if (logs.length > 12) logs.pop();
+const logListEl = document.getElementById('logList');
+const z2 = n => String(n).padStart(2, '0');
+function fmtLogTime(ts){
+  const d = new Date(ts), now = new Date();
+  const hm = `${z2(d.getHours())}:${z2(d.getMinutes())}`;
+  const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  return sameDay ? hm : `${d.getMonth()+1}/${d.getDate()} ${hm}`;
+}
+function renderLogList(){
+  logListEl.innerHTML = '';
+  if (!logs.length){ logListEl.innerHTML = '<div class="log-empty">まだ動きなし</div>'; return; }
+  logs.slice(0, 40).forEach(l => {
+    const d = document.createElement('div');
+    d.className = 'log-item ' + (l.kind || '');
+    d.innerHTML = `<span class="lt">${fmtLogTime(l.ts)}</span>
+      <span class="lb"><span class="ln">${l.name}</span><span class="lx">${l.text}</span>
+      ${l.url ? `<br><a class="lk" href="${l.url}" target="_blank" rel="noopener">📄 成果物を開く ›</a>` : ''}</span>`;
+    logListEl.appendChild(d);
+  });
+}
+/* pushLog(name, text, {ts, url, kind, key})  key が同じものは1回だけ載せる */
+function pushLog(name, text, opt){
+  opt = opt || {};
+  const ts = opt.ts ? new Date(opt.ts).getTime() : Date.now();
+  if (opt.key){
+    const i = logs.findIndex(l => l.key === opt.key);
+    if (i >= 0){ logs[i] = { ...logs[i], ts, name, text, url: opt.url, kind: opt.kind }; logs.sort((a,b) => b.ts - a.ts); drawLog(); renderLogList(); return; }
+  }
+  const time = fmtLogTime(ts);
+  logs.push({ ts, time, name, text, url: opt.url, kind: opt.kind, key: opt.key });
+  logs.sort((a,b) => b.ts - a.ts);
+  if (logs.length > 80) logs.length = 80;
   drawLog();
+  renderLogList();
 }
 drawLog();
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawLog);   // フォント読込後に描き直す
@@ -1041,7 +1085,6 @@ orderBtn.addEventListener('click', async () => {
   // ボタン操作のタイミングでしか通知の許可は求められん
   if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
   orderToast.textContent = '受け付けたばい。10分以内にヒビキが取りかかるけん';
-  pushLog(empName(MAISOKU_EMP), `「${target} マイソク${mdStr(date)}選別」を受付`);
   await loadQueue();
   syncOrderBtn();
 });
@@ -1082,22 +1125,32 @@ function renderQueue(items){
     queueEl.appendChild(d);
   });
 }
+function logFromInbox(rows){
+  const nm = empName(MAISOKU_EMP);
+  rows.forEach(it => {
+    const job = `${it.target} マイソク${mdStr(it.target_date)}`;
+    pushLog(nm, `「${job}選別」を受付`, { ts: it.created_at, kind:'order', key:`inbox-${it.id}-q` });
+    if (it.started_at) pushLog(nm, `${job} に着手`, { ts: it.started_at, kind:'running', key:`inbox-${it.id}-r` });
+    if (it.status === 'done')
+      pushLog(nm, `${job} 完了${it.result_summary ? '：' + it.result_summary : ''}`, { ts: it.finished_at || it.started_at || it.created_at, kind:'done', url: it.result_url, key:`inbox-${it.id}-d` });
+    else if (it.status === 'error')
+      pushLog(nm, `${job} 失敗：${it.result_summary || ''}`, { ts: it.finished_at || it.created_at, kind:'error', key:`inbox-${it.id}-e` });
+  });
+}
 async function loadQueue(){
-  const { data, error } = await sb.from(INBOX).select('*').order('id', { ascending:false }).limit(6);
+  const { data, error } = await sb.from(INBOX).select('*').order('id', { ascending:false }).limit(30);
   if (error || !data) return;
-  renderQueue(data);
+  renderQueue(data.slice(0, 6));
+  logFromInbox(data);
 }
 loadQueue();
 sb.channel('ai-office-inbox')
   .on('postgres_changes', { event:'*', schema:'public', table:INBOX }, payload => {
     const n = payload.new || {}, o = payload.old || {};
     if (payload.eventType === 'UPDATE' && o.status !== n.status){
-      const nm = empName(MAISOKU_EMP), job = `${n.target} マイソク${mdStr(n.target_date)}`;
-      if (n.status === 'running')     pushLog(nm, `${job} に着手`);
-      else if (n.status === 'done')  { pushLog(nm, `${job} 完了${n.result_summary ? '：' + n.result_summary : ''}`); notifyDone(n); resetOrderForm(); }
-      else if (n.status === 'error') { pushLog(nm, `${job} 失敗：${n.result_summary || ''}`); notifyDone(n); resetOrderForm(); }
+      if (n.status === 'done' || n.status === 'error'){ notifyDone(n); resetOrderForm(); }
     }
-    loadQueue();
+    loadQueue();   // ログ・キューとも inbox から再構成する
   })
   .subscribe();
 setInterval(loadQueue, 30000);   // Realtime取りこぼしの保険
