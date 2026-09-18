@@ -1008,7 +1008,6 @@ const queueEl  = document.getElementById('queue');
 const todayStr = () => { const d = new Date(); const z = n => String(n).padStart(2,'0'); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`; };
 const mdStr = iso => { const [,m,d] = iso.split('-'); return `${Number(m)}.${Number(d)}`; };
 tgtDate.value = todayStr();
-try { pinEl.value = localStorage.getItem('axia_order_pin') || ''; } catch(e){}
 
 TARGETS.forEach(t => {
   const b = document.createElement('button');
@@ -1036,7 +1035,6 @@ orderBtn.addEventListener('click', async () => {
     orderToast.textContent = '送れんかった：' + error.message;
     syncOrderBtn(); return;
   }
-  try { localStorage.setItem('axia_order_pin', pin); } catch(e){}
   // ボタン操作のタイミングでしか通知の許可は求められん
   if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
   orderToast.textContent = '受け付けたばい。10分以内にヒビキが取りかかるけん';
@@ -1046,6 +1044,14 @@ orderBtn.addEventListener('click', async () => {
 });
 
 const ST_LABEL = { queued:'⏳ 待ち', running:'🔧 作業中', done:'✅ 完了', error:'⚠️ 失敗' };
+/* 選別が終わったら入力欄をまっさらに戻す（対象チップ・PIN） */
+function resetOrderForm(){
+  orderTarget = null;
+  [...tgtChips.children].forEach(c => c.classList.remove('on'));
+  pinEl.value = '';
+  orderToast.textContent = '';
+  syncOrderBtn();
+}
 /* 完了・失敗をスマホに通知（ページを開いとる／ホーム画面に追加しとる間） */
 function notifyDone(row){
   const job = `${row.target} マイソク${mdStr(row.target_date)}`;
@@ -1085,8 +1091,8 @@ sb.channel('ai-office-inbox')
     if (payload.eventType === 'UPDATE' && o.status !== n.status){
       const nm = empName(MAISOKU_EMP), job = `${n.target} マイソク${mdStr(n.target_date)}`;
       if (n.status === 'running')     pushLog(nm, `${job} に着手`);
-      else if (n.status === 'done')  { pushLog(nm, `${job} 完了${n.result_summary ? '：' + n.result_summary : ''}`); notifyDone(n); }
-      else if (n.status === 'error') { pushLog(nm, `${job} 失敗：${n.result_summary || ''}`); notifyDone(n); }
+      else if (n.status === 'done')  { pushLog(nm, `${job} 完了${n.result_summary ? '：' + n.result_summary : ''}`); notifyDone(n); resetOrderForm(); }
+      else if (n.status === 'error') { pushLog(nm, `${job} 失敗：${n.result_summary || ''}`); notifyDone(n); resetOrderForm(); }
     }
     loadQueue();
   })
