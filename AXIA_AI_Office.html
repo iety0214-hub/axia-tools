@@ -356,6 +356,16 @@ const APPS = {
   6: [ {ico:'✉️', nm:'メール生成ツール', ds:'定型文を作ってGmail送信',      file:'Gmail_builder.html'} ],
   7: [],
 };
+// 右下「📱 アプリ一覧」に出すアプリ（この順で並ぶ）
+const ALL_APPS = [
+  {ico:'📂', nm:'Driveランチャー',   ds:'マイソク等のDriveフォルダ閲覧', file:'AXIA_Drive_Launcher.html'},
+  {ico:'📒', nm:'金消アプリ',        ds:'承認日・契約日・金消日の台帳',  file:'AXIA_Kinsho.html'},
+  {ico:'✅', nm:'仕入れTODO',        ds:'仕入れチェックリスト',          file:'AXIA_stock_todo.html'},
+  {ico:'🏠', nm:'物件TODO',          ds:'物件ごとの進捗チェック',        file:'AXIA_buken_todo.html'},
+  {ico:'✉️', nm:'メール生成ツール',   ds:'定型文を作ってGmail送信',       file:'Gmail_builder.html'},
+  {ico:'🧮', nm:'諸費用計算',        ds:'楽天・SBIの諸費用を計算',       file:'諸費用計算アプリ_楽天_SBI.html'},
+  {ico:'📊', nm:'返済比率計算',      ds:'返済比率をその場で計算',        file:'返済比率計算アプリ.html'},
+];
 
 const SPACING = 3.4;
 const gridX = c => (c - 1) * SPACING;
@@ -1040,11 +1050,7 @@ function showEmployeeSheet(id){
 function showAllApps(){
   sheetTitle.textContent = '📱 アプリ一覧';
   sheetSub.textContent = 'AXIAツールを全部ここから開けるばい';
-  const all = [];
-  Object.keys(APPS).forEach(k => (APPS[k] || []).forEach(a => {
-    if (!all.some(x => x.file === a.file)) all.push(a);
-  }));
-  buildAppList(all);
+  buildAppList(ALL_APPS);
   sheetOrder.style.display = 'none';
   openSheet();
 }
