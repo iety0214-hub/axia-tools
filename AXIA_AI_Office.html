@@ -270,10 +270,10 @@
       </div>
 
       <div class="throne">
-        <h2>🗣 くろへ指示</h2>
-        <div class="desc">くろが受けて担当の社員に振るばい。指示された社員は席に戻って作業を始めるっちゃ。</div>
-        <select id="who"><option value="">— 誰に指示する？ —</option></select>
-        <input id="msg" placeholder="例：NET4.5%以上だけ選別して">
+        <h2>🗣 家原へ指示</h2>
+        <div class="desc">指示は全部 家原 が受けて席に着くっちゃ。内容は活動ログに残る（自動では実行されん）。</div>
+        <select id="who" style="display:none"><option value="">—</option></select>
+        <input id="msg" placeholder="例：NAXの9.18は仮家賃を見直して">
         <button id="send" disabled>指示を出す</button>
         <div class="toast" id="toast"></div>
       </div>
@@ -301,7 +301,7 @@
   </div>
   <div class="sheet-sub" id="sheetSub"></div>
   <div class="app-list" id="appList"></div>
-  <button class="sheet-order" id="sheetOrder">この社員に指示を出す</button>
+  <button class="sheet-order" id="sheetOrder">家原に指示を出す</button>
 </div>
 
 <script>
@@ -903,7 +903,8 @@ function goWander(a){
 }
 
 /* うろうろ歩き回ってよい社員（タップしにくくなるけん1人だけ）。null にすると全員うろつく */
-const MOBILE_ID = 5;   // 家原
+const MOBILE_ID = 5;
+const DISPATCH_ID = 5;   // 依頼・指示の受け付け係（家原）   // 家原
 
 function desiredMode(status, id){
   if (status === '進行中') return 'desk';
@@ -990,7 +991,7 @@ function renderSelect(){
     o.textContent = (r.avatar && r.avatar.name) || DESKS[r.id].plate;
     sel.appendChild(o);
   });
-  sel.value = selectedId ? String(selectedId) : '';
+  sel.value = String(DISPATCH_ID);   // 指示は全部 家原 が受ける
   syncSendBtn();
 }
 
@@ -1039,7 +1040,7 @@ function showEmployeeSheet(id){
   sheetOrder.onclick = () => {
     closeSheet();
     const w = document.getElementById('who');
-    w.value = String(id);
+    w.value = String(DISPATCH_ID);
     w.dispatchEvent(new Event('change'));
     document.getElementById('msg').scrollIntoView({behavior:'smooth', block:'center'});
     setTimeout(() => document.getElementById('msg').focus(), 350);
@@ -1112,7 +1113,7 @@ orderBtn.addEventListener('click', async () => {
   }
   // ボタン操作のタイミングでしか通知の許可は求められん
   if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
-  orderToast.textContent = '受け付けたばい。PCのClaudeが拾うまで「⏳ 待ち」のままやけん、選別はPC側で回してね';
+  orderToast.textContent = '家原が受け付けたばい。PCの実行役が拾うまで「⏳ 待ち」のままやけん';
   await loadQueue();
   syncOrderBtn();
 });
