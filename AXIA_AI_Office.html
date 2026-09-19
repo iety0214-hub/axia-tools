@@ -1060,6 +1060,10 @@ document.getElementById('sheetClose').addEventListener('click', closeSheet);
 sheetMask.addEventListener('click', closeSheet);
 
 /* ═══════════ マイソク選別の依頼（axia_claude_inbox） ═══════════ */
+/* 読み直しの保険：画面に見えとって、かつ Realtime が切れとるときだけ回す */
+const live = {};
+const backup = (fn, ms, ch) => setInterval(() => { if (!document.hidden && !live[ch]) fn(); }, ms);
+
 const INBOX = 'axia_claude_inbox';
 const MAISOKU_EMP = 1;                       // 仕入れ（マイソク）＝ヒビキ
 const TARGETS = [
@@ -1108,7 +1112,7 @@ orderBtn.addEventListener('click', async () => {
   }
   // ボタン操作のタイミングでしか通知の許可は求められん
   if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
-  orderToast.textContent = '受け付けたばい。10分以内にヒビキが取りかかるけん';
+  orderToast.textContent = '受け付けたばい。PCのClaudeが拾うまで「⏳ 待ち」のままやけん、選別はPC側で回してね';
   await loadQueue();
   syncOrderBtn();
 });
@@ -1182,8 +1186,8 @@ sb.channel('ai-office-inbox')
     }
     loadQueue();   // ログ・キューとも inbox から再構成する
   })
-  .subscribe();
-setInterval(loadQueue, 30000);   // Realtime取りこぼしの保険
+  .subscribe(s => { live.inbox = (s === 'SUBSCRIBED'); });
+backup(loadQueue, 30000, 'inbox');   // Realtime が切れとる間だけの保険
 
 /* ═══════════ 活動ログ（axia_office_log：くろへの指示・状態変化を DB トリガーで記録） ═══════════ */
 const OLOG = 'axia_office_log';
@@ -1204,8 +1208,8 @@ sb.channel('ai-office-log')
   .on('postgres_changes', { event:'INSERT', schema:'public', table:OLOG }, payload => {
     if (payload.new) pushOfficeLog(payload.new);
   })
-  .subscribe();
-setInterval(loadOfficeLog, 30000);
+  .subscribe(s => { live.olog = (s === 'SUBSCRIBED'); });
+backup(loadOfficeLog, 30000, 'olog');
 
 /* ═══════════ 操作 ═══════════ */
 const raycaster = new THREE.Raycaster();
@@ -1318,7 +1322,7 @@ sb.channel('ai-office-3d')
     renderAll();   // 活動ログは axia_office_log（DBトリガー）から入る
   })
   .subscribe(status => {
-    realtimeOK = (status === 'SUBSCRIBED');
+    realtimeOK = live.office = (status === 'SUBSCRIBED');
     const sub = document.getElementById('sub');
     if (status === 'SUBSCRIBED')      sub.textContent = 'axia_cowork_office と Realtime連携中 🟢';
     else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT')
@@ -1341,7 +1345,12 @@ async function poll(){
   });
   if (changed){ rows.sort((a,b)=>a.id-b.id); renderAll(); }
 }
-setInterval(poll, 10000);
+backup(poll, 10000, 'office');
+// スマホで裏に回すと接続が寝るけん、戻ってきたときに1回だけ追いつく
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  poll(); loadQueue(); loadOfficeLog();
+});
 
 /* ═══════════ リサイズ & ループ ═══════════ */
 function resize(){
