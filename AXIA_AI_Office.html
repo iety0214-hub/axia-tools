@@ -1024,6 +1024,7 @@ function buildAppList(list){
     const a = document.createElement('a');
     a.className = 'app-link';
     a.href = APP_BASE + app.file;
+    if (matchMedia('(pointer:fine)').matches){ a.target = '_blank'; a.rel = 'noopener'; }   // PC（マウス操作）は別タブ
     a.innerHTML = `<span class="ico">${app.ico}</span>
       <span class="tx"><span class="nm2">${app.nm}</span><span class="ds">${app.ds}</span></span>
       <span class="ar">›</span>`;
