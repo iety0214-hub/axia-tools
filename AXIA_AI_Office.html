@@ -58,7 +58,7 @@
     .main-layout{flex-direction:column; align-items:stretch;}   /* 縦並びでは幅いっぱいに */
     .side-col{display:contents;}                 /* 中身を直接並べて順番を入れ替える */
     #orderPanel{order:-1;}                       /* スマホでは依頼パネルを3Dの上に */
-    #logPanel{order:-1;}                         /* 活動ログ（成果物）もその下に */
+    #logPanel{order:0;}                          /* 成果物は3Dオフィスの直後 */
     .stage-wrap{width:100%; flex:none; order:0;}
     .throne{order:1;}
     .side-col > .panel:not(.order){order:2;}
@@ -266,11 +266,8 @@
       </div>
 
       <div class="panel" id="logPanel">
-        <h2>📋 活動ログ</h2>
-        <div class="deliv-head">📄 成果物</div>
+        <h2>📄 成果物</h2>
         <div class="queue" id="queue"><div class="q-empty">まだ成果物は無かよ</div></div>
-        <div class="deliv-head" style="margin-top:14px">🕘 履歴</div>
-        <div class="log-list" id="logList"><div class="log-empty">まだ動きなし</div></div>
       </div>
 
       <div class="throne">
@@ -630,6 +627,7 @@ function fmtLogTime(ts){
   return sameDay ? hm : `${d.getMonth()+1}/${d.getDate()} ${hm}`;
 }
 function renderLogList(){
+  if (!logListEl) return;          // 履歴は壁モニターだけに出す
   logListEl.innerHTML = '';
   if (!logs.length){ logListEl.innerHTML = '<div class="log-empty">まだ動きなし</div>'; return; }
   logs.slice(0, 40).forEach(l => {
