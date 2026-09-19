@@ -245,7 +245,6 @@
         <div class="label-layer" id="labels"></div>
         <div class="hint">ドラッグで回転 / ピンチでズーム / 社員をタップで担当アプリを開く</div>
         <div class="cam-btns">
-          <button class="cam-btn" id="btnSpin">自動回転 OFF</button>
           <button class="cam-btn" id="btnReset">視点リセット</button>
           <button class="cam-btn" id="btnFull">全画面</button>
           <button class="cam-btn" id="btnApps" style="background:var(--gold);color:#2b2440;font-weight:800">📱 アプリ一覧</button>
@@ -1235,11 +1234,6 @@ renderer.domElement.addEventListener('pointerup', e => {
   if (selectedId !== null) showEmployeeSheet(selectedId); else closeSheet();
 });
 
-document.getElementById('btnSpin').addEventListener('click', e => {
-  controls.autoRotate = !controls.autoRotate;
-  e.target.classList.toggle('on', controls.autoRotate);
-  e.target.textContent = controls.autoRotate ? '自動回転 ON' : '自動回転 OFF';
-});
 document.getElementById('btnReset').addEventListener('click', () => {
   camera.position.copy(HOME);
   controls.target.set(1.1, 0.9, 0);
