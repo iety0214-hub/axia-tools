@@ -148,6 +148,9 @@ function Field({label,value,onChange,unit,children}){
   </div>
 }
 
+// 金融機関ごとの審査金利（固定）
+const RATES={rk:0.03194,sbj:0.022,sbi:0.025,ion:0.03,hig:0.035};
+
 const STORE_KEY='axia_hensai_v1';
 function loadSaved(){try{return JSON.parse(localStorage.getItem(STORE_KEY))||{}}catch(e){return {}}}
 const SAVED=loadSaved();
@@ -163,18 +166,17 @@ function App(){
   const [others,setOthers]=useState(sv('others',[{debt:0,payment:0}]));
   const [homeRent,setHomeRent]=useState(sv('homeRent',30000));
   const [props,setProps]=useState(sv('props',[{price:30000000,bonus:0,rent:80000,mgmt:0}]));
-  const [calcRate,setCalcRate]=useState(sv('calcRate',4.0));
   const [deduction,setDeduction]=useState(sv('deduction',''));
   const [tab,setTab]=useState("input");
 
   useEffect(()=>{
-    try{localStorage.setItem(STORE_KEY,JSON.stringify({salary,age,years,members,pref,owned,others,homeRent,props,calcRate,deduction}))}catch(e){}
-  },[salary,age,years,members,pref,owned,others,homeRent,props,calcRate,deduction]);
+    try{localStorage.setItem(STORE_KEY,JSON.stringify({salary,age,years,members,pref,owned,others,homeRent,props,deduction}))}catch(e){}
+  },[salary,age,years,members,pref,owned,others,homeRent,props,deduction]);
   const resetAll=()=>{
     if(!confirm('入力内容をすべて初期値に戻す？'))return;
     setSalary(6100000);setAge(26);setYears(3);setMembers(1);setPref("千葉県");
     setOwned([{debt:0,payment:0,bonus:0,rent:0,mgmt:0}]);setOthers([{debt:0,payment:0,bonus:0}]);
-    setHomeRent(30000);setProps([{price:30000000,bonus:0,rent:80000,mgmt:0}]);setCalcRate(4.0);setDeduction('');
+    setHomeRent(30000);setProps([{price:30000000,bonus:0,rent:80000,mgmt:0}]);setDeduction('');
   };
 
   const uOwn=(i,k,v)=>setOwned(p=>p.map((x,j)=>j===i?{...x,[k]:v}:x));
@@ -184,7 +186,7 @@ function App(){
 
   const calc=useMemo(()=>{
     const s=Number(salary)||0,a=Number(age)||0,yrs=Number(years)||0,mem=Number(members)||1;
-    const rate=(Number(calcRate)||4)/100;
+    const rate=RATES.rk;
 
     const existPayY=owned.reduce((t,o)=>t+(Number(o.payment)||0)*12,0);
     const existRentY=owned.reduce((t,o)=>t+(Number(o.rent)||0)*12,0);
@@ -205,6 +207,8 @@ function App(){
       return{price,mp,yp,bonus,rent,mgmt};
     });
     const propYearlyTotal=pc.reduce((t,p)=>t+p.yp+p.bonus*2,0);
+    // 指定金利での今回物件の年間返済（ボーナス込み）
+    const propYearlyAt=r=>pc.reduce((t,p)=>t+(p.price>0?PMT(r/12,35*12,p.price)*12:0)+p.bonus*2,0);
     const propRentTotal=pc.reduce((t,p)=>t+p.rent,0)*12;
     const propMgmtTotal=pc.reduce((t,p)=>t+p.mgmt,0)*12;
     const propPriceTotal=pc.reduce((t,p)=>t+p.price,0);
@@ -227,15 +231,13 @@ function App(){
     const tax=calcTax(s,si);
 
     const rkDebtH=totalDebt*0.5;
-    const rkRepay=PMT(0.03127/12,300,rkDebtH)*12;
+    const rkRepay=PMT(RATES.rk/12,300,rkDebtH)*12;
     const rkB=s*0.7-2000000;
     const rkC=rkB-homeRentY;
     const rkD=rkC-(otherPayY+otherBonusY);
     const rkMargin=rkD-rkRepay;
 
-    const sbjR=0.01975;
-    const sbjPY=pc.reduce((t,p)=>{return t+(p.price>0?PMT(sbjR/12,35*12,p.price)*12:0)},0);
-    const sbjPWB=sbjPY+pc.reduce((t,p)=>t+p.bonus*2,0);
+    const sbjPWB=propYearlyAt(RATES.sbj);
     const sbjTotalRepay=sbjPWB+existPayY+otherPayY+existBonusY+otherBonusY;
     const sbjYM=s>0?totalDebt/s:99;
     const sbjA1=s+existRentY*0.7+propRentTotal*0.7-si-tax.total;
@@ -244,17 +246,19 @@ function App(){
     const sbjFam=960000*mem;
     const sbjDisp=sbjA1-(sbjB+sbjFam);
 
-    const ionR1=s>0?totalAP/s:99;
-    const ionR2=(s+totalRent)>0?totalAP/(s+totalRent):99;
+    const ionAP=existTotalY+propYearlyAt(RATES.ion);
+    const ionR1=s>0?ionAP/s:99;
+    const ionR2=(s+totalRent)>0?ionAP/(s+totalRent):99;
     const ionBM=s<=7000000?7:s<=8500000?9:s<=10000000?11:12;
     // existTotalYに自宅家賃を含むため、ここで家賃を再度足さない（二重計上防止）
-    const ionDisp=(s-si-tax.total)-(existTotalY+propYearlyTotal+3360000);
+    const ionDisp=(s-si-tax.total)-(ionAP+3360000);
 
-    const sbiRatio=(s+totalRent)>0?totalAP/(s+totalRent):99;
+    const sbiAP=existTotalY+propYearlyAt(RATES.sbi);
+    const sbiRatio=(s+totalRent)>0?sbiAP/(s+totalRent):99;
     const sbiBR=0.4;const sbiBM=s<=10000000?10:12;
     const sbiRate2=s<5000000?0.022:s<=10000000?0.018:0.016;
 
-    const hPR=pc.reduce((t,p)=>t+(p.price>0?PMT(0.035/12,35*12,p.price)*12+p.bonus*2:0),0);
+    const hPR=propYearlyAt(RATES.hig);
     const hTR=hPR+existTotalY;
     const hS35=s*0.35;
     const hR70=(totalRent-(existMgmtY+propMgmtTotal))*0.7;
@@ -267,11 +271,11 @@ function App(){
       ratioNet,ratio70,ratio100,yrMult,si,tax,siAuto,dedManual,
       rk:{repay:rkRepay,b:rkB,c:rkC,d:rkD,margin:rkMargin,pass:rkMargin>0},
       sbj:{ym:sbjYM,bm:12,mPass:sbjYM<12,a1:sbjA1,b:sbjB,ratio:sbjRatio,disp:sbjDisp,dPass:sbjDisp>=1000000,pass:sbjYM<12&&sbjDisp>=1000000},
-      ion:{r1:ionR1,r2:ionR2,bm:ionBM,disp:ionDisp,rPass:ionR1<0.5&&ionR2<0.35,mPass:yrMult<ionBM,dPass:ionDisp>100000,pass:ionR1<0.5&&ionR2<0.35&&yrMult<ionBM&&a>=25&&yrs>=2&&ionDisp>100000},
-      sbi:{ratio:sbiRatio,br:sbiBR,bm:sbiBM,rate:sbiRate2,pass:sbiRatio<sbiBR&&yrMult<sbiBM&&a>=25&&yrs>=3},
+      ion:{ap:ionAP,r1:ionR1,r2:ionR2,bm:ionBM,disp:ionDisp,rPass:ionR1<0.5&&ionR2<0.35,mPass:yrMult<ionBM,dPass:ionDisp>100000,pass:ionR1<0.5&&ionR2<0.35&&yrMult<ionBM&&a>=25&&yrs>=2&&ionDisp>100000},
+      sbi:{ap:sbiAP,ratio:sbiRatio,br:sbiBR,bm:sbiBM,rate:sbiRate2,pass:sbiRatio<sbiBR&&yrMult<sbiBM&&a>=25&&yrs>=3},
       hig:{pr:hPR,tr:hTR,s35:hS35,r70:hR70,margin:hMargin,bm:hBM,mPass:yrMult<hBM,pass:hMargin>0&&yrMult<hBM}
     };
-  },[salary,age,years,members,pref,owned,others,homeRent,props,calcRate,deduction]);
+  },[salary,age,years,members,pref,owned,others,homeRent,props,deduction]);
 
   const banks=[
     {key:"rk",label:"楽天",pass:calc.rk.pass},
@@ -369,10 +373,16 @@ function App(){
               <div style={{flex:1}}><Field label="管積" value={p.mgmt} onChange={v=>uProp(i,'mgmt',v)} unit="円/月"/></div>
               <div style={{flex:1}}><Field label="ボーナス" value={p.bonus||0} onChange={v=>uProp(i,'bonus',v)} unit="円"/></div>
             </div>
-            <div style={{fontSize:11,color:C.sub,marginTop:2}}>月支払: ¥{fmt(calc.pc[i]?.mp)}</div>
+            <div style={{fontSize:11,color:C.sub,marginTop:2}}>月支払: ¥{fmt(calc.pc[i]?.mp)}（3.194%・35年）</div>
           </div>)}
           {props.length<6&&addBtn('＋ 物件追加',()=>setProps(p=>[...p,{price:0,bonus:0,rent:0,mgmt:0}]))}
-          <div style={{marginTop:10}}><Field label="計算金利" value={calcRate} onChange={setCalcRate} unit="%"/></div>
+          <div style={{marginTop:10,padding:10,background:C.inputBg,border:`1px solid ${C.border}`,borderRadius:8}}>
+            <div style={{fontSize:11,fontWeight:700,color:C.label,marginBottom:6}}>審査金利（固定・35年）</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6,fontSize:11,color:C.sub}}>
+              {[['楽天','3.194%'],['SBJ','2.2%'],['SBI','2.5%'],['イオン','3.0%'],['東日本','3.5%']].map(([n,r])=>
+                <span key={n} style={{background:'#fff',border:`1px solid ${C.border}`,borderRadius:6,padding:'3px 8px'}}>{n} <b style={{color:C.text}}>{r}</b></span>)}
+            </div>
+          </div>
         </div>
         <div style={{...sCard,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <span style={{fontSize:12,color:C.label}}>年収倍率 <span style={{fontSize:10,color:C.sub}}>（残債＋購入価格）÷年収</span></span>
@@ -411,8 +421,8 @@ function App(){
         <div style={sCard}>
           <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>🔢 返済額内訳</div>
           <RRow label="既存借入（年額）" value={`¥${fmt(calc.existTotalY)}`} sub={(calc.existBonusY+calc.otherBonusY)>0?`ボーナス ¥${fmt(calc.existBonusY+calc.otherBonusY)}含む`:null}/>
-          <RRow label="今回物件（年額）" value={`¥${fmt(calc.propYearlyTotal)}`}/>
-          <RRow label="合計年間返済額" value={`¥${fmt(calc.totalAP)}`}/>
+          <RRow label="今回物件（年額）" value={`¥${fmt(calc.propYearlyTotal)}`} sub="3.194%"/>
+          <RRow label="合計年間返済額" value={`¥${fmt(calc.totalAP)}`} sub="3.194%"/>
           <Divider/>
           <RRow label="合計年間賃料収入" value={`¥${fmt(calc.totalRent)}`}/>
           <RRow label="既存借入 残債" value={`¥${fmt(calc.existDebt)}`}/>
@@ -428,7 +438,7 @@ function App(){
         </div>
         <div style={sCard}>
           <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>返済比率計算</div>
-          <RRow label="A（3.127%審査金利での年間返済）" value={`¥${fmt(calc.rk.repay)}`}/>
+          <RRow label="A（3.194%審査金利での年間返済）" value={`¥${fmt(calc.rk.repay)}`}/>
           <RRow label="B（給与×70% − 200万）" value={`¥${fmt(calc.rk.b)}`}/>
           <RRow label="C（B − 家賃）" value={`¥${fmt(calc.rk.c)}`}/>
           <RRow label="D（C − その他借入）" value={`¥${fmt(calc.rk.d)}`}/>
@@ -452,7 +462,7 @@ function App(){
         <div style={sCard}>
           <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>基準2：可処分所得</div>
           <RRow label="A①（年収+賃料70%−社保−税金）" value={`¥${fmt(calc.sbj.a1)}`}/>
-          <RRow label="B（年間返済+自宅賃料）" value={`¥${fmt(calc.sbj.b)}`}/>
+          <RRow label="B（年間返済+自宅賃料）" value={`¥${fmt(calc.sbj.b)}`} sub="本件2.2%"/>
           <RRow label="返済比率" value={fmtP(calc.sbj.ratio)} sub="（基準50%）"/>
           <Divider/>
           <RRow label="扶養控除額" value={`¥${fmt(960000*members)}`}/>
@@ -467,6 +477,7 @@ function App(){
         </div>
         <div style={sCard}>
           <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>基準1：返済比率＋年収倍率</div>
+          <RRow label="合計年間返済額" value={`¥${fmt(calc.ion.ap)}`} sub="本件3.0%"/>
           <RRow label="返済比率①（給与のみ）" value={fmtP(calc.ion.r1)} sub="基準50%"/>
           <RRow label="返済比率②（賃料100%合算）" value={fmtP(calc.ion.r2)} sub="基準35%"/>
           <RRow label="年収倍率" value={`${fmtR(calc.yrMult)}倍`} sub={`基準${calc.ion.bm}倍`}/>
@@ -486,6 +497,7 @@ function App(){
         </div>
         <div style={sCard}>
           <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>返済比率計算<span style={{fontSize:10,fontWeight:400,color:C.sub,marginLeft:6}}>（Excel「DAF合否」準拠）</span></div>
+          <RRow label="合計年間返済額" value={`¥${fmt(calc.sbi.ap)}`} sub="本件2.5%"/>
           <RRow label="返済比率（賃料100%合算）" value={fmtP(calc.sbi.ratio)} sub={`基準${fmtP(calc.sbi.br)}`}/>
           <RRow label="年収倍率" value={`${fmtR(calc.yrMult)}倍`} sub={`基準${calc.sbi.bm}倍`}/>
           <RRow label="適用金利" value={fmtP(calc.sbi.rate)}/>
