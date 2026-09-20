@@ -1140,8 +1140,9 @@ function renderQueue(items){
   queueEl.innerHTML = '';
   const seen = new Set();
   items = items.filter(it => {
-    if (it.status === 'queued' || it.status === 'running' || it.status === 'error') return true;
-    if (it.status !== 'done' || !it.result_url || seen.has(it.result_url)) return false;
+    if (it.status !== 'done') return true;                       // 待ち・作業中・失敗はそのまま
+    if (!it.result_url) return true;                             // URLが取れんかった完了も出す
+    if (seen.has(it.result_url)) return false;                   // 同じ成果物は1回だけ
     seen.add(it.result_url); return true;
   });
   if (!items.length){ queueEl.innerHTML = '<div class="q-empty">まだ成果物は無かよ</div>'; return; }
