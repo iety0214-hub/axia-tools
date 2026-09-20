@@ -1414,10 +1414,10 @@
             }
 
             // メール本文生成（シンプル版）
-            // オープンは件名で分かるので【種別】【区分】を出さない
-            let report = '';
+            // 【種別】はSlack連携（GAS）が申込／オープンの判定に使うので必ず出す。
+            // オープンのときは【区分】だけ省く。
+            let report = '【種別】' + reportType + '\n';
             if (!isOpen) {
-                report += '【種別】' + reportType + '\n';
                 report += '【区分】' + category + '\n';
             }
             report += '【顧客名】' + finalCustomerName + '\n';
