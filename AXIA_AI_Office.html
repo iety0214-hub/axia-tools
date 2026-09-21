@@ -1062,10 +1062,19 @@ const backup = (fn, ms, ch) => setInterval(() => { if (!document.hidden && !live
 
 const INBOX = 'axia_claude_inbox';
 const MAISOKU_EMP = 1;                       // 仕入れ（マイソク）＝ヒビキ
+// folder＝成果物xlsxを置く Drive フォルダ（URLが取れんかった完了はここを開く）
 const TARGETS = [
-  {nm:'髙田'}, {nm:'長谷川'}, {nm:'家原'},
-  {nm:'Rich Door', ext:true}, {nm:'オーセントラスト', ext:true}, {nm:'NAX', ext:true},
+  {nm:'髙田',   folder:'1E4yfXKqrGDh3ZcLnL5x_Ww7XACL2C34_'},
+  {nm:'長谷川', folder:'1yIFCwHyV5WcjYQ9XiF8cL7TtgOWomp8n'},
+  {nm:'家原',   folder:'17Tr3jB91TIoDcPQDGBgQPXzNxRMWmfSM'},
+  {nm:'Rich Door',       ext:true, folder:'10MAV1M8-nwMsw5laJDZTRICRAvpE1UPF'},
+  {nm:'オーセントラスト', ext:true, folder:'1IgPC4gxeV5M0FtRbbN_MUdxbeueOysoI'},
+  {nm:'NAX',             ext:true, folder:'1NSR7Kx4CduQZFFF6Jb49RG3N9CK9qyg-'},
 ];
+const folderUrl = target => {
+  const t = TARGETS.find(x => x.nm === target);
+  return t && t.folder ? `https://drive.google.com/drive/folders/${t.folder}` : '';
+};
 let orderTarget = null;
 const tgtChips = document.getElementById('tgtChips');
 const tgtDate  = document.getElementById('tgtDate');
@@ -1132,7 +1141,8 @@ function notifyDone(row){
   if ('Notification' in window && Notification.permission === 'granted'){
     try {
       const n = new Notification(title, { body, tag:'maisoku-' + row.id, icon:'./透過.png' });
-      if (row.result_url) n.onclick = () => { window.open(row.result_url, '_blank'); n.close(); };
+      const open = row.result_url || (ok ? folderUrl(row.target) : '');
+      if (open) n.onclick = () => { window.open(open, '_blank'); n.close(); };
     } catch(e){}
   }
 }
@@ -1150,9 +1160,13 @@ function renderQueue(items){
     const d = document.createElement('div');
     d.className = 'q';
     const sub = (it.status === 'done' || it.status === 'error') ? (it.result_summary || '') : '';
+    // 成果物URLがあればそのファイル、無い完了は対象のDriveフォルダを開く
+    const link = it.result_url
+      ? `<a href="${it.result_url}" target="_blank" rel="noopener">開く ›</a>`
+      : (it.status === 'done' && folderUrl(it.target) ? `<a href="${folderUrl(it.target)}" target="_blank" rel="noopener">フォルダ ›</a>` : '');
     d.innerHTML = `<span class="st ${it.status}">${ST_LABEL[it.status] || it.status}</span>
       <span class="tx">${it.target} マイソク${mdStr(it.target_date)}${sub ? `<small>${sub}</small>` : ''}</span>
-      ${it.result_url ? `<a href="${it.result_url}" target="_blank" rel="noopener">開く ›</a>` : ''}`;
+      ${link}`;
     queueEl.appendChild(d);
   });
 }
