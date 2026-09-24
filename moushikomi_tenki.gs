@@ -52,8 +52,9 @@ function processMoushikomi() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(10 * 1000)) return;
   try {
-    const ss = SpreadsheetApp.openById(SHEET_ID);
     const threads = GmailApp.search(SEARCH_QUERY, 0, 20);
+    if (!threads.length) return;  // 申込メールがない回はシートを開かずに終わる
+    const ss = SpreadsheetApp.openById(SHEET_ID);
     threads.forEach(thread => {
       try {
         thread.getMessages()
