@@ -1038,8 +1038,8 @@ function App() {
   };
 
   const mainF = settings.fields.find(f => f.key === settings.mainKey);
-  // 承認日の早い順に自動で並べる（承認日が空の行は下にまとめ、同じ日は今までの並び順）
-  const apprF = settings.fields.find(f => /承認/.test(f.label || ''));
+  // 契約日の早い順に自動で並べる（契約日が空の行は下にまとめ、同じ日時は今までの並び順）
+  const apprF = settings.fields.find(f => /契約/.test(f.label || ''));
   const apprKey = (r) => {
     if (!apprF) return '9999';
     const v = (r.fields || {})[apprF.key];
@@ -1105,7 +1105,7 @@ function App() {
   // months＝印刷したい月の配列。複数選んだときは改ページせず、月の区切り帯を挟んで続けて流し込む
   const printTable = (months) => {
     const ms = (months && months.length ? [...months] : [month]).sort();
-    // 選んだ月の行を「月順 → その月の承認日順」でひとつなぎにする
+    // 選んだ月の行を「月順 → その月の契約日順」でひとつなぎにする
     const target = ms.flatMap(k =>
       all.filter(r => r.month === k && hit(r)).sort(byAppr)
     );
@@ -1297,7 +1297,7 @@ tr.band { page-break-after:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.9.4
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.9.5
         </div>
       </div>
 
