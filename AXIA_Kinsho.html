@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="light">
 <title>金消予定日 一覧 | AXIA JAPAN</title>
 <!-- スマホのホーム画面に追加したとき、アプリとして開くための設定 -->
-<link rel="manifest" href="AXIA_Kinsho.webmanifest?v=2">
+<link rel="manifest" href="AXIA_Kinsho.webmanifest">
 <meta name="theme-color" content="#1e2a4a">
 <link rel="icon" href="kinsho/icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="kinsho/icon-180.png">
@@ -91,6 +91,7 @@ const DEFAULT_SETTINGS = {
 const genKey = () => 'f_' + Math.random().toString(36).slice(2, 8);
 const ym = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
 const ymLabel = (k) => { const [y, m] = k.split('-'); return `${y}年${Number(m)}月`; };
+const monLabel = (k) => `${Number(k.split('-')[1])}月`;   // ボタン用の短い表記
 const addMonth = (k, n) => { const [y, m] = k.split('-').map(Number); return ym(new Date(y, m - 1 + n, 1)); };
 
 const fmtDate = (s) => {
@@ -337,7 +338,7 @@ function TextInput({ value, onCommit, placeholder, style, list, inputMode }) {
 }
 
 /* ===== カード ===== */
-function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onPatch, onDelete, onCopy, onDup }) {
+function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onPatch, onDelete, onCopy, onDup, onMove }) {
   // 開閉しても、タップしたカードの見出しが画面上の同じ位置に留まるようにする
   // （上の開いとったカードが閉じて、タップしたカードが上にずれるのを防ぐ）
   const headRef = useRef(null);
@@ -635,7 +636,17 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
             })}
           </div>
 
+          {/* この1件だけを前の月・次の月へ移す */}
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <button onClick={() => onMove(-1)} style={{ ...subBtn, padding: '10px', fontSize: 12, whiteSpace: 'nowrap' }}>
+              ◀ {monLabel(addMonth(r.month, -1))}へ移す
+            </button>
+            <button onClick={() => onMove(1)} style={{ ...subBtn, padding: '10px', fontSize: 12, whiteSpace: 'nowrap' }}>
+              {monLabel(addMonth(r.month, 1))}へ移す ▶
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
             <button onClick={onDup} style={{ ...subBtn, padding: '10px', fontSize: 12, whiteSpace: 'nowrap' }}>⧉ この行を複製</button>
             <button onClick={closeFromBottom} style={{
               flex: 1, padding: '10px', border: `1px solid ${LINE}`, background: '#f7f8fa',
@@ -1003,6 +1014,15 @@ function App() {
   };
 
   // 同じ条件の案件を作るとき用：中身ごとコピーして1行増やす（主要日付だけは空にする）
+  // この1件を前後の月へ移す。移した先では一番下に置く
+  const moveMonth = (r, dir) => {
+    const to = addMonth(r.month, dir);
+    const maxSo = all.filter(x => x.month === to).reduce((m, x) => Math.max(m, x.sort_order ?? 0), 0);
+    setOpenId(null);
+    setExtraMonths(e => [...e, to]);
+    patch(r.id, { month: to, sort_order: maxSo + 1000 });
+  };
+
   const dup = async (r) => {
     lock.current = Date.now();
     const mf = settings.fields.find(f => f.key === settings.mainKey);
@@ -1277,7 +1297,7 @@ tr.band { page-break-after:avoid; }
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.9.3
+          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.9.4
         </div>
       </div>
 
@@ -1317,7 +1337,7 @@ tr.band { page-break-after:avoid; }
             unsaved={!!pending[r.id]} suggests={suggests} nameSuggest={nameSuggest}
             onToggle={() => setOpenId(openId === r.id ? null : r.id)}
             onPatch={p => patch(r.id, p)} onDelete={() => del(r.id)}
-            onCopy={() => copyOne(r)} onDup={() => dup(r)} />
+            onCopy={() => copyOne(r)} onDup={() => dup(r)} onMove={d => moveMonth(r, d)} />
         ))}
         {!loading && (
           <div>
