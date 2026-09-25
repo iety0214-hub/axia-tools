@@ -883,6 +883,7 @@ function App() {
   const [toast, setToast] = useState(null);
   const [pending, setPending] = useState({});   // 保存に失敗して未送信のパッチ {id: patch}
   const [query, setQuery] = useState('');
+  const [bankPick, setBankPick] = useState('');   // 銀行で絞り込み（空＝全部）
   const [printPick, setPrintPick] = useState(null); // 印刷する月を選ぶ画面（null＝閉じとる／配列＝選択中の月）
   const lock = useRef(0);
   const first = useRef(true);
@@ -1069,7 +1070,10 @@ function App() {
   }, [all]);
 
   // 検索：名前と全項目の中身をまとめて対象にする
+  const bankF = settings.fields.find(f => /銀行/.test(f.label || ''));
+  const bankOpts = (bankF && bankF.options) || [];
   const hit = (r) => {
+    if (bankPick && bankF && ((r.fields || {})[bankF.key] || '') !== bankPick) return false;
     const q = query.trim().toLowerCase();
     if (!q) return true;
     const fv = r.fields || {};
@@ -1199,7 +1203,7 @@ tr.band { page-break-after:avoid; }
 </style></head><body>
 <div class="head">
 <p class="logo"><img src="${LOGO}" alt=""></p>
-<h1>${esc(settings.appTitle || '一覧')}（${esc(titleM)}）</h1>
+<h1>${esc(settings.appTitle || '一覧')}（${esc(titleM)}${bankPick ? '／' + esc(bankPick) : ''}）</h1>
 <p class="meta">${esc(settings.subTitle || '')}　作成日：${dstr}</p>
 </div>
 <table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>
@@ -1296,8 +1300,24 @@ tr.band { page-break-after:avoid; }
             }} />
           {query && <button onClick={() => setQuery('')} style={navBtn}>✕</button>}
         </div>
+        {/* 銀行で絞り込み。選んどる間は印刷もその銀行の分だけになる */}
+        {!!bankOpts.length && (
+          <div style={{ display: 'flex', gap: 5, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+            {['', ...bankOpts].map(b => {
+              const on = bankPick === b;
+              const n = b ? rows.filter(r => ((r.fields || {})[bankF.key] || '') === b).length : rows.length;
+              return (
+                <button key={b || '__all'} onClick={() => setBankPick(b)} style={{
+                  padding: '5px 11px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  border: `1px solid ${on ? GOLD : 'rgba(255,255,255,.25)'}`,
+                  background: on ? GOLD : 'rgba(255,255,255,.10)', color: on ? NAVY : '#fff',
+                }}>{b || '全部'} {n}</button>
+              );
+            })}
+          </div>
+        )}
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{query ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.9.5
+          全 {rows.length} 件{(query || bankPick) ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.10.0
         </div>
       </div>
 
