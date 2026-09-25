@@ -1160,10 +1160,9 @@ function renderQueue(items){
     const d = document.createElement('div');
     d.className = 'q';
     const sub = (it.status === 'done' || it.status === 'error') ? (it.result_summary || '') : '';
-    // 成果物URLがあればそのファイル、無い完了は対象のDriveフォルダを開く
-    const link = it.result_url
-      ? `<a href="${it.result_url}" target="_blank" rel="noopener">開く ›</a>`
-      : (it.status === 'done' && folderUrl(it.target) ? `<a href="${folderUrl(it.target)}" target="_blank" rel="noopener">フォルダ ›</a>` : '');
+    // 開き先は成果物ファイル、URLが無い完了は対象のDriveフォルダ。表示はどっちも「開く」で揃える
+    const href = it.result_url || (it.status === 'done' ? folderUrl(it.target) : '');
+    const link = href ? `<a href="${href}" target="_blank" rel="noopener">開く ›</a>` : '';
     d.innerHTML = `<span class="st ${it.status}">${ST_LABEL[it.status] || it.status}</span>
       <span class="tx">${it.target} マイソク${mdStr(it.target_date)}${sub ? `<small>${sub}</small>` : ''}</span>
       ${link}`;
