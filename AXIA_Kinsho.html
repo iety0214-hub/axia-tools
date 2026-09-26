@@ -1291,6 +1291,7 @@ tr.band { page-break-after:avoid; }
             <div style={{ fontSize: 11, opacity: .7, marginTop: 2 }}>{settings.subTitle}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button onClick={() => setPrintPick([month])} title="印刷する" style={{ ...navBtn, fontSize: 16, padding: '6px 10px' }}>🖨</button>
             <button onClick={() => setScreen('settings')} style={{ ...navBtn, fontSize: 16, padding: '6px 10px' }}>⚙</button>
             <img src={LOGO} alt="AXIA JAPAN" style={{ height: 30, opacity: .95 }} onError={e => e.target.style.display = 'none'} />
           </div>
@@ -1328,7 +1329,7 @@ tr.band { page-break-after:avoid; }
           </div>
         )}
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{(query || bankPick) ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.10.1
+          全 {rows.length} 件{(query || bankPick) ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.10.2
         </div>
       </div>
 
@@ -1373,7 +1374,6 @@ tr.band { page-break-after:avoid; }
         {!loading && (
           <div>
             <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-              <button onClick={() => setPrintPick([month])} style={subBtn}>🖨 印刷する</button>
               <button onClick={carryOver} style={subBtn}>↪ 前月から繰越</button>
             </div>
           </div>
