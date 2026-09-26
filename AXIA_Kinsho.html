@@ -1040,6 +1040,7 @@ function App() {
 
   const mainF = settings.fields.find(f => f.key === settings.mainKey);
   // 契約日の早い順に自動で並べる（契約日が空の行は下にまとめ、同じ日時は今までの並び順）
+  // ※金消日が済んだ案件は、さらにその下にまとめる
   const apprF = settings.fields.find(f => /契約/.test(f.label || ''));
   const apprKey = (r) => {
     if (!apprF) return '9999';
@@ -1047,7 +1048,17 @@ function App() {
     if (apprF.type === 'datetime') { const o = dtVal(v); return o.d ? o.d + ' ' + (o.t || '') : '9999'; }
     return (typeof v === 'string' && v) ? v : '9999';
   };
-  const byAppr = (a, b) => apprKey(a).localeCompare(apprKey(b)) || (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id;
+  // 金消日が過ぎた（済）案件は、契約日に関係なく下へまとめる
+  const kinshoF = settings.fields.find(f => /金消/.test(f.label || ''));
+  const kinshoDone = (r) => {
+    if (!kinshoF) return 0;
+    const v = (r.fields || {})[kinshoF.key];
+    const d = kinshoF.type === 'datetime' ? dtVal(v).d : (typeof v === 'string' ? v : '');
+    const left = daysLeft(d);
+    return (left != null && left < 0) ? 1 : 0;
+  };
+  const byAppr = (a, b) => kinshoDone(a) - kinshoDone(b)
+    || apprKey(a).localeCompare(apprKey(b)) || (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id;
   const pendingCount = Object.keys(pending).length;
 
   // 過去に入力した値を候補にして、2回目からは選ぶだけで済むようにする
@@ -1317,7 +1328,7 @@ tr.band { page-break-after:avoid; }
           </div>
         )}
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{(query || bankPick) ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.10.0
+          全 {rows.length} 件{(query || bankPick) ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.10.1
         </div>
       </div>
 
