@@ -1039,14 +1039,23 @@ function App() {
   };
 
   const mainF = settings.fields.find(f => f.key === settings.mainKey);
-  // 契約日の早い順に自動で並べる（契約日が空の行は下にまとめ、同じ日時は今までの並び順）
-  // ※金消日が済んだ案件は、さらにその下にまとめる
+  // 契約日が今日に近い順に並べる（これから来る分が上、過ぎた分はその下で新しいものから）
+  // 契約日が空の行はいちばん後ろ。※金消日が済んだ案件は、さらにその下にまとめる
   const apprF = settings.fields.find(f => /契約/.test(f.label || ''));
-  const apprKey = (r) => {
-    if (!apprF) return '9999';
+  const apprDate = (r) => {
+    if (!apprF) return '';
     const v = (r.fields || {})[apprF.key];
-    if (apprF.type === 'datetime') { const o = dtVal(v); return o.d ? o.d + ' ' + (o.t || '') : '9999'; }
-    return (typeof v === 'string' && v) ? v : '9999';
+    return apprF.type === 'datetime' ? dtVal(v).d : (typeof v === 'string' ? v : '');
+  };
+  const apprKey = (r) => {
+    const left = daysLeft(apprDate(r));
+    if (left == null) return 9e9;                 // 契約日なし＝いちばん後ろ
+    return left >= 0 ? left : 1e6 + (-left);      // これから来る分＝近い順／過ぎた分＝新しい順
+  };
+  // 同じ日のときは時刻の早い順
+  const apprTime = (r) => {
+    if (!apprF || apprF.type !== 'datetime') return '';
+    return dtVal((r.fields || {})[apprF.key]).t || '';
   };
   // 金消日が過ぎた（済）案件は、契約日に関係なく下へまとめる
   const kinshoF = settings.fields.find(f => /金消/.test(f.label || ''));
@@ -1058,7 +1067,8 @@ function App() {
     return (left != null && left < 0) ? 1 : 0;
   };
   const byAppr = (a, b) => kinshoDone(a) - kinshoDone(b)
-    || apprKey(a).localeCompare(apprKey(b)) || (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id;
+    || apprKey(a) - apprKey(b) || apprTime(a).localeCompare(apprTime(b))
+    || (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id;
   const pendingCount = Object.keys(pending).length;
 
   // 過去に入力した値を候補にして、2回目からは選ぶだけで済むようにする
@@ -1120,7 +1130,7 @@ function App() {
   // months＝印刷したい月の配列。複数選んだときは改ページせず、月の区切り帯を挟んで続けて流し込む
   const printTable = (months) => {
     const ms = (months && months.length ? [...months] : [month]).sort();
-    // 選んだ月の行を「月順 → その月の契約日順」でひとつなぎにする
+    // 選んだ月の行を「月順 → その月の契約日が近い順」でひとつなぎにする
     const target = ms.flatMap(k =>
       all.filter(r => r.month === k && hit(r)).sort(byAppr)
     );
@@ -1329,7 +1339,7 @@ tr.band { page-break-after:avoid; }
           </div>
         )}
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{(query || bankPick) ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.10.2
+          全 {rows.length} 件{(query || bankPick) ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.10.3
         </div>
       </div>
 
