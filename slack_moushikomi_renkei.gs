@@ -3,6 +3,7 @@
  *
  *  ・【種別】申込   のメール → Slackに投稿
  *  ・【種別】オープン のメール → 該当する申込投稿を取り消し線に書き換え
+ *  ・「訂正」「誤り」と書かれた申込メール → 訂正前の投稿を取り消し線にして、訂正後を投稿
  *
  * セットアップ:
  *   1) 左メニュー「プロジェクトの設定」→「スクリプト プロパティ」に
@@ -53,6 +54,12 @@ const KEEP_DAYS = 90;
 // 処理済みメールIDを覚えておく日数（検索範囲の3日より長ければよい）
 const DONE_KEEP_DAYS = 10;
 
+// 件名か、本文の【項目】より前のあいさつ部分にこの言葉があれば訂正メールとみなす
+const CORRECTION_WORDS = /訂正|誤り|間違い|修正|差し替え|差替/;
+
+// 訂正メールが差し替える申込投稿を探す期間（これより前の投稿は差し替えない）
+const CORRECTION_WINDOW_DAYS = 3;
+
 
 // ===== トリガーから呼ばれる本体 =====
 function runSync() {
@@ -70,19 +77,47 @@ function processApplications_() {
   const query = MAIL_SCOPE + ' subject:【申込】 newer_than:3d';
 
   eachNewMessage_(query, function (msg) {
-    const fields = parseBody_(msg.getPlainBody());
+    const body = msg.getPlainBody();
+    const fields = parseBody_(body);
     if (!isTargetType_(fields)) return;
+
+    // 訂正メールなら、差し替える前の投稿を探しておく
+    const corrected = isCorrectionMail_(msg.getSubject(), body);
+    const old = corrected ? findPostForCorrection_(fields, msg) : null;
 
     const res = slackApi_('chat.postMessage', {
       channel: SLACK_CHANNEL,
-      text: headerTextOf_(fields),
-      blocks: buildBlocks_(fields, msg),
+      text: headerTextOf_(fields) + (corrected ? '（訂正）' : ''),
+      blocks: corrected ? buildCorrectedBlocks_(fields, msg, old) : buildBlocks_(fields, msg),
       unfurl_links: false,   // Gmailリンクのプレビューを出さない
       unfurl_media: false
     });
-    rememberPost_(fields, res.ts);
+    rememberPost_(fields, res.ts, msg);
     Utilities.sleep(1100);   // Slackのレート制限（1秒1件）対策
+
+    if (old) strikeCorrectedPost_(old, res.ts, msg, body);
   }, label);
+}
+
+
+// 訂正前の投稿を取り消し線にして、訂正後の投稿へのリンクを付ける
+function strikeCorrectedPost_(old, newTs, msg, body) {
+  try {
+    slackApi_('chat.update', {
+      channel: SLACK_CHANNEL,
+      ts: old.ts,
+      text: '【訂正前】' + old.header,
+      blocks: buildSupersededBlocks_(old, newTs, msg),
+      attachments: []
+    });
+  } catch (e) {
+    notify_(msg, body,
+      '⚠️ *訂正メールを受信しましたが、訂正前の投稿「' + old.header + '」を書き換えられませんでした*\n' +
+      '（理由: ' + e.message + '）手動で対応をお願いします。');
+  }
+  // 訂正前の投稿は、あとでオープンメールが来ても取り消し対象にしない
+  forgetPost_(old.ts);
+  Utilities.sleep(1100);
 }
 
 
@@ -130,23 +165,25 @@ function processOpens_() {
 // 検索に当たったメールのうち、まだ処理していない1通1通に handler を適用する。
 // 処理済みかどうかはメールIDで判定する（スレッド単位だと同じ件名のメールが
 // 1つのスレッドにまとめられて2通目以降を取りこぼすため）。
+// 届いた順（古い順）に処理する。元の申込と訂正メールが同じ回に拾われても、
+// 先に元の申込を投稿してから訂正で差し替えられるようにするため。
 function eachNewMessage_(query, handler, label) {
   const props = PropertiesService.getScriptProperties();
+  const pending = [];
 
   GmailApp.search(query, 0, 50).forEach(function (thread) {
-    let touched = false;
-
     thread.getMessages().forEach(function (msg) {
-      const key = 'done_' + msg.getId();
-      if (props.getProperty(key)) return;
-
-      handler(msg);
-
-      props.setProperty(key, String(new Date().getTime()));
-      touched = true;
+      if (props.getProperty('done_' + msg.getId())) return;
+      pending.push({ msg: msg, thread: thread });
     });
+  });
 
-    if (touched && label) thread.addLabel(label);
+  pending.sort(function (a, b) { return a.msg.getDate() - b.msg.getDate(); });
+
+  pending.forEach(function (p) {
+    handler(p.msg);
+    props.setProperty('done_' + p.msg.getId(), String(new Date().getTime()));
+    if (label) p.thread.addLabel(label);
   });
 }
 
@@ -224,6 +261,57 @@ function findPostsForOpen_(body) {
 }
 
 
+// 訂正メールかどうか。件名か、本文の最初の【項目】より前のあいさつ部分で判定する
+// （【備考】などに「修正」とあっても訂正扱いにしないため）。
+function isCorrectionMail_(subject, body) {
+  const lead = body.split(/\r?\n/).reduce(function (acc, line) {
+    if (acc.stop || /^\s*【/.test(line)) return { text: acc.text, stop: true };
+    return { text: acc.text + line + '\n', stop: false };
+  }, { text: '', stop: false }).text;
+  return CORRECTION_WORDS.test(subject) || CORRECTION_WORDS.test(lead);
+}
+
+
+// 訂正メールが差し替える申込投稿を探す。
+//   ・同じ顧客名（「飯田 健太郎様」と「飯田健太郎様」、「飯田様」も同じ人とみなす）
+//   ・訂正メールより前、CORRECTION_WINDOW_DAYS 日以内に投稿したもの
+//   ・同じ送信者の投稿があればそちらを優先
+//   ・候補が複数あれば一番新しいもの（直前に送った誤りメール）
+function findPostForCorrection_(fields, msg) {
+  const name = nameKey_(get_(fields, '顧客名'));
+  if (!name) return null;
+
+  const mailAt = msg.getDate().getTime();
+  const from = senderOf_(msg);
+  const limit = mailAt - CORRECTION_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  const props = PropertiesService.getScriptProperties().getProperties();
+  let hits = [];
+
+  Object.keys(props).forEach(function (key) {
+    if (key.indexOf('post_') !== 0) return;
+    let rec;
+    try { rec = JSON.parse(props[key]); } catch (e) { return; }
+
+    const postedAt = rec.mailAt || rec.savedAt;
+    if (!rec.ts || !postedAt || postedAt < limit || postedAt > mailAt) return;
+
+    const recName = rec.name || nameKey_((rec.raw || {})['顧客名']);
+    if (!recName) return;
+    if (recName !== name && recName.indexOf(name) !== 0 && name.indexOf(recName) !== 0) return;
+
+    hits.push(rec);
+  });
+
+  if (from) {
+    const same = hits.filter(function (rec) { return rec.from === from; });
+    if (same.length > 0) hits = same;
+  }
+
+  hits.sort(function (a, b) { return (b.mailAt || b.savedAt) - (a.mailAt || a.savedAt); });
+  return hits[0] || null;
+}
+
+
 // ============================================================
 //  投稿内容の組み立て
 // ============================================================
@@ -283,6 +371,57 @@ function buildBlocks_(fields, msg) {
   ];
 }
 
+// 訂正後の投稿。訂正前から変わった行を太字にし、訂正前の投稿へのリンクを付ける
+function buildCorrectedBlocks_(fields, msg, old) {
+  const oldLines = old ? (old.detail || '').split('\n') : null;
+  const detail = detailTextOf_(fields);
+  const marked = detail && oldLines ? detail.split('\n').map(function (line) {
+    return line && oldLines.indexOf(line) === -1 ? '*' + line + '*' : line;
+  }).join('\n') : detail;
+
+  const note = old
+    ? '✏️ *訂正版です*（太字が訂正箇所）　|　<' + postLink_(old.ts) + '|訂正前の投稿>'
+    : '✏️ *訂正版です*（訂正前の投稿は見つかりませんでした。古い投稿があれば手動で消してください）';
+
+  return [
+    { type: 'header', text: { type: 'plain_text', text: headerTextOf_(fields) + '（訂正）', emoji: true } },
+    { type: 'section', text: { type: 'mrkdwn', text: marked || trimBody_(msg.getPlainBody()) } },
+    {
+      type: 'context',
+      elements: [{
+        type: 'mrkdwn',
+        text: note +
+              '\n送信: ' + msg.getFrom() +
+              '　|　' + fmtDate_(msg.getDate()) +
+              '　|　<' + mailLink_(msg) + '|Gmailで開く>'
+      }]
+    }
+  ];
+}
+
+// 訂正で差し替えられた投稿（取り消し線＋訂正後へのリンク）
+function buildSupersededBlocks_(old, newTs, correctionMsg) {
+  return [
+    { type: 'header', text: { type: 'plain_text', text: '✏️ ' + old.header + '（訂正前・誤り）', emoji: true } },
+    { type: 'section', text: { type: 'mrkdwn', text: strike_(old.detail) } },
+    {
+      type: 'context',
+      elements: [{
+        type: 'mrkdwn',
+        text: '✏️ *' + fmtDate_(correctionMsg.getDate()) + ' 訂正メールにより差し替え*' +
+              '　|　<' + postLink_(newTs) + '|訂正後の投稿を見る>' +
+              '　|　<' + mailLink_(correctionMsg) + '|訂正メールを開く>'
+      }]
+    }
+  ];
+}
+
+function strike_(text) {
+  return (text || '').split('\n').map(function (line) {
+    return line ? '~' + line + '~' : line;
+  }).join('\n');
+}
+
 // 取り消し線バージョン
 function buildCancelBlocks_(rec, openMsg) {
   const struck = (rec.detail || '').split('\n').map(function (line) {
@@ -308,13 +447,17 @@ function buildCancelBlocks_(rec, openMsg) {
 // ============================================================
 //  投稿の記録（オープン時に探せるように保存しておく）
 // ============================================================
-function rememberPost_(fields, ts) {
+function rememberPost_(fields, ts, msg) {
   const record = {
     ts: ts,
     header: headerTextOf_(fields),
     detail: detailTextOf_(fields),
     keys: matchKeysOf_(fields),
     customer: customerKey_(get_(fields, '顧客名')),
+    // 訂正メールで差し替え元を探すときに使う
+    name: nameKey_(get_(fields, '顧客名')),
+    from: msg ? senderOf_(msg) : '',
+    mailAt: msg ? msg.getDate().getTime() : 0,
     // 表示形式を変えてもキーを作り直せるように、元の値も残しておく
     raw: {
       '物件名': get_(fields, '物件名'),
@@ -385,6 +528,18 @@ function customerKey_(name) {
   if (!n) return '';
   const first = n.split(/[\s　]+/)[0];
   return normalize_(first);
+}
+
+// 顧客名の照合キー（フルネーム）。「飯田 健太郎様」「飯田健太郎様」→ 同じキーになる
+function nameKey_(name) {
+  return normalize_(String(name || '').replace(/様|さん|殿/g, ''));
+}
+
+// 送信者のメールアドレスだけ取り出す
+function senderOf_(msg) {
+  const from = String(msg.getFrom() || '');
+  const m = from.match(/<([^>]+)>/);
+  return (m ? m[1] : from).trim().toLowerCase();
 }
 
 // 古い記録を掃除（スクリプトプロパティを溜め込まない）
@@ -494,6 +649,10 @@ function mailLink_(msg) {
   return 'https://mail.google.com/mail/u/0/#all/' + msg.getId();
 }
 
+function postLink_(ts) {
+  return 'https://slack.com/archives/' + SLACK_CHANNEL + '/p' + String(ts).replace('.', '');
+}
+
 function getOrCreateLabel_(name) {
   return GmailApp.getUserLabelByName(name) || GmailApp.createLabel(name);
 }
@@ -557,6 +716,10 @@ function dryRun() {
         return;
       }
       Logger.log(done + '投稿する: ' + headerTextOf_(fields));
+      if (isCorrectionMail_(msg.getSubject(), msg.getPlainBody())) {
+        const old = findPostForCorrection_(fields, msg);
+        Logger.log('    ✏️ 訂正メール → 差し替える投稿: ' + (old ? old.header + ' (ts=' + old.ts + ')' : '見つからない'));
+      }
       Logger.log('--- Slackでの見え方 ---\n' + headerTextOf_(fields) + '\n\n' + detailTextOf_(fields) + '\n-----------------------');
       Logger.log('    照合キー: ' + JSON.stringify(matchKeysOf_(fields)) +
                  ' / 顧客キー: ' + customerKey_(get_(fields, '顧客名')));
@@ -676,6 +839,53 @@ function deleteListedPosts() {
     Utilities.sleep(1100);
   });
   Logger.log(n + '件削除しました');
+}
+
+// 自動で差し替えられなかった訂正を手で直す。
+// [訂正前の投稿のリンク, 訂正後の投稿のリンク] の組を貼って、markCorrectedPosts() を実行する。
+// 訂正前の投稿が取り消し線になり、訂正後の投稿へのリンクが付く。
+const CORRECTED_LINKS = [
+  // ['https://axia-japan.slack.com/archives/C08P1PGLHT5/p1759145700000000',   // 訂正前（誤り）
+  //  'https://axia-japan.slack.com/archives/C08P1PGLHT5/p1759146000000000'],  // 訂正後
+];
+
+function markCorrectedPosts() {
+  const props = PropertiesService.getScriptProperties();
+  let n = 0;
+  CORRECTED_LINKS.forEach(function (pair) {
+    const oldTs = tsOfLink_(pair[0]), newTs = tsOfLink_(pair[1]);
+    if (!oldTs || !newTs) { Logger.log('リンクの形式が違います: ' + pair); return; }
+
+    const saved = props.getProperty('post_' + oldTs);
+    if (!saved) { Logger.log('訂正前の投稿の記録がありません（90日より前か、取消済み）: ' + pair[0]); return; }
+    const old = JSON.parse(saved);
+
+    try {
+      slackApi_('chat.update', {
+        channel: SLACK_CHANNEL,
+        ts: oldTs,
+        text: '【訂正前】' + old.header,
+        blocks: [
+          { type: 'header', text: { type: 'plain_text', text: '✏️ ' + old.header + '（訂正前・誤り）', emoji: true } },
+          { type: 'section', text: { type: 'mrkdwn', text: strike_(old.detail) } },
+          { type: 'context', elements: [{ type: 'mrkdwn', text: '✏️ *訂正により差し替え*　|　<' + postLink_(newTs) + '|訂正後の投稿を見る>' }] }
+        ],
+        attachments: []
+      });
+      forgetPost_(oldTs);
+      n++;
+      Logger.log('差し替え: ' + old.header);
+    } catch (e) {
+      Logger.log('失敗 ' + oldTs + ': ' + e.message);
+    }
+    Utilities.sleep(1100);
+  });
+  Logger.log(n + '件を訂正前として書き換えました');
+}
+
+function tsOfLink_(link) {
+  const m = String(link || '').match(/\/p(\d{10})(\d{6})/);
+  return m ? m[1] + '.' + m[2] : '';
 }
 
 
