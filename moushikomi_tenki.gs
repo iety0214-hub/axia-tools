@@ -6,6 +6,10 @@
  * 手で入力済みのセルは上書きしない。同じ案件の行がすでにあれば、空欄のセルだけ埋める。
  * 転記したスレッドには「転記済み」、読み取れなかったものには「転記エラー」ラベルを付ける。
  *
+ * 訂正メール（件名か本文冒頭に「訂正」「誤り」などがあるもの）は、同じ顧客で
+ * 申込日が近い当月案件欄の行を訂正後の内容で書き換える。訂正で消えた物件・号室の行は
+ * 転記した項目を空にして、行を黄色にする（ほかの列に手で入れた分が残るため、確認して消す）。
+ *
  * 初回だけ setup() を実行してトリガーを作る。
  */
 
@@ -15,6 +19,12 @@ const TEMPLATE_SHEET = '原本';
 const SEARCH_QUERY = 'to:axia-japan@googlegroups.com subject:【申込】 newer_than:3d -label:転記済み -label:転記エラー';
 const LABEL_DONE = '転記済み';
 const LABEL_ERROR = '転記エラー';
+
+// 訂正メールの見分け方（件名か、本文の最初の【項目】より前にあれば訂正とみなす）
+const CORRECTION_WORDS = /訂正|誤り|間違い|修正|差し替え|差替/;
+// 訂正の対象にする行の申込日の範囲（訂正メールの申込日から何日前まで）
+const CORRECTION_DAYS = 3;
+const CORRECTION_LEFTOVER_COLOR = '#fff2cc';
 
 // 当月案件欄・繰越欄（重複チェック用）
 const MAIN_FIRST_ROW = 4;
@@ -55,17 +65,30 @@ function processMoushikomi() {
     const threads = GmailApp.search(SEARCH_QUERY, 0, 20);
     if (!threads.length) return;  // 申込メールがない回はシートを開かずに終わる
     const ss = SpreadsheetApp.openById(SHEET_ID);
-    threads.forEach(thread => {
+
+    // 元の申込と訂正が同じ回に届いても、元→訂正の順になるよう古い順に処理する
+    const items = [];
+    threads.forEach(thread => thread.getMessages()
+      .filter(m => m.getSubject().indexOf('【申込】') !== -1)
+      .forEach(m => items.push({ thread: thread, message: m })));
+    items.sort((a, b) => a.message.getDate() - b.message.getDate());
+
+    const failed = new Map();
+    items.forEach(({ thread, message }) => {
+      if (failed.has(thread.getId())) return;
       try {
-        thread.getMessages()
-          .filter(m => m.getSubject().indexOf('【申込】') !== -1)
-          .forEach(m => transcribeMessage_(ss, m));
-        thread.addLabel(getLabel_(LABEL_DONE));
+        transcribeMessage_(ss, message);
       } catch (e) {
-        console.error(thread.getFirstMessageSubject() + ': ' + e.message);
-        thread.addLabel(getLabel_(LABEL_ERROR));
-        notifyError_(thread, e);
+        console.error(message.getSubject() + ': ' + e.message);
+        failed.set(thread.getId(), e);
       }
+    });
+
+    threads.forEach(thread => {
+      const e = failed.get(thread.getId());
+      if (!e) return thread.addLabel(getLabel_(LABEL_DONE));
+      thread.addLabel(getLabel_(LABEL_ERROR));
+      notifyError_(thread, e);
     });
   } finally {
     lock.releaseLock();
@@ -75,14 +98,73 @@ function processMoushikomi() {
 // ===== 転記 =====
 function transcribeMessage_(ss, message) {
   const appliedAt = applicationDate_(message.getDate());
-  const rows = buildRows_(parseBody_(message.getPlainBody()), appliedAt);
+  const body = message.getPlainBody();
+  const rows = buildRows_(parseBody_(body), appliedAt);
   const sheet = getMonthSheet_(ss, appliedAt);
+
+  if (isCorrection_(message.getSubject(), body)) return applyCorrection_(sheet, rows, appliedAt);
 
   rows.forEach(row => {
     const r = findExistingRow_(sheet, row) || findEmptyRow_(sheet);
     if (!r) throw new Error(sheet.getName() + ' の当月案件欄（' + MAIN_FIRST_ROW + '〜' + MAIN_LAST_ROW + '行）に空きがない');
     fillBlanks_(sheet, r, row);
   });
+}
+
+function isCorrection_(subject, body) {
+  const head = body.split(/^\s*【/m)[0];
+  return CORRECTION_WORDS.test(subject) || CORRECTION_WORDS.test(head);
+}
+
+/**
+ * 訂正メール: 同じ顧客で申込日が近い当月案件欄の行を、訂正後の内容に置き換える。
+ * 同じ物件・号室の行はそのまま上書き、それ以外の古い行は訂正後の行に使い回す。
+ * 余った古い行は転記項目を空にして色を付ける。
+ */
+function applyCorrection_(sheet, rows, appliedAt) {
+  const customer = normalize_(rows[0].顧客名);
+  const since = appliedAt.getTime() - CORRECTION_DAYS * 86400000;
+  const values = sheet.getRange(MAIN_FIRST_ROW, 1, MAIN_LAST_ROW - MAIN_FIRST_ROW + 1, COL.同行2).getValues();
+  const old = [];
+  values.forEach((v, i) => {
+    const applied = v[COL.申込日 - 1];
+    if (normalize_(v[COL.顧客名 - 1]) !== customer) return;
+    if (!(applied instanceof Date) || applied.getTime() < since || applied.getTime() > appliedAt.getTime()) return;
+    old.push({ r: MAIN_FIRST_ROW + i, key: unitKey_(v[COL.物件名 - 1], v[COL.号室 - 1]) });
+  });
+
+  const used = new Set();
+  const pending = [];
+  rows.forEach(row => {
+    const same = old.find(o => !used.has(o.r) && o.key === unitKey_(row.物件名, row.号室));
+    if (same) { used.add(same.r); overwrite_(sheet, same.r, row); }
+    else pending.push(row);
+  });
+  pending.forEach(row => {
+    const reuse = old.find(o => !used.has(o.r));
+    if (reuse) used.add(reuse.r);
+    const r = reuse ? reuse.r : findEmptyRow_(sheet);
+    if (!r) throw new Error(sheet.getName() + ' の当月案件欄（' + MAIN_FIRST_ROW + '〜' + MAIN_LAST_ROW + '行）に空きがない');
+    overwrite_(sheet, r, row);
+  });
+  old.filter(o => !used.has(o.r)).forEach(o => {
+    Object.keys(COL).forEach(key => sheet.getRange(o.r, COL[key]).clearContent());
+    sheet.getRange(o.r, 1, 1, COL.同行2).setBackground(CORRECTION_LEFTOVER_COLOR);
+  });
+  if (!old.length) console.log('訂正前の行が見つからんかったけん、新しく転記した: ' + rows[0].顧客名);
+}
+
+/** 訂正後の値で上書きする（メールで空の項目は消す） */
+function overwrite_(sheet, r, row) {
+  Object.keys(COL).forEach(key => {
+    const cell = sheet.getRange(r, COL[key]);
+    if (row[key] === '' || row[key] == null) cell.clearContent();
+    else cell.setValue(row[key]);
+  });
+}
+
+function unitKey_(name, room) {
+  return normalize_(name) + '|' + normalize_(room);
 }
 
 /** 手で入力済みのセルは残し、空欄のセルだけメールの値で埋める */
