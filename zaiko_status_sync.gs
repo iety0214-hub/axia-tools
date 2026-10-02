@@ -140,6 +140,7 @@ function processMessage_(table, message, dry) {
   const rank = isOpen ? OPEN_RANK : stage.rank;
   const out = { applied: 0, errors: [], log: [fmt_(message.getDate()) + ' ' + message.getSubject() + ' → ' + table.label(rank)] };
   if (!mail.units.length) {
+    if (/未定/.test(f['物件名'] || f['物件名 号室'] || '')) return null;  // 物件未定の申込は反映するものがない
     out.errors.push('物件名・号室が読み取れない');
     return out;
   }
