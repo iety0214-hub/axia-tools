@@ -332,7 +332,6 @@ const DESKS = {
   4:{col:2,row:0,plate:'経理'},
   1:{col:0,row:1,plate:'仕入れ（マイソク）'},
   2:{col:2,row:1,plate:'仕入れ（契約書）'},
-  7:{col:0,row:2,plate:'採用HR'},
   6:{col:2,row:2,plate:'業務・総務'},
   // 社長席：休憩室と同じ右列に、横向き（オフィス側を向く）で配置
   5:{plate:'社長席', solo:{
@@ -929,7 +928,7 @@ function applyRow(r){
 
   const text = r.memo || r.task_name || '';
   a.bubEl.textContent = text;
-  a.bubObj.visible = !!text && (r.status === '進行中' || selectedId === r.id);
+  a.bubObj.visible = !!text && r.status === '進行中';   // 吹き出しは作業中の社員だけ
 
   const scr = a.desk.userData.screen;
   if (scr) scr.material.color.set(r.status === '進行中' ? '#8fd4ff' : '#7d8494');
