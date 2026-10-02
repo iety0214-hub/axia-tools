@@ -42,6 +42,13 @@ const API_KEY = 'AIzaSyCsDfyXG_GskBa2bQzWtXpxOIu7c4TPqHM';
 const ROOT_FOLDER_ID = '1iuEClbrk8I8YsmIH0ZU5oMVXNVEdTiD9';
 const ROOT_NAME = '各種書類 記入例';
 
+// トップ（一番外側）に並べる業務ツール
+const APP_LINKS = [
+  { name:'Gmail_builder（契約完了報告メール生成）', url:'Gmail_builder.html', icon:'✉️' },
+  { name:'諸費用計算アプリ（楽天・SBI）', url:'諸費用計算アプリ_楽天_SBI.html', icon:'🧮' },
+  { name:'返済比率計算アプリ', url:'返済比率計算アプリ.html', icon:'📊' },
+];
+
 const SK_FILTERS = 'axia_kinyurei_filters_v1';
 const SK_RULES   = 'axia_kinyurei_rules_v1';
 
@@ -404,8 +411,15 @@ function App() {
       const q = search.trim().toLowerCase();
       list = list.filter(f => (f.name||'').toLowerCase().includes(q));
     }
-    return list;
+    // Driveアプリの同期用一時フォルダ（.tmp.driveupload 等）は隠す
+    return list.filter(f => !(f.name||'').startsWith('.'));
   }, [files, search]);
+
+  const apps = useMemo(() => {
+    if (pathStack.length > 1) return [];
+    const q = search.trim().toLowerCase();
+    return q ? APP_LINKS.filter(a => a.name.toLowerCase().includes(q)) : APP_LINKS;
+  }, [pathStack.length, search]);
 
   const enterFolder = (folder) => {
     setPathStack(s => [...s, { id: folder.id, name: folder.name }]);
@@ -495,7 +509,7 @@ function App() {
           <div style={{ fontSize:12, marginBottom:8 }}>{error}</div>
           <button style={{ marginTop:6, padding:'8px 14px', background:'#1e2a4a', color:'#fff', borderRadius:8, fontSize:12 }} onClick={fetchCurrent}>再試行</button>
         </div>
-      ) : filtered.length === 0 ? (
+      ) : filtered.length === 0 && apps.length === 0 ? (
         <div style={S.emptyState}>
           {files.length === 0 ? (
             <>
@@ -513,6 +527,16 @@ function App() {
         </div>
       ) : (
         <div style={S.fileList} className="fade-in">
+          {apps.map(a => (
+            <div key={a.url} style={S.fileCard('#16a34a')} onClick={() => window.open(a.url, '_blank', 'noopener,noreferrer')}>
+              <div style={S.fileIcon}>{a.icon}</div>
+              <div style={S.fileMain}>
+                <div style={S.fileName}>{a.name}</div>
+              </div>
+              <div style={S.fileBadge('#16a34a', '#f0fdf4')}>アプリ</div>
+              <div style={S.chevron}>↗</div>
+            </div>
+          ))}
           {filtered.map(f => {
             const folder = isFolder(f);
             const meta = matchRule(f.name, rules);
