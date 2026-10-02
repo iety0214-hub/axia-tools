@@ -1362,10 +1362,17 @@ async function poll(){
   if (changed){ rows.sort((a,b)=>a.id-b.id); renderAll(); }
 }
 backup(poll, 10000, 'office');
+/* 「進行中」のまま90分たった社員を待機に戻す（返答フックが届かんかった・指示しっぱなし対策。判定はDB側） */
+async function sweep(){
+  const { data, error } = await sb.rpc('axia_office_sweep');
+  if (!error && data > 0) poll();
+}
+sweep();
+setInterval(() => { if (!document.hidden) sweep(); }, 5 * 60 * 1000);
 // スマホで裏に回すと接続が寝るけん、戻ってきたときに1回だけ追いつく
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) return;
-  poll(); loadQueue(); loadOfficeLog();
+  poll(); sweep(); loadQueue(); loadOfficeLog();
 });
 
 /* ═══════════ リサイズ & ループ ═══════════ */
