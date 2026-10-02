@@ -352,7 +352,6 @@ const APPS = {
   4: [],
   5: [ {ico:'🏢', nm:'Coworkオフィス',  ds:'タスク全体の一覧',             file:'AXIA_Cowork_Office.html'} ],
   6: [ {ico:'✉️', nm:'メール生成ツール', ds:'定型文を作ってGmail送信',      file:'Gmail_builder.html'} ],
-  7: [],
 };
 // 右下「📱 アプリ一覧」に出すアプリ（この順で並ぶ）
 const ALL_APPS = [
@@ -1145,25 +1144,32 @@ function notifyDone(row){
     } catch(e){}
   }
 }
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function renderQueue(items){
   queueEl.innerHTML = '';
   const seen = new Set();
-  items = items.filter(it => {
-    if (it.status !== 'done') return true;                       // 待ち・作業中・失敗はそのまま
+  // 成果物は前日0時以降に終わったものだけ残す（待ち・作業中は日付に関係なく出す）
+  const y = new Date(); y.setHours(0,0,0,0); y.setDate(y.getDate() - 1);
+  const recent = it => (it.status !== 'done' && it.status !== 'error') || new Date(it.finished_at || it.created_at) >= y;
+  // 同じ対象・日付があとで完了しとる失敗は出さん（やり直し済み）
+  const doneJobs = new Set(items.filter(it => it.status === 'done').map(it => it.target + '|' + it.target_date));
+  items = items.filter(recent).filter(it => {
+    if (it.status === 'error') return !doneJobs.has(it.target + '|' + it.target_date);
+    if (it.status !== 'done') return true;                       // 待ち・作業中はそのまま
     if (!it.result_url) return true;                             // URLが取れんかった完了も出す
     if (seen.has(it.result_url)) return false;                   // 同じ成果物は1回だけ
     seen.add(it.result_url); return true;
   });
-  if (!items.length){ queueEl.innerHTML = '<div class="q-empty">まだ成果物は無かよ</div>'; return; }
+  if (!items.length){ queueEl.innerHTML = '<div class="q-empty">昨日・今日の成果物はまだ無かよ</div>'; return; }
   items.forEach(it => {
     const d = document.createElement('div');
     d.className = 'q';
     const sub = (it.status === 'done' || it.status === 'error') ? (it.result_summary || '') : '';
     // 開き先は成果物ファイル、URLが無い完了は対象のDriveフォルダ。表示はどっちも「開く」で揃える
     const href = it.result_url || (it.status === 'done' ? folderUrl(it.target) : '');
-    const link = href ? `<a href="${href}" target="_blank" rel="noopener">開く ›</a>` : '';
-    d.innerHTML = `<span class="st ${it.status}">${ST_LABEL[it.status] || it.status}</span>
-      <span class="tx">${it.target} マイソク${mdStr(it.target_date)}${sub ? `<small>${sub}</small>` : ''}</span>
+    const link = href ? `<a href="${esc(href)}" target="_blank" rel="noopener">開く ›</a>` : '';
+    d.innerHTML = `<span class="st ${esc(it.status)}">${ST_LABEL[it.status] || esc(it.status)}</span>
+      <span class="tx">${esc(it.target)} マイソク${mdStr(it.target_date)}${sub ? `<small>${esc(sub)}</small>` : ''}</span>
       ${link}`;
     queueEl.appendChild(d);
   });
@@ -1197,6 +1203,7 @@ sb.channel('ai-office-inbox')
   })
   .subscribe(s => { live.inbox = (s === 'SUBSCRIBED'); });
 backup(loadQueue, 30000, 'inbox');   // Realtime が切れとる間だけの保険
+setInterval(() => { if (!document.hidden) loadQueue(); }, 10 * 60 * 1000);   // 日付が変わったら古い成果物を消す
 
 /* ═══════════ 活動ログ（axia_office_log：くろへの指示・状態変化を DB トリガーで記録） ═══════════ */
 const OLOG = 'axia_office_log';
