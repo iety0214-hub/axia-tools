@@ -1,7 +1,7 @@
 /**
  * Gmail → 販売可能物件一覧「在庫状況全て」 現況の自動更新
  *
- * axia-japan@googlegroups.com 宛のメールを5分おきに確認して、該当する物件・号室の「現況」を書き換える。
+ * axia-japan@googlegroups.com 宛のメールを10分おきに確認して、該当する物件・号室の「現況」を書き換える。
  *   申込     → 2.申込中
  *   契約     → 3.契約済み
  *   事前承認 → 4.事前承認
@@ -56,7 +56,7 @@ function setup() {
   ScriptApp.getProjectTriggers()
     .filter(t => t.getHandlerFunction() === 'syncZaikoStatus')
     .forEach(t => ScriptApp.deleteTrigger(t));
-  ScriptApp.newTrigger('syncZaikoStatus').timeBased().everyMinutes(5).create();
+  ScriptApp.newTrigger('syncZaikoStatus').timeBased().everyMinutes(10).create();
   getLabel_(LABEL_DONE);
   getLabel_(LABEL_ERROR);
 }
