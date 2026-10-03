@@ -92,8 +92,8 @@ function buildRows_(body, mailDate, settings) {
   const pairs = propertyPairs_(v);
   if (!pairs.length) return [];
 
-  const contract = parseDateTime_(v['契約'], mailDate);
-  // 【契約】の月の一覧に入れる。契約日が読み取れんかったときは【決済予定】、それも無ければメールが届いた月
+  const contract = parseDateTime_(v['契約予定'] || v['契約'], mailDate);
+  // 【契約予定】（旧【契約】）の月の一覧に入れる。契約日が読み取れんかったときは【決済予定】、それも無ければメールが届いた月
   const kessai = parseDateTime_(v['決済予定'], mailDate);
   const month = contract.d ? contract.d.slice(0, 7)
     : kessai.d ? kessai.d.slice(0, 7)
