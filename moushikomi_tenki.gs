@@ -195,7 +195,7 @@ function buildRows_(f, appliedAt) {
   const companions = splitNames_(f['同行']);
   const base = {
     申込日: appliedAt,
-    契約日: parseJpDate_(f['契約'], appliedAt),
+    契約日: parseJpDate_(f['契約予定'] || f['契約'], appliedAt),
     区分: f['区分'] || '',
     顧客名: f['顧客名'].replace(/様$/, '').trim(),
     金融機関: f['銀行'] || '',

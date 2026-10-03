@@ -517,14 +517,14 @@
                 </div>
             </div>
 
-            <div class="form-group" id="contractDateGroup">
-                <label>契約</label>
-                <input type="date" id="contractDate">
-            </div>
-
             <div class="form-group" id="bringInDateGroup">
                 <label>持込予定</label>
                 <input type="date" id="bringInDate">
+            </div>
+
+            <div class="form-group" id="contractDateGroup">
+                <label>契約予定</label>
+                <input type="date" id="contractDate">
             </div>
 
             <div class="form-group" id="settlementDateGroup">
@@ -1459,8 +1459,8 @@
                 report += '【銀行】' + finalBank + '\n';
             }
             if (!isOpen) {
-                report += '【契約】' + (formattedContractDate || '－') + '\n';
                 report += '【持込予定】' + (formattedBringInDate || '－') + '\n';
+                report += '【契約予定】' + (formattedContractDate || '－') + '\n';
                 report += '【決済予定】' + (formattedSettlementDate || '－') + '\n';
             }
             report += '【担当】' + (personInCharge || '－') + '\n';
