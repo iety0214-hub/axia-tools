@@ -182,14 +182,6 @@ body {
   <div class="section">
     <div class="section-header rakuten">📋 物件情報（入力）</div>
     <div class="input-row">
-      <label>物件名</label>
-      <input type="text" id="r-name" value="" placeholder="物件名" style="text-align:left;">
-    </div>
-    <div class="input-row">
-      <label>号室</label>
-      <input type="text" id="r-room" value="" placeholder="号室">
-    </div>
-    <div class="input-row">
       <label>決済予定月</label>
       <input type="month" id="r-date" style="text-align:center;" onchange="calcRakuten()">
     </div>
@@ -243,14 +235,6 @@ body {
 <div class="panel" id="panel-sbi">
   <div class="section">
     <div class="section-header sbi">📋 物件情報（入力）</div>
-    <div class="input-row">
-      <label>物件名</label>
-      <input type="text" id="s-name" value="" placeholder="物件名" style="text-align:left;">
-    </div>
-    <div class="input-row">
-      <label>号室</label>
-      <input type="text" id="s-room" value="" placeholder="号室">
-    </div>
     <div class="input-row">
       <label>物件価格</label>
       <input type="text" inputmode="numeric" id="s-price" value="" placeholder="0" oninput="fmtCalc(this,'s')">
@@ -400,38 +384,35 @@ function showOk(btn) {
 }
 
 function copyRakuten() {
-  const n=document.getElementById('r-name').value||'未入力',rm=document.getElementById('r-room').value||'-';
-  doCopy(`【楽天銀行 諸費用計算】\n物件名: ${n} ${rm}号室\n物件価格: ${fmt(nv('r-price'))}円\n初期費用合計: ${document.getElementById('r-total-cost').textContent}\n上乗せ諸費用: ${document.getElementById('r-uwanose').textContent}\n物件価格＋諸費用: ${document.getElementById('r-grand-total').textContent}`,event.target);
+  doCopy(`【楽天銀行 諸費用計算】\n物件価格: ${fmt(nv('r-price'))}円\n初期費用合計: ${document.getElementById('r-total-cost').textContent}\n上乗せ諸費用: ${document.getElementById('r-uwanose').textContent}\n物件価格＋諸費用: ${document.getElementById('r-grand-total').textContent}`,event.target);
 }
 
 function copySBI() {
-  const n=document.getElementById('s-name').value||'未入力',rm=document.getElementById('s-room').value||'-';
-  doCopy(`【SBI 諸費用計算】\n物件名: ${n} ${rm}号室\n物件価格: ${fmt(nv('s-price'))}円\nA(販売価格5%): ${document.getElementById('s-5pct').textContent}\nB(初期費用10万切捨): ${document.getElementById('s-total-cost').textContent}\n上乗せ諸費用: ${document.getElementById('s-uwanose').textContent}\n物件価格＋諸費用−10万: ${document.getElementById('s-grand-total').textContent}`,event.target);
+  doCopy(`【SBI 諸費用計算】\n物件価格: ${fmt(nv('s-price'))}円\nA(販売価格5%): ${document.getElementById('s-5pct').textContent}\nB(初期費用10万切捨): ${document.getElementById('s-total-cost').textContent}\n上乗せ諸費用: ${document.getElementById('s-uwanose').textContent}\n物件価格＋諸費用−10万: ${document.getElementById('s-grand-total').textContent}`,event.target);
 }
 
 function copySBISubmit() {
-  const n=document.getElementById('s-name').value||'未入力',rm=document.getElementById('s-room').value||'-';
   const p=nv('s-price'),k=nv('s-kanri'),sh=nv('s-shuzen');
   const a=Math.floor(p*0.05/100000)*100000;
   const j=Math.round((p+a-100000)*0.022);
   const tot=j+S_FIX.assen+S_FIX.touki+S_FIX.kotei+k+sh+S_FIX.kasai+S_FIX.furikomi;
   const d=new Date();
-  doCopy(`諸費用明細書 (SBI新生アセットファイナンス)\n${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日\n\n物件名: ${n} ${rm}号室\n\n名目\t金額\t備考\n金融機関事務手数料\t${fmt(j)}円\t※融資金額×2.2%\n融資斡旋手数料\t${fmt(S_FIX.assen)}円\n登記費用\t${fmt(S_FIX.touki)}円\t※概算\n固都税清算金\t${fmt(S_FIX.kotei)}円\t※概算\n管理準備金\t${fmt(k)}円\n修繕積立基金\t${fmt(sh)}円\n火災保険料\t${fmt(S_FIX.kasai)}円\t※概算\n振込手数料\t${fmt(S_FIX.furikomi)}円\n合計\t${fmt(tot)}円`,event.target);
+  doCopy(`諸費用明細書 (SBI新生アセットファイナンス)\n${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日\n\n名目\t金額\t備考\n金融機関事務手数料\t${fmt(j)}円\t※融資金額×2.2%\n融資斡旋手数料\t${fmt(S_FIX.assen)}円\n登記費用\t${fmt(S_FIX.touki)}円\t※概算\n固都税清算金\t${fmt(S_FIX.kotei)}円\t※概算\n管理準備金\t${fmt(k)}円\n修繕積立基金\t${fmt(sh)}円\n火災保険料\t${fmt(S_FIX.kasai)}円\t※概算\n振込手数料\t${fmt(S_FIX.furikomi)}円\n合計\t${fmt(tot)}円`,event.target);
 }
 
 function resetRakuten() {
-  ['r-name','r-room','r-price','r-kanri','r-shuzen'].forEach(id=>document.getElementById(id).value='');
+  ['r-price','r-kanri','r-shuzen'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('r-date').value='';calcRakuten();
 }
 function resetSBI() {
-  ['s-name','s-room','s-price','s-kanri','s-shuzen'].forEach(id=>document.getElementById(id).value='');
+  ['s-price','s-kanri','s-shuzen'].forEach(id=>document.getElementById(id).value='');
   calcSBI();
 }
 
 window.addEventListener('DOMContentLoaded',()=>{calcRakuten();calcSBI();});
 
 // ===== 契約作成依頼アプリとの連携 =====
-// 契約作成依頼から ?from=keiyaku&bank=sbi&price=…&name=…&room=… で開かれたときだけ、
+// 契約作成依頼から ?from=keiyaku&bank=sbi&price=… で開かれたときだけ、
 // 上乗せ諸費用を localStorage に置き、向こうの「諸費用ローン額」に自動で反映させる
 const KEIYAKU_KEY='axia_shohiyo_for_keiyaku';
 const keiyakuParams=new URLSearchParams(location.search);
@@ -453,9 +434,6 @@ window.addEventListener('DOMContentLoaded',()=>{
   document.querySelectorAll('.back-keiyaku').forEach(b=>b.style.display='flex');
   const t=keiyakuParams.get('bank')==='sbi'?'s':'r';
   if(t==='s') switchTab('sbi');
-  const set=(id,v)=>{ if(v) document.getElementById(id).value=v; };
-  set(t+'-name',keiyakuParams.get('name'));
-  set(t+'-room',keiyakuParams.get('room'));
   const price=keiyakuParams.get('price');
   if(price){ const el=document.getElementById(t+'-price'); el.value=price; fmtInput(el); }
   t==='r'?calcRakuten():calcSBI();

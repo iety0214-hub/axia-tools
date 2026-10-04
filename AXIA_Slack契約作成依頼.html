@@ -1090,7 +1090,7 @@
         });
 
         // ========== 諸費用計算アプリとの連携 ==========
-        // 売買代金・物件名・号室・銀行を渡して開き、向こうで計算した上乗せ諸費用を
+        // 売買代金・銀行を渡して開き、向こうで計算した上乗せ諸費用を
         // localStorage 経由で受け取って「諸費用ローン額」に入れる（同じサイトなので共有できる）
         const SHOHIYO_KEY = 'axia_shohiyo_for_keiyaku';
 
@@ -1101,11 +1101,6 @@
             if (/SBI/i.test(bank)) params.set('bank', 'sbi');
             const price = parseYen(document.getElementById('price').value.trim());
             if (price) params.set('price', String(price));
-            const name = document.getElementById('propertyName').value === 'その他'
-                ? document.getElementById('customProperty').value.trim() : document.getElementById('propertyName').value;
-            if (name) params.set('name', name);
-            const room = document.getElementById('roomNumber').value.trim().replace(/号室$/, '');
-            if (room) params.set('room', room);
 
             // 開いた時刻より後の計算結果だけを受け取る
             try { sessionStorage.setItem('shohiyoOpenedAt', String(Date.now())); } catch (e) {}
