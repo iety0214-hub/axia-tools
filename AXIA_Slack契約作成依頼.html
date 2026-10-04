@@ -599,7 +599,6 @@
                     <option value="勤務先">勤務先</option>
                     <option value="来社">来社</option>
                 </select>
-                <input type="text" id="placeName" class="sub-input" placeholder="店名　例：コメダ珈琲店京急川崎駅前店" style="display: none;">
             </div>
 
             <div class="form-group">
@@ -1322,13 +1321,6 @@
             });
         });
 
-        // 契約場所：ファミレス・喫茶店のときだけ店名を入れられる
-        document.getElementById('place').addEventListener('change', function() {
-            const name = document.getElementById('placeName');
-            name.style.display = this.value === 'ファミレス・喫茶店' ? 'block' : 'none';
-            if (this.value !== 'ファミレス・喫茶店') name.value = '';
-        });
-
         // ========== リスト編集・モーダルのボタン ==========
         Array.prototype.forEach.call(document.querySelectorAll('[data-edit-list]'), function(btn) {
             btn.addEventListener('click', function() {
@@ -1509,7 +1501,6 @@
                 ['contractDate', '契約日を選んでください'],
                 ['contractTime', '契約時間を選んでください'],
                 ['place', '契約場所を選んでください'],
-                ['placeName', '店名を入力してください', function() { return val('place') === 'ファミレス・喫茶店'; }],
                 ['personInCharge', '担当を選んでください']
             ];
             for (let i = 0; i < required.length; i++) {
@@ -1524,7 +1515,7 @@
             const deposit = val('deposit');
             const depositAmount = val('depositAmount') ? formatComma(moneyValue('depositAmount')) + '万' : '';
             const withMan = function(id) { return val(id) ? formatComma(moneyValue(id)) + '万' : ''; };
-            const place = val('place') && val('placeName') ? val('place') + '（' + val('placeName') + '）' : val('place');
+            const place = val('place');
             const expenseLoan = val('expenseLoan');
 
             const items = [
