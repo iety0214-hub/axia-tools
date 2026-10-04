@@ -624,7 +624,10 @@
         <div class="preview-section" id="previewSection">
             <div class="preview-head">
                 <h3 style="color: #333;">📋 プレビュー</h3>
-                <button type="button" class="btn-mini secondary" id="btnCopy">コピー</button>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn-mini secondary" id="btnCopy">コピー</button>
+                    <a class="btn-mini" id="slackLink" target="_blank" rel="noopener" style="background: #4A154B; text-decoration: none;">Slackを開く</a>
+                </div>
             </div>
             <div class="preview-box" id="previewBox"></div>
         </div>
@@ -704,7 +707,13 @@
 
         const CHANNEL_NAMES = { 'C08P1PGLHT5': '#案件進捗', 'C08P1MWKVT5': '営業チャンネル', 'C08N4SFRQF8': '全体チャンネル' };
 
+        // 投稿先チャンネルのWeb版URL（ボタンが効かないときに押すリンク用）
+        function slackWebUrl() {
+            return 'https://app.slack.com/client/' + encodeURIComponent(settings.team) + '/' + encodeURIComponent(settings.channel);
+        }
+
         function renderChannelView() {
+            document.getElementById('slackLink').href = slackWebUrl();
             const name = CHANNEL_NAMES[settings.channel];
             document.getElementById('channelView').value = name ? name + '（' + settings.channel + '）' : settings.channel;
         }
@@ -1346,7 +1355,16 @@
             const team = settings.team;
             const channel = settings.channel;
             const appUrl = 'slack://channel?team=' + encodeURIComponent(team) + '&id=' + encodeURIComponent(channel);
-            const webUrl = 'https://app.slack.com/client/' + encodeURIComponent(team) + '/' + encodeURIComponent(channel);
+            const webUrl = slackWebUrl();
+
+            // 他のページに埋め込まれて開いているときは、ページ自体を移動させると
+            // 読み込みエラーになるので、プレビュー横の「Slackを開く」を押してもらう
+            let embedded = false;
+            try { embedded = window.top !== window.self; } catch (e) { embedded = true; }
+            if (embedded) {
+                showToast(copied ? 'コピー完了。「Slackを開く」を押してください' : '生成完了。コピーしてから「Slackを開く」を押してください', copied ? 'success' : 'error');
+                return;
+            }
 
             showToast(copied ? 'コピー完了。Slackに貼り付けてください' : '生成完了。プレビューをコピーしてSlackに貼り付けてください', copied ? 'success' : 'error');
             openAppThenFallback(appUrl, webUrl);
