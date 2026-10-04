@@ -415,22 +415,6 @@
             flex: 1;
             min-width: 0;
         }
-
-        /* 入力欄の横に置く小さな補助ボタン（満額など） */
-        .input-with-btn {
-            display: flex;
-            gap: 8px;
-        }
-
-        .input-with-btn input {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .input-with-btn .btn-add-row {
-            margin-top: 0;
-            white-space: nowrap;
-        }
     </style>
 </head>
 <body>
@@ -526,14 +510,6 @@
             </div>
 
             <div class="form-group">
-                <label for="loanAmount">ローン金額</label>
-                <div class="input-with-btn">
-                    <input type="text" id="loanAmount" placeholder="例：3080万">
-                    <button type="button" class="btn-add-row" id="btnFullLoan">満額</button>
-                </div>
-            </div>
-
-            <div class="form-group">
                 <label for="price">売買代金</label>
                 <input type="text" id="price" placeholder="例：3080万">
             </div>
@@ -561,6 +537,12 @@
             <div class="form-group" id="expenseLoanAmountGroup" style="display: none;">
                 <label for="expenseLoanAmount">諸費用ローン額</label>
                 <input type="text" id="expenseLoanAmount" placeholder="例：100万">
+            </div>
+
+            <div class="form-group">
+                <label for="loanAmount">ローン金額</label>
+                <input type="text" id="loanAmount" readonly placeholder="売買代金を入れると自動で計算" style="background: #f0f0f0;">
+                <div class="info-text">売買代金 − 手付金 ＋ 諸費用ローン額 で自動計算</div>
             </div>
 
             <div class="form-group">
@@ -1092,6 +1074,7 @@
             const amount = document.getElementById('depositAmount');
             amount.style.display = this.value === '有り' ? 'block' : 'none';
             if (this.value !== '有り') amount.value = '';
+            updateLoanAmount();
         });
 
         document.getElementById('expenseLoan').addEventListener('change', function() {
@@ -1099,6 +1082,7 @@
             group.style.display = this.value === '有' ? 'block' : 'none';
             if (this.value !== '有') {
                 document.getElementById('expenseLoanAmount').value = '';
+                updateLoanAmount();
                 return;
             }
             // 「有」にしたら諸費用計算アプリを別タブで開く（入力中のこの画面は残す）
@@ -1106,8 +1090,45 @@
             if (!win) showToast('「🧮 諸費用計算アプリ」を押して開いてください', 'error');
         });
 
-        document.getElementById('btnFullLoan').addEventListener('click', function() {
-            document.getElementById('loanAmount').value = '満額';
+        // ========== ローン金額の自動計算（売買代金 − 手付金 ＋ 諸費用ローン額） ==========
+        // 「3080万」「3,080万円」「30800000」などを円に直す（数字だけで10万未満なら万円とみなす）
+        function parseYen(text) {
+            if (!text) return null;
+            let t = text.replace(/[０-９．，]/g, function(c) {
+                return String.fromCharCode(c.charCodeAt(0) - 0xFEE0);
+            }).replace(/[,\s　円]/g, '');
+            const m = t.match(/^(?:(\d+(?:\.\d+)?)万)?(\d+(?:\.\d+)?)?$/);
+            if (!m || (!m[1] && !m[2])) return null;
+            if (m[1]) return Math.round(Number(m[1]) * 10000) + (m[2] ? Math.round(Number(m[2])) : 0);
+            const n = Number(m[2]);
+            return n < 100000 ? Math.round(n * 10000) : Math.round(n);
+        }
+
+        // 円 → 「3080万」「3092万3456円」の形
+        function formatYen(yen) {
+            const man = Math.floor(yen / 10000);
+            const rest = yen % 10000;
+            if (!man) return rest + '円';
+            return rest ? man + '万' + rest + '円' : man + '万';
+        }
+
+        function updateLoanAmount() {
+            const loan = document.getElementById('loanAmount');
+            const price = parseYen(document.getElementById('price').value.trim());
+            if (price === null) {
+                loan.value = '';
+                return;
+            }
+            const deposit = document.getElementById('deposit').value === '有り'
+                ? parseYen(document.getElementById('depositAmount').value.trim()) || 0 : 0;
+            const expense = document.getElementById('expenseLoan').value === '有'
+                ? parseYen(document.getElementById('expenseLoanAmount').value.trim()) || 0 : 0;
+            const total = price - deposit + expense;
+            loan.value = total > 0 ? formatYen(total) : '';
+        }
+
+        ['price', 'depositAmount', 'expenseLoanAmount'].forEach(function(id) {
+            document.getElementById(id).addEventListener('input', updateLoanAmount);
         });
 
         // ========== リスト編集・モーダルのボタン ==========
@@ -1307,7 +1328,7 @@
                 ['金融機関', bank === 'その他' ? customBank : bank],
                 ['金利', withUnit(val('rate'), '%')],
                 ['借入年数', val('years')],
-                ['ローン金額（満額の場合は満額と記載）', val('loanAmount')],
+                ['ローン金額（満額の場合は満額と記載）', (updateLoanAmount(), val('loanAmount'))],
                 ['売買代金', val('price')],
                 ['手付金（有・無　※有りの場合金額も記載）', deposit === '有り' && depositAmount ? '有り　' + depositAmount : deposit],
                 ['諸費用ローン（有・無）', expenseLoan],
