@@ -144,7 +144,6 @@ body {
 }
 .copy-btn:active { transform: scale(0.98); background: var(--surface2); }
 .copy-btn.back-keiyaku { background: var(--green); border-color: var(--green); color: #fff; }
-.copy-btn.sbi-submit { background: var(--accent-sbi-light); border-color: rgba(0,102,204,0.3); color: var(--accent-sbi); }
 
 .reset-btn {
   width: 100%; padding: 11px; background: transparent; border: 1px solid var(--border);
@@ -187,7 +186,7 @@ body {
     </div>
     <div class="input-row">
       <label>物件価格</label>
-      <input type="text" inputmode="numeric" id="r-price" value="" placeholder="3,500" oninput="fmtCalc(this,'r')">
+      <input type="text" inputmode="numeric" id="r-price" value="" placeholder="3,500" oninput="fmtCalc(this,'r')" onchange="fixPrice(this,'r')">
       <span class="unit">万円</span>
     </div>
     <div class="input-row">
@@ -210,7 +209,6 @@ body {
   </div>
 
   <button class="copy-btn back-keiyaku" style="display:none;" onclick="backToKeiyaku()">✅ 契約作成依頼に戻る（上乗せ諸費用を反映）</button>
-  <button class="copy-btn" onclick="copyRakuten()">📋 計算結果をコピー</button>
 
   <div class="section">
     <div class="section-header rakuten">💰 諸費用明細（自動・固定）</div>
@@ -237,7 +235,7 @@ body {
     <div class="section-header sbi">📋 物件情報（入力）</div>
     <div class="input-row">
       <label>物件価格</label>
-      <input type="text" inputmode="numeric" id="s-price" value="" placeholder="3,500" oninput="fmtCalc(this,'s')">
+      <input type="text" inputmode="numeric" id="s-price" value="" placeholder="3,500" oninput="fmtCalc(this,'s')" onchange="fixPrice(this,'s')">
       <span class="unit">万円</span>
     </div>
     <div class="input-row">
@@ -261,7 +259,6 @@ body {
   </div>
 
   <button class="copy-btn back-keiyaku" style="display:none;" onclick="backToKeiyaku()">✅ 契約作成依頼に戻る（上乗せ諸費用を反映）</button>
-  <button class="copy-btn" onclick="copySBI()">📋 計算結果をコピー</button>
 
   <div class="section">
     <div class="section-header sbi">💰 諸費用明細（自動・固定）</div>
@@ -309,7 +306,13 @@ function calcKotei(month) {
 }
 
 // 物件価格は万円で入力するので円に直す
-function pv(id) { return nv(id)*10000; }
+// （10万以上の数字は円で打ったものとみなす：例 35,000,000 → 3,500万円）
+function manNum(n) { return n>=100000 ? Math.round(n/10000) : n; }
+function pv(id) { return manNum(nv(id))*10000; }
+// 欄を離れたときに円で打った物件価格を万円に直して表示し直す
+function fixPrice(el,t) {
+  const n=nv(el.id); if(n>=100000){ el.value=fmt(manNum(n)); t==='r'?calcRakuten():calcSBI(); }
+}
 function nv(id) { return parseInt((document.getElementById(id).value||'').replace(/[^0-9]/g,''))||0; }
 function fmt(n) { return n.toLocaleString('ja-JP'); }
 function fmtInput(el) {
@@ -372,36 +375,6 @@ function calcSBI() {
   saveForKeiyaku('SBI', uwanose, price);
 }
 
-function doCopy(text,btn) {
-  navigator.clipboard.writeText(text).then(()=>showOk(btn)).catch(()=>{
-    const t=document.createElement('textarea');t.value=text;
-    document.body.appendChild(t);t.select();document.execCommand('copy');
-    document.body.removeChild(t);showOk(btn);
-  });
-}
-function showOk(btn) {
-  const o=btn.innerHTML;btn.innerHTML='✅ コピーしました';
-  btn.style.borderColor='var(--green)';btn.style.color='var(--green)';
-  setTimeout(()=>{btn.innerHTML=o;btn.style.borderColor='';btn.style.color='';},1500);
-}
-
-function copyRakuten() {
-  doCopy(`【楽天銀行 諸費用計算】\n物件価格: ${fmt(pv('r-price'))}円\n初期費用合計: ${document.getElementById('r-total-cost').textContent}\n上乗せ諸費用: ${document.getElementById('r-uwanose').textContent}\n物件価格＋諸費用: ${document.getElementById('r-grand-total').textContent}`,event.target);
-}
-
-function copySBI() {
-  doCopy(`【SBI 諸費用計算】\n物件価格: ${fmt(pv('s-price'))}円\nA(販売価格5%): ${document.getElementById('s-5pct').textContent}\nB(初期費用10万切捨): ${document.getElementById('s-total-cost').textContent}\n上乗せ諸費用: ${document.getElementById('s-uwanose').textContent}\n物件価格＋諸費用−10万: ${document.getElementById('s-grand-total').textContent}`,event.target);
-}
-
-function copySBISubmit() {
-  const p=pv('s-price'),k=nv('s-kanri'),sh=nv('s-shuzen');
-  const a=Math.floor(p*0.05/100000)*100000;
-  const j=Math.round((p+a-100000)*0.022);
-  const tot=j+S_FIX.assen+S_FIX.touki+S_FIX.kotei+k+sh+S_FIX.kasai+S_FIX.furikomi;
-  const d=new Date();
-  doCopy(`諸費用明細書 (SBI新生アセットファイナンス)\n${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日\n\n名目\t金額\t備考\n金融機関事務手数料\t${fmt(j)}円\t※融資金額×2.2%\n融資斡旋手数料\t${fmt(S_FIX.assen)}円\n登記費用\t${fmt(S_FIX.touki)}円\t※概算\n固都税清算金\t${fmt(S_FIX.kotei)}円\t※概算\n管理準備金\t${fmt(k)}円\n修繕積立基金\t${fmt(sh)}円\n火災保険料\t${fmt(S_FIX.kasai)}円\t※概算\n振込手数料\t${fmt(S_FIX.furikomi)}円\n合計\t${fmt(tot)}円`,event.target);
-}
-
 function resetRakuten() {
   ['r-price','r-kanri','r-shuzen'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('r-date').value='';calcRakuten();
@@ -437,7 +410,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   const t=keiyakuParams.get('bank')==='sbi'?'s':'r';
   if(t==='s') switchTab('sbi');
   const price=keiyakuParams.get('price');
-  if(price){ const el=document.getElementById(t+'-price'); el.value=price; fmtInput(el); }
+  if(price){ const el=document.getElementById(t+'-price'); el.value=price; fmtInput(el); fixPrice(el,t); }
   t==='r'?calcRakuten():calcSBI();
 });
 </script>
