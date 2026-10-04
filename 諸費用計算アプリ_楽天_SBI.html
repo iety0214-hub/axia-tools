@@ -143,6 +143,7 @@ body {
   box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 .copy-btn:active { transform: scale(0.98); background: var(--surface2); }
+.copy-btn.back-keiyaku { background: var(--green); border-color: var(--green); color: #fff; }
 .copy-btn.sbi-submit { background: var(--accent-sbi-light); border-color: rgba(0,102,204,0.3); color: var(--accent-sbi); }
 
 .reset-btn {
@@ -216,6 +217,7 @@ body {
     <div class="result-row total"><label>物件価格＋諸費用</label><div class="value" id="r-grand-total">-</div></div>
   </div>
 
+  <button class="copy-btn back-keiyaku" style="display:none;" onclick="backToKeiyaku()">✅ 契約作成依頼に戻る（上乗せ諸費用を反映）</button>
   <button class="copy-btn" onclick="copyRakuten()">📋 計算結果をコピー</button>
 
   <div class="section">
@@ -274,6 +276,7 @@ body {
     <div class="note">※手付金10万円を差し引いた融資申込額</div>
   </div>
 
+  <button class="copy-btn back-keiyaku" style="display:none;" onclick="backToKeiyaku()">✅ 契約作成依頼に戻る（上乗せ諸費用を反映）</button>
   <button class="copy-btn" onclick="copySBI()">📋 計算結果をコピー</button>
 
   <div class="section">
@@ -361,6 +364,7 @@ function calcRakuten() {
   document.getElementById('r-total-cost').textContent=fmt(total)+'円';
   document.getElementById('r-uwanose').textContent=fmt(uwanose)+'円';
   document.getElementById('r-grand-total').textContent=fmt(grand)+'円';
+  saveForKeiyaku('楽天', uwanose, price);
 }
 
 function calcSBI() {
@@ -379,6 +383,7 @@ function calcSBI() {
   document.getElementById('s-uwanose').textContent=fmt(uwanose)+'円';
   const grand=price+uwanose-100000;
   document.getElementById('s-grand-total').textContent=fmt(grand)+'円';
+  saveForKeiyaku('SBI', uwanose, price);
 }
 
 function doCopy(text,btn) {
@@ -424,6 +429,37 @@ function resetSBI() {
 }
 
 window.addEventListener('DOMContentLoaded',()=>{calcRakuten();calcSBI();});
+
+// ===== 契約作成依頼アプリとの連携 =====
+// 契約作成依頼から ?from=keiyaku&bank=sbi&price=…&name=…&room=… で開かれたときだけ、
+// 上乗せ諸費用を localStorage に置き、向こうの「諸費用ローン額」に自動で反映させる
+const KEIYAKU_KEY='axia_shohiyo_for_keiyaku';
+const keiyakuParams=new URLSearchParams(location.search);
+const fromKeiyaku=keiyakuParams.get('from')==='keiyaku';
+
+function saveForKeiyaku(bank,uwanose,price){
+  if(!fromKeiyaku||!price) return;
+  try{ localStorage.setItem(KEIYAKU_KEY,JSON.stringify({amount:uwanose,bank:bank,at:Date.now()})); }catch(e){}
+}
+
+function backToKeiyaku(){
+  // 契約作成依頼から開いた別タブなので閉じれば元の入力画面に戻る
+  window.close();
+  setTimeout(()=>alert('このタブを閉じて、契約作成依頼の画面に戻ってください。上乗せ諸費用は反映済みです。'),300);
+}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  if(!fromKeiyaku) return;
+  document.querySelectorAll('.back-keiyaku').forEach(b=>b.style.display='flex');
+  const t=keiyakuParams.get('bank')==='sbi'?'s':'r';
+  if(t==='s') switchTab('sbi');
+  const set=(id,v)=>{ if(v) document.getElementById(id).value=v; };
+  set(t+'-name',keiyakuParams.get('name'));
+  set(t+'-room',keiyakuParams.get('room'));
+  const price=keiyakuParams.get('price');
+  if(price){ const el=document.getElementById(t+'-price'); el.value=price; fmtInput(el); }
+  t==='r'?calcRakuten():calcSBI();
+});
 </script>
 </body>
 </html>
