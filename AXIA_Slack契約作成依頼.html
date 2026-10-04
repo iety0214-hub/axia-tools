@@ -1190,15 +1190,25 @@
         }
 
         // 入力欄の数字だけを取り出す（全角も可）。空なら 0
-        function moneyValue(id) {
+        function rawMoney(id) {
             const digits = document.getElementById(id).value.replace(/[０-９]/g, function(c) {
                 return String.fromCharCode(c.charCodeAt(0) - 0xFEE0);
             }).replace(/[^0-9]/g, '');
             return digits ? parseInt(digits, 10) : 0;
         }
 
+        // 万円の欄に円で打ってしまった数字を万円に直す
+        // （売買代金は10万以上、手付金・諸費用ローン額は1万以上なら円とみなす）
+        const YEN_THRESHOLD = { price: 100000, depositAmount: 10000, expenseLoanAmount: 10000 };
+
+        function moneyValue(id) {
+            const n = rawMoney(id);
+            const limit = YEN_THRESHOLD[id];
+            return limit && n >= limit ? Math.round(n / 10000) : n;
+        }
+
         function formatMoneyInput(el) {
-            const n = moneyValue(el.id);
+            const n = rawMoney(el.id);
             el.value = el.value.trim() === '' || (!n && !/[0０]/.test(el.value)) ? '' : formatComma(n);
         }
 
@@ -1220,6 +1230,13 @@
             el.addEventListener('input', function() {
                 formatMoneyInput(el);
                 updateLoanAmount();
+            });
+            // 欄を離れたら、円で打った数字を万円に直して表示し直す
+            el.addEventListener('change', function() {
+                if (YEN_THRESHOLD[el.id] && rawMoney(el.id) >= YEN_THRESHOLD[el.id]) {
+                    el.value = formatComma(moneyValue(el.id));
+                    updateLoanAmount();
+                }
             });
         });
 
@@ -1414,8 +1431,8 @@
             }
 
             const deposit = val('deposit');
-            const depositAmount = val('depositAmount') ? val('depositAmount') + '万' : '';
-            const withMan = function(id) { return val(id) ? val(id) + '万' : ''; };
+            const depositAmount = val('depositAmount') ? formatComma(moneyValue('depositAmount')) + '万' : '';
+            const withMan = function(id) { return val(id) ? formatComma(moneyValue(id)) + '万' : ''; };
             const place = val('place') && val('placeName') ? val('place') + '（' + val('placeName') + '）' : val('place');
             const expenseLoan = val('expenseLoan');
 
