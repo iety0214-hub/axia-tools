@@ -801,6 +801,13 @@
             placeholder.textContent = '選択してください';
             select.appendChild(placeholder);
 
+            if (opts.undecided) {
+                const undecided = document.createElement('option');
+                undecided.value = '未定';
+                undecided.textContent = '未定';
+                select.appendChild(undecided);
+            }
+
             items.forEach(function(name) {
                 const option = document.createElement('option');
                 option.value = name;
@@ -820,11 +827,11 @@
         }
 
         function renderPropertySelect() {
-            fillSelect('propertyName', getList('property'), { custom: true });
+            fillSelect('propertyName', getList('property'), { undecided: true, custom: true });
         }
 
         function renderBankSelect() {
-            fillSelect('bank', getList('bank'), { custom: true });
+            fillSelect('bank', getList('bank'), { undecided: true, custom: true });
         }
 
         function renderStaffSelects() {
