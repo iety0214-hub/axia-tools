@@ -1464,5 +1464,38 @@ tr.band { page-break-after:avoid; }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
+<!-- ホーム画面へのインストール
+     Androidの Chrome は、同じサイト（iety0214-hub.github.io）のアプリが1つでも入っていると
+     メニューの「ホーム画面に追加」で「すでにインストールされています」と出て入れられない。
+     ページから直接インストールの画面を出せば、アプリごとに入れられる。 -->
+<div id="pwaInstallBar" style="display:none;position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top, 0px));z-index:3000;background:#1e2a4a;color:#fff;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.28);padding:6px 6px 6px 16px;font-size:14px;font-weight:700;align-items:center;gap:8px;white-space:nowrap;max-width:calc(100vw - 24px);">
+  <span>📲 アプリとして追加</span>
+  <button type="button" id="pwaInstallBtn" style="border:none;border-radius:999px;background:#fff;color:#1e2a4a;font-size:14px;font-weight:700;padding:8px 16px;cursor:pointer;">追加</button>
+  <button type="button" id="pwaInstallClose" aria-label="閉じる" style="border:none;background:transparent;color:#fff;font-size:16px;padding:6px 10px;cursor:pointer;">✕</button>
+</div>
+<script>
+(function () {
+  var deferred = null;
+  var bar = document.getElementById('pwaInstallBar');
+  function hide() { bar.style.display = 'none'; }
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    deferred = e;
+    try { if (sessionStorage.getItem('pwaInstallClosed')) return; } catch (err) {}
+    bar.style.display = 'flex';
+  });
+  document.getElementById('pwaInstallBtn').addEventListener('click', function () {
+    if (!deferred) return;
+    hide();
+    deferred.prompt();
+    deferred.userChoice.then(function () { deferred = null; }, function () { deferred = null; });
+  });
+  document.getElementById('pwaInstallClose').addEventListener('click', function () {
+    hide();
+    try { sessionStorage.setItem('pwaInstallClosed', '1'); } catch (err) {}
+  });
+  window.addEventListener('appinstalled', function () { hide(); deferred = null; });
+})();
+</script>
 </body>
 </html>
