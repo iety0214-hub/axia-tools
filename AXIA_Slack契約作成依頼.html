@@ -842,14 +842,14 @@
             });
         }
 
-        // 借入年数 1〜50年（初期値35年）
+        // 借入年数 30〜45年（初期値35年）
         function renderYears() {
             const select = document.getElementById('years');
             const placeholder = document.createElement('option');
             placeholder.value = '';
             placeholder.textContent = '選択してください';
             select.appendChild(placeholder);
-            for (let i = 50; i >= 1; i--) {
+            for (let i = 45; i >= 30; i--) {
                 const option = document.createElement('option');
                 option.value = String(i);
                 option.textContent = i + '年';
