@@ -460,18 +460,18 @@
             </div>
 
             <div class="form-group">
-                <label for="customerKana">名前（フリガナ）</label>
+                <label class="required" for="customerKana">名前（フリガナ）</label>
                 <input type="text" id="customerKana" placeholder="例：タナカ　タロウ">
                 <div class="info-text">「サマ」は自動で追加されます</div>
             </div>
 
             <div class="form-group">
-                <label for="address">住所</label>
+                <label class="required" for="address">住所</label>
                 <input type="text" id="address" placeholder="例：神奈川県横浜市鶴見区北寺尾6-19-10 ○○104号室">
             </div>
 
             <div class="form-group">
-                <label for="email">お客様メールアドレス</label>
+                <label class="required" for="email">お客様メールアドレス</label>
                 <input type="email" id="email" inputmode="email" autocapitalize="off" placeholder="例：example@gmail.com">
             </div>
 
@@ -486,7 +486,7 @@
             </div>
 
             <div class="form-group" id="customPropertyGroup" style="display: none;">
-                <label>物件名（手入力）</label>
+                <label class="required">物件名（手入力）</label>
                 <input type="text" id="customProperty" placeholder="物件名を入力してください">
                 <div class="save-row">
                     <input type="checkbox" id="savePropertyToList">
@@ -495,7 +495,7 @@
             </div>
 
             <div class="form-group">
-                <label for="roomNumber">号室</label>
+                <label class="required" for="roomNumber">号室</label>
                 <input type="text" id="roomNumber" placeholder="例：504号室">
             </div>
 
@@ -510,7 +510,7 @@
             </div>
 
             <div class="form-group" id="customBankGroup" style="display: none;">
-                <label>金融機関（手入力）</label>
+                <label class="required">金融機関（手入力）</label>
                 <input type="text" id="customBank" placeholder="金融機関名を入力してください">
                 <div class="save-row">
                     <input type="checkbox" id="saveBankToList">
@@ -519,18 +519,18 @@
             </div>
 
             <div class="form-group">
-                <label for="rate">金利</label>
+                <label class="required" for="rate">金利</label>
                 <input type="text" id="rate" inputmode="decimal" placeholder="例：2.376">
                 <div class="info-text">「%」は自動で追加されます</div>
             </div>
 
             <div class="form-group">
-                <label for="years">借入年数</label>
+                <label class="required" for="years">借入年数</label>
                 <select id="years"></select>
             </div>
 
             <div class="form-group">
-                <label for="price">売買代金</label>
+                <label class="required" for="price">売買代金</label>
                 <div class="unit-input">
                     <input type="text" id="price" class="js-money" inputmode="numeric" placeholder="3,500">
                     <span class="unit">万円</span>
@@ -538,7 +538,7 @@
             </div>
 
             <div class="form-group">
-                <label for="deposit">手付金</label>
+                <label class="required" for="deposit">手付金</label>
                 <select id="deposit">
                     <option value="無し">無し</option>
                     <option value="有り">有り</option>
@@ -551,7 +551,7 @@
 
             <div class="form-group">
                 <div class="label-row">
-                    <label for="expenseLoan">諸費用ローン</label>
+                    <label class="required" for="expenseLoan">諸費用ローン</label>
                     <a class="btn-gear" id="expenseCalcLink" href="諸費用計算アプリ_楽天_SBI.html" target="_blank" rel="noopener" style="text-decoration: none;">🧮 諸費用計算アプリ</a>
                 </div>
                 <select id="expenseLoan">
@@ -561,7 +561,7 @@
             </div>
 
             <div class="form-group" id="expenseLoanAmountGroup" style="display: none;">
-                <label for="expenseLoanAmount">諸費用ローン額</label>
+                <label class="required" for="expenseLoanAmount">諸費用ローン額</label>
                 <div class="unit-input">
                     <input type="text" id="expenseLoanAmount" class="js-money" inputmode="numeric" placeholder="85">
                     <span class="unit">万円</span>
@@ -575,7 +575,7 @@
             </div>
 
             <div class="form-group">
-                <label for="rent">保証賃料</label>
+                <label class="required" for="rent">保証賃料</label>
                 <div class="unit-input">
                     <input type="text" id="rent" class="js-money" inputmode="numeric" placeholder="84,400">
                     <span class="unit">円</span>
@@ -591,7 +591,7 @@
             </div>
 
             <div class="form-group">
-                <label for="place">契約場所</label>
+                <label class="required" for="place">契約場所</label>
                 <select id="place">
                     <option value="">選択してください</option>
                     <option value="ファミレス・喫茶店">ファミレス・喫茶店</option>
@@ -599,7 +599,7 @@
                     <option value="勤務先">勤務先</option>
                     <option value="来社">来社</option>
                 </select>
-                <input type="text" id="placeName" class="sub-input" placeholder="店名（任意）例：コメダ珈琲店京急川崎駅前店" style="display: none;">
+                <input type="text" id="placeName" class="sub-input" placeholder="店名　例：コメダ珈琲店京急川崎駅前店" style="display: none;">
             </div>
 
             <div class="form-group">
@@ -626,7 +626,7 @@
             </div>
 
             <div class="form-group">
-                <label for="takken">立会宅建士</label>
+                <label class="required" for="takken">立会宅建士</label>
                 <select id="takken">
                     <option value="有">有</option>
                     <option value="無">無</option>
@@ -634,7 +634,7 @@
             </div>
 
             <div class="form-group">
-                <label for="remarks">備考</label>
+                <label class="required" for="remarks">備考</label>
                 <textarea id="remarks" rows="3" placeholder="例：駐車場あり、書類持参など" style="resize: vertical;"></textarea>
             </div>
         </div>
@@ -1489,27 +1489,37 @@
             const contractDate = val('contractDate');
             const personInCharge = val('personInCharge');
 
-            // 必須チェック
-            if (!customerName) {
-                return showFieldError('customerName', 'お客様名を入力してください');
+            // 必須チェック（同行以外はすべて必須。画面の上から順に見る）
+            const required = [
+                ['customerName', 'お客様名を入力してください'],
+                ['customerKana', 'フリガナを入力してください'],
+                ['address', '住所を入力してください'],
+                ['email', 'メールアドレスを入力してください'],
+                ['propertyName', '物件名を選んでください'],
+                ['customProperty', '物件名を入力してください', function() { return propertyName === 'その他'; }],
+                ['roomNumber', '号室を入力してください'],
+                ['bank', '金融機関を選んでください'],
+                ['customBank', '金融機関名を入力してください', function() { return bank === 'その他'; }],
+                ['rate', '金利を入力してください'],
+                ['years', '借入年数を選んでください'],
+                ['price', '売買代金を入力してください'],
+                ['depositAmount', '手付金の金額を入力してください', function() { return val('deposit') === '有り'; }],
+                ['expenseLoanAmount', '諸費用ローン額を入力してください', function() { return val('expenseLoan') === '有'; }],
+                ['rent', '保証賃料を入力してください'],
+                ['contractDate', '契約日を選んでください'],
+                ['contractTime', '契約時間を選んでください'],
+                ['place', '契約場所を選んでください'],
+                ['placeName', '店名を入力してください', function() { return val('place') === 'ファミレス・喫茶店'; }],
+                ['personInCharge', '担当を選んでください'],
+                ['remarks', '備考を入力してください（無ければ「なし」）']
+            ];
+            for (let i = 0; i < required.length; i++) {
+                const item = required[i];
+                if (item[2] && !item[2]()) continue;
+                if (!val(item[0])) return showFieldError(item[0], item[1]);
             }
-            if (!propertyName) {
-                return showFieldError('propertyName', '物件名を選んでください');
-            }
-            if (propertyName === 'その他' && !customProperty) {
-                return showFieldError('customProperty', '物件名を入力してください');
-            }
-            if (!bank) {
-                return showFieldError('bank', '金融機関を選んでください');
-            }
-            if (bank === 'その他' && !customBank) {
-                return showFieldError('customBank', '金融機関名を入力してください');
-            }
-            if (!contractDate) {
-                return showFieldError('contractDate', '契約日を選んでください');
-            }
-            if (!personInCharge) {
-                return showFieldError('personInCharge', '担当を選んでください');
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val('email'))) {
+                return showFieldError('email', 'メールアドレスの形が正しくありません');
             }
 
             const deposit = val('deposit');
