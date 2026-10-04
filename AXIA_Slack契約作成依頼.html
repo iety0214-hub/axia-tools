@@ -450,6 +450,7 @@
                     <button type="button" class="btn-gear" id="btnChannel">⚙ 変更</button>
                 </div>
                 <input type="text" id="channelView" readonly style="background: #f0f0f0;">
+                <div class="info-text" id="threadStatus"></div>
             </div>
 
             <div class="form-group">
@@ -686,6 +687,11 @@
                     <input type="text" id="setTeam" autocapitalize="characters" placeholder="例：T08N4SFEAQN">
                     <div class="info-text">Team IDが無いとSlackのホーム画面で止まります</div>
                 </div>
+                <div class="form-group">
+                    <label for="setThreadApi">申込スレッド検索URL</label>
+                    <input type="url" id="setThreadApi" autocapitalize="off" placeholder="https://script.google.com/macros/s/…/exec">
+                    <div class="info-text">入れておくと、選んだ物件の申込投稿のスレッドを開きます（申込→Slack連携GASのウェブアプリURL）</div>
+                </div>
             </div>
             <div class="modal-foot">
                 <button type="button" class="btn-mini secondary" id="channelModalClose">閉じる</button>
@@ -699,7 +705,8 @@
     <script>
         // ========== 投稿先（Slack） ==========
         const SK = 'axia_keiyaku_irai_v2';
-        const DEFAULTS = { channel: 'C08P1PGLHT5', team: 'T08N4SFEAQN' };
+        // threadApi：申込→Slack連携GAS（slack_moushikomi_renkei.gs）のウェブアプリURL
+        const DEFAULTS = { channel: 'C08P1PGLHT5', team: 'T08N4SFEAQN', threadApi: '' };
 
         function loadSettings() {
             try {
@@ -721,6 +728,7 @@
         // 旧バージョンで未保存の値は最新の既定値で補う
         if (!settings.team) { settings.team = DEFAULTS.team; saveSettings(settings); }
         if (!settings.channel) { settings.channel = DEFAULTS.channel; saveSettings(settings); }
+        if (!settings.threadApi && DEFAULTS.threadApi) { settings.threadApi = DEFAULTS.threadApi; saveSettings(settings); }
 
         const CHANNEL_NAMES = { 'C08P1PGLHT5': '#案件進捗', 'C08P1MWKVT5': '営業チャンネル', 'C08N4SFRQF8': '全体チャンネル' };
 
@@ -751,6 +759,70 @@
             return 'slack://channel?' + query;
         }
 
+        // ========== 申込投稿のスレッド ==========
+        // 選んだ物件（＋号室・お客様名）の申込投稿をGASに聞いておき、見つかればそのスレッドを開く
+        let currentThread = null;   // { ts, url }
+        let threadSeq = 0;
+        let threadTimer = null;
+
+        function selectedPropertyName() {
+            const v = document.getElementById('propertyName').value;
+            return v === 'その他' ? document.getElementById('customProperty').value.trim() : v;
+        }
+
+        function setThreadStatus(text) {
+            document.getElementById('threadStatus').textContent = text;
+        }
+
+        function lookupThread() {
+            currentThread = null;
+            renderChannelView();
+            const property = selectedPropertyName();
+            if (!settings.threadApi || !property) {
+                setThreadStatus('');
+                return;
+            }
+            const seq = ++threadSeq;
+            const cb = '__threadCb' + seq;
+            const script = document.createElement('script');
+            const timer = setTimeout(function() { done(null); }, 10000);
+            function done(data) {
+                clearTimeout(timer);
+                delete window[cb];
+                script.remove();
+                if (seq !== threadSeq) return;   // 入力が変わった後の古い返事は捨てる
+                currentThread = data && data.ts ? data : null;
+                renderChannelView();
+                setThreadStatus(currentThread
+                    ? '📌 ' + property + ' の申込スレッドを開きます'
+                    : (data ? '申込投稿が見つからないので、チャンネルを開きます' : 'スレッドを探せなかったので、チャンネルを開きます'));
+            }
+            window[cb] = done;
+            script.onerror = function() { done(null); };
+            const params = new URLSearchParams({
+                property: property,
+                room: document.getElementById('roomNumber').value.trim(),
+                customer: document.getElementById('customerName').value.trim(),
+                callback: cb
+            });
+            script.src = settings.threadApi + (settings.threadApi.indexOf('?') === -1 ? '?' : '&') + params.toString();
+            setThreadStatus('申込スレッドを探しています…');
+            document.head.appendChild(script);
+        }
+
+        function scheduleLookupThread() {
+            clearTimeout(threadTimer);
+            threadTimer = setTimeout(lookupThread, 500);
+        }
+
+        // スレッドを開くURL（Androidは intent:// でSlackアプリを指定）
+        function threadAppUrl() {
+            if (!isAndroidDevice()) return currentThread.url;
+            return 'intent://' + currentThread.url.replace(/^https:\/\//, '') +
+                '#Intent;scheme=https;package=com.Slack;S.browser_fallback_url=' +
+                encodeURIComponent(currentThread.url) + ';end';
+        }
+
         function isEmbedded() {
             try { return window.top !== window.self; } catch (e) { return true; }
         }
@@ -759,8 +831,13 @@
             // スマホではリンクからもSlackアプリを開く（埋め込み表示のときはWeb版）
             const mobile = isAndroidDevice() || isIOSDevice();
             const link = document.getElementById('slackLink');
-            link.href = mobile && !isEmbedded() ? slackAppUrl() : slackWebUrl();
+            if (currentThread) {
+                link.href = mobile && !isEmbedded() ? threadAppUrl() : currentThread.url;
+            } else {
+                link.href = mobile && !isEmbedded() ? slackAppUrl() : slackWebUrl();
+            }
             if (link.href.indexOf('https:') !== 0) link.removeAttribute('target');
+            else link.setAttribute('target', '_blank');
             const name = CHANNEL_NAMES[settings.channel];
             document.getElementById('channelView').value = name ? name + '（' + settings.channel + '）' : settings.channel;
         }
@@ -1063,6 +1140,7 @@
         function openChannelModal() {
             document.getElementById('setChannel').value = settings.channel || '';
             document.getElementById('setTeam').value = settings.team || '';
+            document.getElementById('setThreadApi').value = settings.threadApi || '';
             document.getElementById('channelModal').classList.add('active');
         }
 
@@ -1081,10 +1159,17 @@
                 alert('Team IDは「T」から始まる英数字で入力してください');
                 return;
             }
+            const threadApi = document.getElementById('setThreadApi').value.trim();
+            if (threadApi && !/^https:\/\/script\.google(usercontent)?\.com\//.test(threadApi)) {
+                alert('申込スレッド検索URLは https://script.google.com/… のURLを入れてください');
+                return;
+            }
             settings.channel = channel;
             settings.team = team;
+            settings.threadApi = threadApi;
             saveSettings(settings);
             renderChannelView();
+            lookupThread();
             closeChannelModal();
             showToast('投稿先を保存しました', 'success');
         }
@@ -1565,7 +1650,10 @@
 
             // コピーできたときは何も出さずにSlackを開く（失敗したときだけ案内）
             if (!copied) showToast('コピーできませんでした。プレビューをコピーしてSlackに貼り付けてください', 'error');
-            if (isAndroidDevice()) {
+            if (currentThread) {
+                // 申込投稿のスレッドを開く
+                window.location.href = threadAppUrl();
+            } else if (isAndroidDevice()) {
                 // Androidは intent:// で開く（アプリが無ければWeb版へ）
                 window.location.href = slackAppUrl();
             } else {
@@ -1585,6 +1673,14 @@
         restoreSelection('accompany', 'lastAccompany');
         rememberSelection('personInCharge', 'lastPersonInCharge');
         rememberSelection('accompany', 'lastAccompany');
+
+        // 物件・号室・お客様名が変わったら申込スレッドを探し直す
+        ['propertyName'].forEach(function(id) {
+            document.getElementById(id).addEventListener('change', scheduleLookupThread);
+        });
+        ['customProperty', 'roomNumber', 'customerName'].forEach(function(id) {
+            document.getElementById(id).addEventListener('input', scheduleLookupThread);
+        });
     </script>
 </body>
 </html>
