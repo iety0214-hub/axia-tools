@@ -905,3 +905,75 @@ function undecidedLines_(fields) {
   const rooms = splitRooms_(get_(fields, '号室'));
   return rooms.length ? ['物件未定', '号室　' + rooms.join(' ')] : ['物件未定'];
 }
+
+// ============================================================
+//  契約作成依頼アプリ用：申込投稿のスレッドを探す（Webアプリ）
+// ============================================================
+//  契約作成依頼アプリ（AXIA_Slack契約作成依頼.html）が「Slack投稿」で
+//  選んだ物件の申込投稿のスレッドを開けるように、投稿の ts を返す。
+//
+//  公開手順（1回だけ）:
+//    右上「デプロイ」→「新しいデプロイ」→ 種類「ウェブアプリ」
+//      次のユーザーとして実行: 自分 ／ アクセスできるユーザー: 全員
+//    → 出てきた「ウェブアプリのURL」（…/exec）を契約作成依頼アプリの ⚙ 変更 に貼る
+//
+//  例: …/exec?property=スプレスター志村坂上&room=504&customer=齋藤 瑠維&callback=cb
+//      → cb({"ok":true,"ts":"1759157733.123456","url":"https://axia-japan.slack.com/archives/…"})
+//  返すのは投稿の場所だけ（顧客名などの中身は返さない）。
+
+const SLACK_WORKSPACE_URL = 'https://axia-japan.slack.com';
+
+function doGet(e) {
+  const p = (e && e.parameter) || {};
+  let result;
+  try {
+    const rec = findPostForThread_(p.property, p.room, p.customer);
+    result = rec ? { ok: true, ts: rec.ts, url: threadLink_(rec.ts) } : { ok: true, ts: '' };
+  } catch (err) {
+    result = { ok: false, ts: '' };
+  }
+  const json = JSON.stringify(result);
+  // 契約作成依頼アプリは <script> で読み込むので、callback があれば JSONP で返す
+  const callback = String(p.callback || '');
+  if (/^[A-Za-z_$][\w$]{0,60}$/.test(callback)) {
+    return ContentService.createTextOutput(callback + '(' + json + ');')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
+}
+
+// 物件名＋号室で申込投稿を探す。複数あれば顧客名（姓）で絞り、いちばん新しいものを返す
+function findPostForThread_(property, room, customer) {
+  const building = normalize_(property);
+  if (!building || UNDECIDED_VALUES.indexOf(building) !== -1) return null;
+  const roomNo = (String(room || '').match(/\d+/) || [''])[0];
+  const key = building + roomNo;
+
+  const props = PropertiesService.getScriptProperties().getProperties();
+  let hits = [];
+  Object.keys(props).forEach(function (k) {
+    if (k.indexOf('post_') !== 0) return;
+    let rec;
+    try { rec = JSON.parse(props[k]); } catch (err) { return; }
+    if (!rec.ts || !rec.keys) return;
+    const matched = rec.keys.some(function (rk) {
+      // 号室が分からないときは物件名だけで探す
+      return roomNo ? rk === key : rk.indexOf(building) === 0;
+    });
+    if (matched) hits.push(rec);
+  });
+
+  const who = customerKey_(customer);
+  if (who && hits.length > 1) {
+    const narrowed = hits.filter(function (rec) { return rec.customer === who; });
+    if (narrowed.length > 0) hits = narrowed;
+  }
+  hits.sort(function (a, b) { return (b.mailAt || b.savedAt) - (a.mailAt || a.savedAt); });
+  return hits[0] || null;
+}
+
+// 申込投稿のスレッドを開くリンク
+function threadLink_(ts) {
+  return SLACK_WORKSPACE_URL + '/archives/' + SLACK_CHANNEL + '/p' + String(ts).replace('.', '') +
+    '?thread_ts=' + ts + '&cid=' + SLACK_CHANNEL;
+}
