@@ -699,6 +699,15 @@
         </div>
     </div>
 
+    <!-- 諸費用計算アプリをこの画面の上に重ねて開く（iPhoneのホーム画面アプリでも結果を受け取れるように） -->
+    <div id="calcOverlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 3500; background: #f2f3f7; flex-direction: column;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; padding-top: calc(10px + env(safe-area-inset-top, 0px)); background: #0B2A5B; color: #fff;">
+            <span style="font-weight: 700;">🧮 諸費用計算</span>
+            <button type="button" id="calcOverlayDone" class="btn-mini" style="background: #fff; color: #0B2A5B;">反映して戻る</button>
+        </div>
+        <iframe id="calcFrame" title="諸費用計算アプリ" style="flex: 1; width: 100%; border: 0; background: #f2f3f7;"></iframe>
+    </div>
+
     <div class="toast" id="toast">コピーしました！</div>
 
     <script>
@@ -1224,8 +1233,19 @@
             try { sessionStorage.setItem('shohiyoOpenedAt', String(Date.now())); } catch (e) {}
 
             const url = document.getElementById('expenseCalcLink').getAttribute('href').split('?')[0] + '?' + params.toString();
-            const win = window.open(url, '_blank');
-            if (!win) showToast('「🧮 諸費用計算アプリ」を押して開いてください', 'error');
+            // 別タブではなくこの画面の上に重ねて開く（iPhoneはホーム画面アプリとSafariで保存場所が別なので、別タブだと結果が戻らない）
+            document.getElementById('calcFrame').src = url;
+            document.getElementById('calcOverlay').style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeExpenseCalc() {
+            const overlay = document.getElementById('calcOverlay');
+            if (overlay.style.display === 'none') return;
+            applyExpenseCalcResult();
+            overlay.style.display = 'none';
+            document.body.style.overflow = '';
+            document.getElementById('calcFrame').src = 'about:blank';
         }
 
         function applyExpenseCalcResult() {
@@ -1256,7 +1276,13 @@
             e.preventDefault();
             openExpenseCalc();
         });
-        // 別タブで計算した瞬間（storage）と、この画面に戻ってきたとき（focus / visibilitychange）に反映
+        document.getElementById('calcOverlayDone').addEventListener('click', closeExpenseCalc);
+        // 諸費用計算アプリの「契約作成依頼に戻る」ボタンからの合図
+        window.addEventListener('message', function(e) {
+            if (e.origin !== location.origin || !e.data || e.data.type !== 'shohiyo-close') return;
+            closeExpenseCalc();
+        });
+        // 計算した瞬間（storage）と、この画面に戻ってきたとき（focus / visibilitychange）に反映
         window.addEventListener('storage', function(e) {
             if (e.key === SHOHIYO_KEY) applyExpenseCalcResult();
         });
@@ -1577,12 +1603,27 @@
                 ta.style.outline = 'none';
                 ta.style.boxShadow = 'none';
                 ta.style.background = 'transparent';
+                ta.style.fontSize = '16px';   // iPhoneで選択時に画面が拡大されないように
+                ta.contentEditable = 'true';
+                ta.readOnly = false;
                 document.body.appendChild(ta);
                 ta.focus();
                 ta.select();
-                const ok = document.execCommand('copy');
+                // iPhone Safari は select() だけでは選択されないので範囲も指定する
+                const range = document.createRange();
+                range.selectNodeContents(ta);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+                ta.setSelectionRange(0, text.length);
+                let ok = document.execCommand('copy');
                 document.body.removeChild(ta);
-                if (!ok && navigator.clipboard) navigator.clipboard.writeText(text);
+                sel.removeAllRanges();
+                // 新しい方法でも書き込んでおく（押した直後なのでiPhoneでも使える）
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(text).catch(function() {});
+                    ok = true;
+                }
                 return ok;
             } catch (err) {
                 console.error('コピーエラー:', err);
@@ -1685,7 +1726,8 @@
 <!-- ホーム画面へのインストール
      Androidの Chrome は、同じサイト（iety0214-hub.github.io）のアプリが1つでも入っていると
      メニューの「ホーム画面に追加」で「すでにインストールされています」と出て入れられない。
-     ページから直接インストールの画面を出せば、アプリごとに入れられる。 -->
+     ページから直接インストールの画面を出せば、アプリごとに入れられる。
+     iPhone / iPad はSafariの「ホーム画面に追加」を案内する。 -->
 <div id="pwaInstallBar" style="display:none;position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top, 0px));z-index:3000;background:#1e2a4a;color:#fff;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.28);padding:6px 6px 6px 16px;font-size:14px;font-weight:700;align-items:center;gap:8px;white-space:nowrap;max-width:calc(100vw - 24px);">
   <span>📲 アプリとして追加</span>
   <button type="button" id="pwaInstallBtn" style="border:none;border-radius:999px;background:#fff;color:#1e2a4a;font-size:14px;font-weight:700;padding:8px 16px;cursor:pointer;">追加</button>
@@ -1713,6 +1755,30 @@
     try { sessionStorage.setItem('pwaInstallClosed', '1'); } catch (err) {}
   });
   window.addEventListener('appinstalled', function () { hide(); deferred = null; });
+
+  // iPhone / iPad はページからインストール画面を出せないので、Safariでの追加方法を案内する
+  var ua = navigator.userAgent;
+  var isIOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  var standalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+  if (isIOS && !standalone) {
+    var key = 'iosA2hsClosed:' + location.pathname;
+    var closed = false;
+    try { closed = !!localStorage.getItem(key); } catch (err) {}
+    if (!closed) {
+      var ios = document.createElement('div');
+      ios.id = 'pwaIosBar';
+      ios.style.cssText = 'position:fixed;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top, 0px));z-index:3000;background:#1e2a4a;color:#fff;border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,.28);padding:10px 8px 10px 14px;font-size:13px;font-weight:600;line-height:1.5;display:flex;align-items:center;gap:8px;';
+      var isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|Line\//.test(ua);
+      ios.innerHTML = '<span style="flex:1;">📲 アプリとして追加するには<br>' +
+        (isSafari ? '下の共有ボタン（□↑）→「ホーム画面に追加」' : 'Safariでこのページを開き、共有ボタン（□↑）→「ホーム画面に追加」') +
+        '</span><button type="button" aria-label="閉じる" style="border:none;background:transparent;color:#fff;font-size:16px;padding:6px 10px;cursor:pointer;">✕</button>';
+      ios.querySelector('button').addEventListener('click', function () {
+        ios.remove();
+        try { localStorage.setItem(key, '1'); } catch (err) {}
+      });
+      document.body.appendChild(ios);
+    }
+  }
 })();
 </script>
 <script>
