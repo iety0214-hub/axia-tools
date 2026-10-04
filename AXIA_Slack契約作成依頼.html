@@ -550,7 +550,7 @@
             <div class="form-group">
                 <div class="label-row">
                     <label for="expenseLoan">諸費用ローン</label>
-                    <a class="btn-gear" href="諸費用計算アプリ_楽天_SBI.html" target="_blank" rel="noopener" style="text-decoration: none;">🧮 諸費用計算アプリ</a>
+                    <a class="btn-gear" id="expenseCalcLink" href="諸費用計算アプリ_楽天_SBI.html" target="_blank" rel="noopener" style="text-decoration: none;">🧮 諸費用計算アプリ</a>
                 </div>
                 <select id="expenseLoan">
                     <option value="無">無</option>
@@ -1059,7 +1059,13 @@
         document.getElementById('expenseLoan').addEventListener('change', function() {
             const group = document.getElementById('expenseLoanAmountGroup');
             group.style.display = this.value === '有' ? 'block' : 'none';
-            if (this.value !== '有') document.getElementById('expenseLoanAmount').value = '';
+            if (this.value !== '有') {
+                document.getElementById('expenseLoanAmount').value = '';
+                return;
+            }
+            // 「有」にしたら諸費用計算アプリを別タブで開く（入力中のこの画面は残す）
+            const win = window.open(document.getElementById('expenseCalcLink').href, '_blank');
+            if (!win) showToast('「🧮 諸費用計算アプリ」を押して開いてください', 'error');
         });
 
         document.getElementById('btnFullLoan').addEventListener('click', function() {
