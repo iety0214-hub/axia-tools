@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>契約作成依頼</title>
+    <!-- ホーム画面に置いたときアプリとして開くための一式（相対パスでGitHub Pagesに対応） -->
+    <link rel="manifest" href="AXIA_Slack契約作成依頼.webmanifest?v=1">
+    <link rel="icon" href="keiyaku-irai/icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="keiyaku-irai/icon-180.png">
     <meta name="theme-color" content="#1B1B26">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -654,8 +658,8 @@
             <div class="modal-body">
                 <div class="form-group">
                     <label for="setChannel">チャンネルID（C○○）</label>
-                    <input type="text" id="setChannel" autocapitalize="characters" placeholder="例：C08P1MWKVT5">
-                    <div class="info-text">営業：C08P1MWKVT5 ／ 全体：C08N4SFRQF8</div>
+                    <input type="text" id="setChannel" autocapitalize="characters" placeholder="例：C08P1PGLHT5">
+                    <div class="info-text">#案件進捗：C08P1PGLHT5 ／ 営業：C08P1MWKVT5 ／ 全体：C08N4SFRQF8</div>
                 </div>
                 <div class="form-group">
                     <label for="setTeam">Team ID（T○○）</label>
@@ -674,8 +678,8 @@
 
     <script>
         // ========== 投稿先（Slack） ==========
-        const SK = 'axia_keiyaku_irai_v1';
-        const DEFAULTS = { channel: 'C08P1MWKVT5', team: 'T08N4SFEAQN' };
+        const SK = 'axia_keiyaku_irai_v2';
+        const DEFAULTS = { channel: 'C08P1PGLHT5', team: 'T08N4SFEAQN' };
 
         function loadSettings() {
             try {
@@ -698,7 +702,7 @@
         if (!settings.team) { settings.team = DEFAULTS.team; saveSettings(settings); }
         if (!settings.channel) { settings.channel = DEFAULTS.channel; saveSettings(settings); }
 
-        const CHANNEL_NAMES = { 'C08P1MWKVT5': '営業チャンネル', 'C08N4SFRQF8': '全体チャンネル' };
+        const CHANNEL_NAMES = { 'C08P1PGLHT5': '#案件進捗', 'C08P1MWKVT5': '営業チャンネル', 'C08N4SFRQF8': '全体チャンネル' };
 
         function renderChannelView() {
             const name = CHANNEL_NAMES[settings.channel];
@@ -1148,6 +1152,11 @@
             return trimmed.endsWith(bare) ? trimmed : trimmed + suffix;
         }
 
+        // 桃井主任 → 桃井（担当は役職なしで出す）
+        function withoutTitle(name) {
+            return name.replace(/(社長|専務|常務|部長|次長|課長|係長|主任|社員)$/, '') || name;
+        }
+
         // 2000-05-08 → 2000年5月8日
         function formatBirthday(value) {
             if (!value) return '';
@@ -1233,7 +1242,7 @@
                 ['保証賃料', withUnit(val('rent'), '円')],
                 ['契約日（西暦）、時間', formatContractDate(contractDate, val('contractTime'))],
                 ['契約場所', val('place')],
-                ['担当', personInCharge],
+                ['担当', withoutTitle(personInCharge)],
                 ['同行（2人の場合は2人記載）', collectAccompany().join('\n')],
                 ['立会宅建士（有・無）', val('takken')],
                 ['備考', val('remarks')]
