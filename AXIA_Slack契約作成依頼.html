@@ -462,11 +462,6 @@
             </div>
 
             <div class="form-group">
-                <label for="birthday">生年月日</label>
-                <input type="date" id="birthday" min="1920-01-01" max="2015-12-31">
-            </div>
-
-            <div class="form-group">
                 <label for="address">住所</label>
                 <input type="text" id="address" placeholder="例：神奈川県横浜市鶴見区北寺尾6-19-10 ○○104号室">
             </div>
@@ -712,8 +707,38 @@
             return 'https://app.slack.com/client/' + encodeURIComponent(settings.team) + '/' + encodeURIComponent(settings.channel);
         }
 
+        function isIOSDevice() {
+            const ua = navigator.userAgent;
+            if (/iPhone|iPad|iPod/i.test(ua)) return true;
+            return /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+        }
+
+        function isAndroidDevice() {
+            return /Android/i.test(navigator.userAgent);
+        }
+
+        // Slackアプリでチャンネルを開くURL（team と id の両方が無いとホーム画面で止まる）
+        // Androidは slack:// だと開かない端末があるので intent:// でSlackアプリを直接指定する
+        function slackAppUrl() {
+            const query = 'team=' + encodeURIComponent(settings.team) + '&id=' + encodeURIComponent(settings.channel);
+            if (isAndroidDevice()) {
+                return 'intent://channel?' + query +
+                    '#Intent;scheme=slack;package=com.Slack;S.browser_fallback_url=' +
+                    encodeURIComponent(slackWebUrl()) + ';end';
+            }
+            return 'slack://channel?' + query;
+        }
+
+        function isEmbedded() {
+            try { return window.top !== window.self; } catch (e) { return true; }
+        }
+
         function renderChannelView() {
-            document.getElementById('slackLink').href = slackWebUrl();
+            // スマホではリンクからもSlackアプリを開く（埋め込み表示のときはWeb版）
+            const mobile = isAndroidDevice() || isIOSDevice();
+            const link = document.getElementById('slackLink');
+            link.href = mobile && !isEmbedded() ? slackAppUrl() : slackWebUrl();
+            if (link.href.indexOf('https:') !== 0) link.removeAttribute('target');
             const name = CHANNEL_NAMES[settings.channel];
             document.getElementById('channelView').value = name ? name + '（' + settings.channel + '）' : settings.channel;
         }
@@ -801,13 +826,6 @@
             placeholder.textContent = '選択してください';
             select.appendChild(placeholder);
 
-            if (opts.undecided) {
-                const undecided = document.createElement('option');
-                undecided.value = '未定';
-                undecided.textContent = '未定';
-                select.appendChild(undecided);
-            }
-
             items.forEach(function(name) {
                 const option = document.createElement('option');
                 option.value = name;
@@ -827,11 +845,11 @@
         }
 
         function renderPropertySelect() {
-            fillSelect('propertyName', getList('property'), { undecided: true, custom: true });
+            fillSelect('propertyName', getList('property'), { custom: true });
         }
 
         function renderBankSelect() {
-            fillSelect('bank', getList('bank'), { undecided: true, custom: true });
+            fillSelect('bank', getList('bank'), { custom: true });
         }
 
         function renderStaffSelects() {
@@ -1173,13 +1191,6 @@
             return name.replace(/(社長|専務|常務|部長|次長|課長|係長|主任|社員)$/, '') || name;
         }
 
-        // 2000-05-08 → 2000年5月8日
-        function formatBirthday(value) {
-            if (!value) return '';
-            const p = value.split('-');
-            return Number(p[0]) + '年' + Number(p[1]) + '月' + Number(p[2]) + '日';
-        }
-
         // 2026-09-30 + 19:00 → 2026/9/30 19:00〜
         function formatContractDate(date, time) {
             if (!date) return '';
@@ -1242,7 +1253,6 @@
             const items = [
                 ['お客様名　（例）田中　太郎', withSuffix(customerName, '　様')],
                 ['名前（フリガナ）', withSuffix(val('customerKana'), '　サマ')],
-                ['生年月日（西暦）', formatBirthday(val('birthday'))],
                 ['住所', val('address')],
                 ['お客様メールアドレス', val('email')],
                 ['物件名', propertyName === 'その他' ? customProperty : propertyName],
@@ -1264,10 +1274,13 @@
                 ['備考', val('remarks')]
             ];
 
-            let report = '契約作成依頼\n\n\n';
-            report += items.map(function(item) {
-                return '・' + item[0] + '\n' + item[1];
-            }).join('\n\n');
+            // 項目の間に空行は入れない（値が空の項目は見出しだけ）
+            const lines = ['契約作成依頼'];
+            items.forEach(function(item) {
+                lines.push('・' + item[0]);
+                if (item[1]) lines.push(item[1]);
+            });
+            const report = lines.join('\n');
 
             document.getElementById('previewBox').textContent = report;
             document.getElementById('previewSection').classList.add('active');
@@ -1358,23 +1371,22 @@
 
             const copied = copyToClipboard(document.getElementById('previewBox').textContent);
 
-            // team と id の両方が無いとチャンネルに直接飛ばずホーム画面で止まる
-            const team = settings.team;
-            const channel = settings.channel;
-            const appUrl = 'slack://channel?team=' + encodeURIComponent(team) + '&id=' + encodeURIComponent(channel);
             const webUrl = slackWebUrl();
 
             // 他のページに埋め込まれて開いているときは、ページ自体を移動させると
             // 読み込みエラーになるので、プレビュー横の「Slackを開く」を押してもらう
-            let embedded = false;
-            try { embedded = window.top !== window.self; } catch (e) { embedded = true; }
-            if (embedded) {
+            if (isEmbedded()) {
                 showToast(copied ? 'コピー完了。「Slackを開く」を押してください' : '生成完了。コピーしてから「Slackを開く」を押してください', copied ? 'success' : 'error');
                 return;
             }
 
             showToast(copied ? 'コピー完了。Slackに貼り付けてください' : '生成完了。プレビューをコピーしてSlackに貼り付けてください', copied ? 'success' : 'error');
-            openAppThenFallback(appUrl, webUrl);
+            if (isAndroidDevice()) {
+                // Androidは intent:// で開く（アプリが無ければWeb版へ）
+                window.location.href = slackAppUrl();
+            } else {
+                openAppThenFallback(slackAppUrl(), webUrl);
+            }
         });
 
         // ページ読み込み時の初期化
