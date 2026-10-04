@@ -634,7 +634,7 @@
             </div>
 
             <div class="form-group">
-                <label class="required" for="remarks">備考</label>
+                <label for="remarks">備考</label>
                 <textarea id="remarks" rows="3" placeholder="例：駐車場あり、書類持参など" style="resize: vertical;"></textarea>
             </div>
         </div>
@@ -1489,7 +1489,7 @@
             const contractDate = val('contractDate');
             const personInCharge = val('personInCharge');
 
-            // 必須チェック（同行以外はすべて必須。画面の上から順に見る）
+            // 必須チェック（同行・備考以外はすべて必須。画面の上から順に見る）
             const required = [
                 ['customerName', 'お客様名を入力してください'],
                 ['customerKana', 'フリガナを入力してください'],
@@ -1510,8 +1510,7 @@
                 ['contractTime', '契約時間を選んでください'],
                 ['place', '契約場所を選んでください'],
                 ['placeName', '店名を入力してください', function() { return val('place') === 'ファミレス・喫茶店'; }],
-                ['personInCharge', '担当を選んでください'],
-                ['remarks', '備考を入力してください（無ければ「なし」）']
+                ['personInCharge', '担当を選んでください']
             ];
             for (let i = 0; i < required.length; i++) {
                 const item = required[i];
