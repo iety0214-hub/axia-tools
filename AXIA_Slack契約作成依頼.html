@@ -1563,7 +1563,8 @@
                 return;
             }
 
-            showToast(copied ? 'コピー完了。Slackに貼り付けてください' : '生成完了。プレビューをコピーしてSlackに貼り付けてください', copied ? 'success' : 'error');
+            // コピーできたときは何も出さずにSlackを開く（失敗したときだけ案内）
+            if (!copied) showToast('コピーできませんでした。プレビューをコピーしてSlackに貼り付けてください', 'error');
             if (isAndroidDevice()) {
                 // Androidは intent:// で開く（アプリが無ければWeb版へ）
                 window.location.href = slackAppUrl();
