@@ -1715,5 +1715,43 @@
   window.addEventListener('appinstalled', function () { hide(); deferred = null; });
 })();
 </script>
+<script>
+// ===== インストールの診断（URLの末尾に #pwa を付けて開いたときだけ表示） =====
+(function () {
+  if (location.hash !== '#pwa') return;
+  var box = document.createElement('pre');
+  box.style.cssText = 'position:fixed;left:8px;right:8px;bottom:90px;z-index:4000;background:#111;color:#0f0;font:12px/1.5 monospace;padding:10px;border-radius:8px;white-space:pre-wrap;max-height:45vh;overflow:auto;';
+  document.body.appendChild(box);
+  var t0 = Date.now();
+  var info = {
+    'Chrome': (navigator.userAgent.match(/Chrome\/[\d.]+/) || ['?'])[0],
+    'Android': (navigator.userAgent.match(/Android [\d.]+/) || ['-'])[0],
+    'アプリとして起動中': window.matchMedia('(display-mode: standalone)').matches ? 'はい' : 'いいえ',
+    'manifest': (document.querySelector('link[rel=manifest]') || {}).href || 'なし',
+    'インストール可能の合図': 'まだ来ていない（10秒待ちます）',
+    '選択結果': '-'
+  };
+  function render() {
+    box.textContent = '【インストール診断】\n' + Object.keys(info).map(function (k) { return k + '：' + info[k]; }).join('\n');
+  }
+  window.addEventListener('beforeinstallprompt', function (e) {
+    info['インストール可能の合図'] = '来た（' + ((Date.now() - t0) / 1000).toFixed(1) + '秒後）';
+    render();
+    if (e.userChoice) e.userChoice.then(function (r) { info['選択結果'] = r.outcome; render(); });
+  });
+  window.addEventListener('appinstalled', function () { info['選択結果'] = 'インストール完了'; render(); });
+  fetch(document.querySelector('link[rel=manifest]').href, { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (m) {
+    info['manifest id'] = m.id; info['scope'] = m.scope; info['icons'] = (m.icons || []).map(function (i) { return i.sizes; }).join(',');
+    render();
+  }).catch(function (err) { info['manifest読込'] = '失敗 ' + err; render(); });
+  if (navigator.getInstalledRelatedApps) {
+    navigator.getInstalledRelatedApps().then(function (a) { info['関連アプリ'] = a.length; render(); }).catch(function () {});
+  }
+  setTimeout(function () {
+    if (/まだ/.test(info['インストール可能の合図'])) { info['インストール可能の合図'] = '10秒待っても来なかった'; render(); }
+  }, 10000);
+  render();
+})();
+</script>
 </body>
 </html>
