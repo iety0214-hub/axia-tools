@@ -187,8 +187,8 @@ body {
     </div>
     <div class="input-row">
       <label>物件価格</label>
-      <input type="text" inputmode="numeric" id="r-price" value="" placeholder="0" oninput="fmtCalc(this,'r')">
-      <span class="unit">円</span>
+      <input type="text" inputmode="numeric" id="r-price" value="" placeholder="3,500" oninput="fmtCalc(this,'r')">
+      <span class="unit">万円</span>
     </div>
     <div class="input-row">
       <label>管理準備金</label>
@@ -237,8 +237,8 @@ body {
     <div class="section-header sbi">📋 物件情報（入力）</div>
     <div class="input-row">
       <label>物件価格</label>
-      <input type="text" inputmode="numeric" id="s-price" value="" placeholder="0" oninput="fmtCalc(this,'s')">
-      <span class="unit">円</span>
+      <input type="text" inputmode="numeric" id="s-price" value="" placeholder="3,500" oninput="fmtCalc(this,'s')">
+      <span class="unit">万円</span>
     </div>
     <div class="input-row">
       <label>管理準備金</label>
@@ -308,6 +308,8 @@ function calcKotei(month) {
   return 30000;
 }
 
+// 物件価格は万円で入力するので円に直す
+function pv(id) { return nv(id)*10000; }
 function nv(id) { return parseInt((document.getElementById(id).value||'').replace(/[^0-9]/g,''))||0; }
 function fmt(n) { return n.toLocaleString('ja-JP'); }
 function fmtInput(el) {
@@ -329,7 +331,7 @@ function switchTab(t) {
 }
 
 function calcRakuten() {
-  const price=nv('r-price'), kanri=nv('r-kanri'), shuzen=nv('r-shuzen');
+  const price=pv('r-price'), kanri=nv('r-kanri'), shuzen=nv('r-shuzen');
   const dateVal=document.getElementById('r-date').value;
   let kotei=0, koteiText='決済月を入力';
   if(dateVal) {
@@ -352,7 +354,7 @@ function calcRakuten() {
 }
 
 function calcSBI() {
-  const price=nv('s-price'), kanri=nv('s-kanri'), shuzen=nv('s-shuzen');
+  const price=pv('s-price'), kanri=nv('s-kanri'), shuzen=nv('s-shuzen');
   const a=Math.floor(price*0.05/100000)*100000;
   document.getElementById('s-5pct').textContent=fmt(a)+'円';
   const jimu=Math.round((price+a-100000)*0.022);
@@ -384,15 +386,15 @@ function showOk(btn) {
 }
 
 function copyRakuten() {
-  doCopy(`【楽天銀行 諸費用計算】\n物件価格: ${fmt(nv('r-price'))}円\n初期費用合計: ${document.getElementById('r-total-cost').textContent}\n上乗せ諸費用: ${document.getElementById('r-uwanose').textContent}\n物件価格＋諸費用: ${document.getElementById('r-grand-total').textContent}`,event.target);
+  doCopy(`【楽天銀行 諸費用計算】\n物件価格: ${fmt(pv('r-price'))}円\n初期費用合計: ${document.getElementById('r-total-cost').textContent}\n上乗せ諸費用: ${document.getElementById('r-uwanose').textContent}\n物件価格＋諸費用: ${document.getElementById('r-grand-total').textContent}`,event.target);
 }
 
 function copySBI() {
-  doCopy(`【SBI 諸費用計算】\n物件価格: ${fmt(nv('s-price'))}円\nA(販売価格5%): ${document.getElementById('s-5pct').textContent}\nB(初期費用10万切捨): ${document.getElementById('s-total-cost').textContent}\n上乗せ諸費用: ${document.getElementById('s-uwanose').textContent}\n物件価格＋諸費用−10万: ${document.getElementById('s-grand-total').textContent}`,event.target);
+  doCopy(`【SBI 諸費用計算】\n物件価格: ${fmt(pv('s-price'))}円\nA(販売価格5%): ${document.getElementById('s-5pct').textContent}\nB(初期費用10万切捨): ${document.getElementById('s-total-cost').textContent}\n上乗せ諸費用: ${document.getElementById('s-uwanose').textContent}\n物件価格＋諸費用−10万: ${document.getElementById('s-grand-total').textContent}`,event.target);
 }
 
 function copySBISubmit() {
-  const p=nv('s-price'),k=nv('s-kanri'),sh=nv('s-shuzen');
+  const p=pv('s-price'),k=nv('s-kanri'),sh=nv('s-shuzen');
   const a=Math.floor(p*0.05/100000)*100000;
   const j=Math.round((p+a-100000)*0.022);
   const tot=j+S_FIX.assen+S_FIX.touki+S_FIX.kotei+k+sh+S_FIX.kasai+S_FIX.furikomi;
@@ -412,7 +414,7 @@ function resetSBI() {
 window.addEventListener('DOMContentLoaded',()=>{calcRakuten();calcSBI();});
 
 // ===== 契約作成依頼アプリとの連携 =====
-// 契約作成依頼から ?from=keiyaku&bank=sbi&price=… で開かれたときだけ、
+// 契約作成依頼から ?from=keiyaku&bank=sbi&price=（万円） で開かれたときだけ、
 // 上乗せ諸費用を localStorage に置き、向こうの「諸費用ローン額」に自動で反映させる
 const KEIYAKU_KEY='axia_shohiyo_for_keiyaku';
 const keiyakuParams=new URLSearchParams(location.search);
