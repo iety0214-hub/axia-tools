@@ -1131,7 +1131,8 @@
         const SHOHIYO_KEY = 'axia_shohiyo_for_keiyaku';
 
         function openExpenseCalc() {
-            const params = new URLSearchParams({ from: 'keiyaku' });
+            // v は毎回変えて、スマホに残った古い諸費用計算アプリを使わないようにする
+            const params = new URLSearchParams({ from: 'keiyaku', v: String(Date.now()) });
             const price = moneyValue('price');
             if (price) params.set('price', String(price));
 
