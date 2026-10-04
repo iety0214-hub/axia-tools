@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>契約作成依頼</title>
+    <meta name="theme-color" content="#1B1B26">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="契約作成依頼">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #FFD700 0%, #000000 100%);
+            min-height: 100vh;
+            padding: 20px 20px 110px;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #FFD700 0%, #000000 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .form-section {
+            padding: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 14px;
+        }
+
+        select, input, textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 0.3s ease;
+        }
+
+        select:focus, input:focus, textarea:focus {
+            outline: none;
+            border-color: #FFD700;
+            box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
+        }
+
+        /* 必須項目は項目名そのものを赤字にする */
+        .required {
+            color: #ef4444;
+        }
+
+        /* 画面下に固定する送信バー */
+        .action-bar {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 12px 16px;
+            padding-bottom: calc(12px + env(safe-area-inset-bottom));
+            background: rgba(255, 255, 255, 0.97);
+            border-top: 1px solid #e0e0e0;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.12);
+            z-index: 500;
+        }
+
+        .action-bar-inner {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .action-bar .btn-slack {
+            width: 100%;
+            padding: 16px;
+            font-size: 17px;
+        }
+
+        /* ラベルと編集ボタンを1行に */
+        .label-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .label-row label {
+            margin-bottom: 0;
+        }
+
+        .btn-gear {
+            background: none;
+            border: none;
+            color: #667eea;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 6px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .btn-gear:hover {
+            text-decoration: underline;
+        }
+
+        /* 未入力のその場表示 */
+        .error-msg {
+            display: none;
+            color: #ef4444;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 6px;
+        }
+
+        .field-error .error-msg {
+            display: block;
+        }
+
+        .field-error select,
+        .field-error input,
+        .field-error textarea {
+            border-color: #ef4444;
+            background: #fff5f5;
+        }
+
+        .preview-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        button {
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-slack {
+            background: #4A154B;
+            color: white;
+        }
+
+        .btn-slack:hover {
+            background: #611f69;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(74, 21, 75, 0.4);
+        }
+
+        .preview-section {
+            background: #f8f9fa;
+            padding: 30px;
+            border-top: 2px solid #e0e0e0;
+            display: none;
+        }
+
+        .preview-section.active {
+            display: block;
+        }
+
+        .preview-box {
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            white-space: pre-wrap;
+            font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo UI", sans-serif;
+            font-size: 14px;
+            line-height: 1.8;
+            max-height: 500px;
+            overflow-y: auto;
+            font-weight: 600;
+            color: #000;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 16px 24px;
+            border-radius: 8px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            display: none;
+            animation: slideIn 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.active {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .info-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .btn-mini {
+            background: #667eea;
+            color: #fff;
+            padding: 8px 14px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .btn-mini.secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .save-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            font-size: 13px;
+            color: #333;
+        }
+
+        .save-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #667eea;
+            flex-shrink: 0;
+        }
+
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            z-index: 1000;
+        }
+
+        .modal-backdrop.active {
+            display: flex;
+        }
+
+        .modal {
+            background: #fff;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 440px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .modal-head {
+            padding: 16px;
+            border-bottom: 1px solid #eee;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .modal-body {
+            padding: 16px;
+            overflow-y: auto;
+        }
+
+        .modal-foot {
+            padding: 12px 16px;
+            border-top: 1px solid #eee;
+            text-align: right;
+        }
+
+        .modal-add {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .modal-add input {
+            flex: 1;
+            min-width: 0;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .list-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 4px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .add-row-group {
+            margin-top: -12px;
+        }
+
+        /* 行を追加する小さなボタン */
+        .btn-add-row {
+            padding: 6px 12px;
+            margin-top: 8px;
+            background: #f2f4ff;
+            border: 1px solid #c7cdf5;
+            color: #667eea;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .btn-add-row:hover {
+            background: #e6e9fb;
+        }
+
+        .btn-row-del {
+            background: none;
+            border: none;
+            color: #ef4444;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 6px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .sub-input {
+            margin-top: 8px;
+        }
+
+        .btn-del {
+            background: #ef4444;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        /* 日付＋時間など2つを横に並べる */
+        .inline-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .inline-row > * {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* 入力欄の横に置く小さな補助ボタン（満額など） */
+        .input-with-btn {
+            display: flex;
+            gap: 8px;
+        }
+
+        .input-with-btn input {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .input-with-btn .btn-add-row {
+            margin-top: 0;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>契約作成依頼</h1>
+            <p>赤い項目は必ず入力してください</p>
+        </div>
+
+        <div class="form-section">
+            <div class="form-group">
+                <div class="label-row">
+                    <label class="required">投稿先チャンネル</label>
+                    <button type="button" class="btn-gear" id="btnChannel">⚙ 変更</button>
+                </div>
+                <input type="text" id="channelView" readonly style="background: #f0f0f0;">
+            </div>
+
+            <div class="form-group">
+                <label class="required" for="customerName">お客様名</label>
+                <input type="text" id="customerName" placeholder="例：田中　太郎">
+                <div class="info-text">「様」は自動で追加されます</div>
+            </div>
+
+            <div class="form-group">
+                <label for="customerKana">名前（フリガナ）</label>
+                <input type="text" id="customerKana" placeholder="例：タナカ　タロウ">
+                <div class="info-text">「サマ」は自動で追加されます</div>
+            </div>
+
+            <div class="form-group">
+                <label for="birthday">生年月日</label>
+                <input type="date" id="birthday" min="1920-01-01" max="2015-12-31">
+            </div>
+
+            <div class="form-group">
+                <label for="address">住所</label>
+                <input type="text" id="address" placeholder="例：神奈川県横浜市鶴見区北寺尾6-19-10 ○○104号室">
+            </div>
+
+            <div class="form-group">
+                <label for="email">お客様メールアドレス</label>
+                <input type="email" id="email" inputmode="email" autocapitalize="off" placeholder="例：example@gmail.com">
+            </div>
+
+            <div class="form-group">
+                <div class="label-row">
+                    <label class="required" for="propertyName">物件名</label>
+                    <button type="button" class="btn-gear" data-edit-list="property">⚙ 物件リスト</button>
+                </div>
+                <select id="propertyName">
+                    <option value="">選択してください</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="customPropertyGroup" style="display: none;">
+                <label>物件名（手入力）</label>
+                <input type="text" id="customProperty" placeholder="物件名を入力してください">
+                <div class="save-row">
+                    <input type="checkbox" id="savePropertyToList">
+                    <label for="savePropertyToList" style="margin: 0; font-weight: 500;">この物件名をリストに追加する</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="roomNumber">号室</label>
+                <input type="text" id="roomNumber" placeholder="例：504号室">
+            </div>
+
+            <div class="form-group">
+                <div class="label-row">
+                    <label class="required" for="bank">金融機関</label>
+                    <button type="button" class="btn-gear" data-edit-list="bank">⚙ 銀行リスト</button>
+                </div>
+                <select id="bank">
+                    <option value="">選択してください</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="customBankGroup" style="display: none;">
+                <label>金融機関（手入力）</label>
+                <input type="text" id="customBank" placeholder="金融機関名を入力してください">
+                <div class="save-row">
+                    <input type="checkbox" id="saveBankToList">
+                    <label for="saveBankToList" style="margin: 0; font-weight: 500;">この金融機関をリストに追加する</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="rate">金利</label>
+                <input type="text" id="rate" inputmode="decimal" placeholder="例：2.376">
+                <div class="info-text">「%」は自動で追加されます</div>
+            </div>
+
+            <div class="form-group">
+                <label for="years">借入年数</label>
+                <select id="years"></select>
+            </div>
+
+            <div class="form-group">
+                <label for="loanAmount">ローン金額</label>
+                <div class="input-with-btn">
+                    <input type="text" id="loanAmount" placeholder="例：3080万">
+                    <button type="button" class="btn-add-row" id="btnFullLoan">満額</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="price">売買代金</label>
+                <input type="text" id="price" placeholder="例：3080万">
+            </div>
+
+            <div class="form-group">
+                <label for="deposit">手付金</label>
+                <select id="deposit">
+                    <option value="無し">無し</option>
+                    <option value="有り">有り</option>
+                </select>
+                <input type="text" id="depositAmount" class="sub-input" placeholder="手付金の金額（例：10万）" style="display: none;">
+            </div>
+
+            <div class="form-group">
+                <label for="expenseLoan">諸費用ローン</label>
+                <select id="expenseLoan">
+                    <option value="無">無</option>
+                    <option value="有">有</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="expenseLoanAmountGroup" style="display: none;">
+                <label for="expenseLoanAmount">諸費用ローン額</label>
+                <input type="text" id="expenseLoanAmount" placeholder="例：100万">
+            </div>
+
+            <div class="form-group">
+                <label for="rent">保証賃料</label>
+                <input type="text" id="rent" inputmode="numeric" placeholder="例：84400">
+                <div class="info-text">数字だけなら「円」は自動で追加されます</div>
+            </div>
+
+            <div class="form-group">
+                <label class="required" for="contractDate">契約日・時間</label>
+                <div class="inline-row">
+                    <input type="date" id="contractDate">
+                    <input type="time" id="contractTime" step="300">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="place">契約場所</label>
+                <input type="text" id="place" placeholder="例：コメダ珈琲店京急川崎駅前店">
+            </div>
+
+            <div class="form-group">
+                <div class="label-row">
+                    <label class="required" for="personInCharge">担当</label>
+                    <button type="button" class="btn-gear" data-edit-list="staff">⚙ 社員リスト</button>
+                </div>
+                <select id="personInCharge">
+                    <option value="">選択してください</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="accompany">同行</label>
+                <select id="accompany" class="js-accompany-select">
+                    <option value="">選択してください</option>
+                </select>
+            </div>
+
+            <div id="extraAccompany"></div>
+
+            <div class="form-group add-row-group">
+                <button type="button" class="btn-add-row" id="btnAddAccompany">＋ 同行者</button>
+            </div>
+
+            <div class="form-group">
+                <label for="takken">立会宅建士</label>
+                <select id="takken">
+                    <option value="有">有</option>
+                    <option value="無">無</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="remarks">備考</label>
+                <textarea id="remarks" rows="3" placeholder="例：駐車場あり、書類持参など" style="resize: vertical;"></textarea>
+            </div>
+        </div>
+
+        <div class="preview-section" id="previewSection">
+            <div class="preview-head">
+                <h3 style="color: #333;">📋 プレビュー</h3>
+                <button type="button" class="btn-mini secondary" id="btnCopy">コピー</button>
+            </div>
+            <div class="preview-box" id="previewBox"></div>
+        </div>
+    </div>
+
+    <div class="action-bar">
+        <div class="action-bar-inner">
+            <button class="btn-slack" type="button" id="btnSlack">Slack投稿</button>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="listModal">
+        <div class="modal">
+            <div class="modal-head" id="listModalTitle">リストを編集</div>
+            <div class="modal-body">
+                <div class="modal-add">
+                    <input type="text" id="listModalInput" placeholder="追加する項目を入力">
+                    <button type="button" class="btn-mini" id="listModalAdd">追加</button>
+                </div>
+                <div id="listModalItems"></div>
+            </div>
+            <div class="modal-foot">
+                <button type="button" class="btn-mini secondary" id="listModalClose">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="channelModal">
+        <div class="modal">
+            <div class="modal-head">投稿先チャンネルの設定</div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="setChannel">チャンネルID（C○○）</label>
+                    <input type="text" id="setChannel" autocapitalize="characters" placeholder="例：C08P1MWKVT5">
+                    <div class="info-text">営業：C08P1MWKVT5 ／ 全体：C08N4SFRQF8</div>
+                </div>
+                <div class="form-group">
+                    <label for="setTeam">Team ID（T○○）</label>
+                    <input type="text" id="setTeam" autocapitalize="characters" placeholder="例：T08N4SFEAQN">
+                    <div class="info-text">Team IDが無いとSlackのホーム画面で止まります</div>
+                </div>
+            </div>
+            <div class="modal-foot">
+                <button type="button" class="btn-mini secondary" id="channelModalClose">閉じる</button>
+                <button type="button" class="btn-mini" id="channelModalSave">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">コピーしました！</div>
+
+    <script>
+        // ========== 投稿先（Slack） ==========
+        const SK = 'axia_keiyaku_irai_v1';
+        const DEFAULTS = { channel: 'C08P1MWKVT5', team: 'T08N4SFEAQN' };
+
+        function loadSettings() {
+            try {
+                return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(SK) || '{}'));
+            } catch (e) {
+                return Object.assign({}, DEFAULTS);
+            }
+        }
+
+        function saveSettings(s) {
+            try {
+                localStorage.setItem(SK, JSON.stringify(s));
+            } catch (e) {
+                console.error('設定の保存エラー:', e);
+            }
+        }
+
+        let settings = loadSettings();
+        // 旧バージョンで未保存の値は最新の既定値で補う
+        if (!settings.team) { settings.team = DEFAULTS.team; saveSettings(settings); }
+        if (!settings.channel) { settings.channel = DEFAULTS.channel; saveSettings(settings); }
+
+        const CHANNEL_NAMES = { 'C08P1MWKVT5': '営業チャンネル', 'C08N4SFRQF8': '全体チャンネル' };
+
+        function renderChannelView() {
+            const name = CHANNEL_NAMES[settings.channel];
+            document.getElementById('channelView').value = name ? name + '（' + settings.channel + '）' : settings.channel;
+        }
+
+        // ========== マスターリスト（Gmail builderと共通の保存先） ==========
+        const DEFAULT_PROPERTIES = [
+            'AXIA M-City大阪加賀屋',
+            'AXIA CITY神戸松原',
+            'AXIA CITY武蔵小山',
+            'AXIA CITY大阪瑞光',
+            'AXIA CITY浮間舟渡',
+            'AXIA CITY 下井草全',
+            'AXIA CITY 亀有'
+        ];
+
+        const DEFAULT_BANKS = [
+            '楽天銀行',
+            'SBJ銀行',
+            'イオン住宅ローンサービス',
+            'SBI新生アセットファイナンス'
+        ];
+
+        const DEFAULT_STAFF = [
+            '茂木社長', '井上常務', '笠原部長', '土屋次長', '家原部長',
+            '伊藤係長', '川合部長', '安部課長', '髙野係長', '佐野係長',
+            '浅見主任', '坪井社員', '桃井主任', '五十嵐主任', '三浦社員',
+            '儀間主任', '脇田主任', '内田社員', '瓜田社員', '柴田社員',
+            '木村社員', '後藤社員', '糸永社員', '堀社員'
+        ];
+
+        const LIST_DEFS = {
+            property: { key: 'propertyList_v3', label: '物件リスト', placeholder: '物件名を入力', defaults: DEFAULT_PROPERTIES, render: renderPropertySelect },
+            bank:     { key: 'bankList_v3',     label: '銀行リスト', placeholder: '銀行名を入力', defaults: DEFAULT_BANKS,      render: renderBankSelect },
+            staff:    { key: 'staffList_v2',    label: '社員リスト', placeholder: '社員名を入力', defaults: DEFAULT_STAFF,      render: renderStaffSelects }
+        };
+
+        // リスト取得（保存が無ければ初期値）
+        function getList(type) {
+            const def = LIST_DEFS[type];
+            try {
+                const saved = localStorage.getItem(def.key);
+                if (saved) {
+                    const arr = JSON.parse(saved);
+                    if (Array.isArray(arr) && arr.length > 0) return arr;
+                }
+            } catch (e) {
+                console.error('リスト読み込みエラー:', e);
+            }
+            return def.defaults.slice();
+        }
+
+        // リスト保存＋ドロップダウン再描画
+        function setList(type, arr) {
+            const def = LIST_DEFS[type];
+            try {
+                localStorage.setItem(def.key, JSON.stringify(arr));
+            } catch (e) {
+                console.error('リスト保存エラー:', e);
+            }
+            def.render();
+        }
+
+        // リストに1件追加（既存なら false）
+        function addToList(type, name) {
+            const arr = getList(type);
+            if (arr.indexOf(name) !== -1) return false;
+            arr.push(name);
+            setList(type, arr);
+            return true;
+        }
+
+        // セレクトを組み立て直す（選択中の値はできるだけ維持）
+        function fillSelect(selectId, items, options) {
+            fillSelectEl(document.getElementById(selectId), items, options);
+        }
+
+        function fillSelectEl(select, items, options) {
+            if (!select) return;
+            const current = select.value;
+            const opts = options || {};
+
+            select.innerHTML = '';
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = '選択してください';
+            select.appendChild(placeholder);
+
+            items.forEach(function(name) {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                select.appendChild(option);
+            });
+
+            if (opts.custom) {
+                const other = document.createElement('option');
+                other.value = 'その他';
+                other.textContent = '✏️ その他（手入力）';
+                select.appendChild(other);
+            }
+
+            select.value = current;
+            if (select.value !== current) select.value = '';
+        }
+
+        function renderPropertySelect() {
+            fillSelect('propertyName', getList('property'), { custom: true });
+        }
+
+        function renderBankSelect() {
+            fillSelect('bank', getList('bank'), { custom: true });
+        }
+
+        function renderStaffSelects() {
+            const items = getList('staff');
+            fillSelect('personInCharge', items, {});
+            Array.prototype.forEach.call(document.querySelectorAll('.js-accompany-select'), function(select) {
+                fillSelectEl(select, items, {});
+            });
+        }
+
+        // 借入年数 1〜50年（初期値35年）
+        function renderYears() {
+            const select = document.getElementById('years');
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = '選択してください';
+            select.appendChild(placeholder);
+            for (let i = 50; i >= 1; i--) {
+                const option = document.createElement('option');
+                option.value = String(i);
+                option.textContent = i + '年';
+                select.appendChild(option);
+            }
+            select.value = '35';
+        }
+
+        // ========== 同行者の追加行 ==========
+        function addAccompanyRow() {
+            const wrap = document.createElement('div');
+            wrap.className = 'form-group extra-accompany';
+
+            const labelRow = document.createElement('div');
+            labelRow.className = 'label-row';
+            const label = document.createElement('label');
+            const del = document.createElement('button');
+            del.type = 'button';
+            del.className = 'btn-row-del';
+            del.textContent = '✕ 削除';
+            del.addEventListener('click', function() {
+                wrap.remove();
+                renumberAccompanyRows();
+            });
+            labelRow.appendChild(label);
+            labelRow.appendChild(del);
+
+            const select = document.createElement('select');
+            select.className = 'js-accompany-select extra-accompany-select';
+
+            wrap.appendChild(labelRow);
+            wrap.appendChild(select);
+            document.getElementById('extraAccompany').appendChild(wrap);
+
+            fillSelectEl(select, getList('staff'), {});
+            renumberAccompanyRows();
+        }
+
+        function renumberAccompanyRows() {
+            Array.prototype.forEach.call(document.querySelectorAll('.extra-accompany'), function(row, i) {
+                row.querySelector('label').textContent = '同行（' + (i + 2) + '人目）';
+            });
+        }
+
+        // 同行者を重複なしで集める
+        function collectAccompany() {
+            const list = [];
+            Array.prototype.forEach.call(document.querySelectorAll('.js-accompany-select'), function(select) {
+                const name = select.value;
+                if (name && list.indexOf(name) === -1) list.push(name);
+            });
+            return list;
+        }
+
+        // ========== リスト編集モーダル ==========
+        let currentListType = null;
+
+        function openListModal(type) {
+            currentListType = type;
+            const def = LIST_DEFS[type];
+            document.getElementById('listModalTitle').textContent = def.label + 'の編集';
+            const input = document.getElementById('listModalInput');
+            input.value = '';
+            input.placeholder = def.placeholder;
+            renderListModalItems();
+            document.getElementById('listModal').classList.add('active');
+        }
+
+        function closeListModal() {
+            document.getElementById('listModal').classList.remove('active');
+            currentListType = null;
+        }
+
+        function renderListModalItems() {
+            const box = document.getElementById('listModalItems');
+            box.innerHTML = '';
+            const items = getList(currentListType);
+
+            if (items.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'info-text';
+                empty.textContent = '項目がありません';
+                box.appendChild(empty);
+                return;
+            }
+
+            items.forEach(function(name) {
+                const row = document.createElement('div');
+                row.className = 'list-item';
+
+                const label = document.createElement('span');
+                label.textContent = name;
+
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn-del';
+                btn.textContent = '削除';
+                btn.addEventListener('click', function() {
+                    if (!confirm('「' + name + '」をリストから削除しますか？')) return;
+                    const arr = getList(currentListType);
+                    const index = arr.indexOf(name);
+                    if (index !== -1) arr.splice(index, 1);
+                    setList(currentListType, arr);
+                    renderListModalItems();
+                    showToast('「' + name + '」を削除しました', 'success');
+                });
+
+                row.appendChild(label);
+                row.appendChild(btn);
+                box.appendChild(row);
+            });
+        }
+
+        function addFromListModal() {
+            const input = document.getElementById('listModalInput');
+            const name = input.value.trim();
+
+            if (!name) {
+                alert('追加する内容を入力してください');
+                return;
+            }
+            if (!addToList(currentListType, name)) {
+                alert('「' + name + '」はすでにリストにあります');
+                return;
+            }
+
+            input.value = '';
+            renderListModalItems();
+            showToast('「' + name + '」を追加しました', 'success');
+        }
+
+        // ========== 投稿先チャンネルの設定モーダル ==========
+        function openChannelModal() {
+            document.getElementById('setChannel').value = settings.channel || '';
+            document.getElementById('setTeam').value = settings.team || '';
+            document.getElementById('channelModal').classList.add('active');
+        }
+
+        function closeChannelModal() {
+            document.getElementById('channelModal').classList.remove('active');
+        }
+
+        function saveChannelModal() {
+            const channel = document.getElementById('setChannel').value.trim().toUpperCase();
+            const team = document.getElementById('setTeam').value.trim().toUpperCase();
+            if (!/^[CG][A-Z0-9]+$/.test(channel)) {
+                alert('チャンネルIDは「C」から始まる英数字で入力してください');
+                return;
+            }
+            if (!/^T[A-Z0-9]+$/.test(team)) {
+                alert('Team IDは「T」から始まる英数字で入力してください');
+                return;
+            }
+            settings.channel = channel;
+            settings.team = team;
+            saveSettings(settings);
+            renderChannelView();
+            closeChannelModal();
+            showToast('投稿先を保存しました', 'success');
+        }
+
+        // ========== 入力欄の切り替え ==========
+        function toggleCustomGroup(selectId, groupId, inputId, checkboxId) {
+            const select = document.getElementById(selectId);
+            select.addEventListener('change', function() {
+                const group = document.getElementById(groupId);
+                if (this.value === 'その他') {
+                    group.style.display = 'block';
+                } else {
+                    group.style.display = 'none';
+                    document.getElementById(inputId).value = '';
+                    document.getElementById(checkboxId).checked = false;
+                }
+            });
+        }
+
+        toggleCustomGroup('propertyName', 'customPropertyGroup', 'customProperty', 'savePropertyToList');
+        toggleCustomGroup('bank', 'customBankGroup', 'customBank', 'saveBankToList');
+
+        document.getElementById('deposit').addEventListener('change', function() {
+            const amount = document.getElementById('depositAmount');
+            amount.style.display = this.value === '有り' ? 'block' : 'none';
+            if (this.value !== '有り') amount.value = '';
+        });
+
+        document.getElementById('expenseLoan').addEventListener('change', function() {
+            const group = document.getElementById('expenseLoanAmountGroup');
+            group.style.display = this.value === '有' ? 'block' : 'none';
+            if (this.value !== '有') document.getElementById('expenseLoanAmount').value = '';
+        });
+
+        document.getElementById('btnFullLoan').addEventListener('click', function() {
+            document.getElementById('loanAmount').value = '満額';
+        });
+
+        // ========== リスト編集・モーダルのボタン ==========
+        Array.prototype.forEach.call(document.querySelectorAll('[data-edit-list]'), function(btn) {
+            btn.addEventListener('click', function() {
+                openListModal(btn.getAttribute('data-edit-list'));
+            });
+        });
+
+        document.getElementById('btnAddAccompany').addEventListener('click', addAccompanyRow);
+
+        document.getElementById('listModalAdd').addEventListener('click', addFromListModal);
+        document.getElementById('listModalClose').addEventListener('click', closeListModal);
+        document.getElementById('listModal').addEventListener('click', function(e) {
+            if (e.target === this) closeListModal();
+        });
+        document.getElementById('listModalInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addFromListModal();
+            }
+        });
+
+        document.getElementById('btnChannel').addEventListener('click', openChannelModal);
+        document.getElementById('channelModalClose').addEventListener('click', closeChannelModal);
+        document.getElementById('channelModalSave').addEventListener('click', saveChannelModal);
+        document.getElementById('channelModal').addEventListener('click', function(e) {
+            if (e.target === this) closeChannelModal();
+        });
+
+        // ========== 未入力の案内（その場に赤字で表示） ==========
+        function showFieldError(elementId, message) {
+            const el = document.getElementById(elementId);
+            const group = el.closest('.form-group');
+            if (!group) {
+                alert(message);
+                return false;
+            }
+
+            let msg = group.querySelector('.error-msg');
+            if (!msg) {
+                msg = document.createElement('div');
+                msg.className = 'error-msg';
+                group.appendChild(msg);
+            }
+            msg.textContent = message;
+            group.classList.add('field-error');
+            group.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            try {
+                el.focus({ preventScroll: true });
+            } catch (e) {
+                el.focus();
+            }
+            return false;
+        }
+
+        function clearFieldErrors() {
+            Array.prototype.forEach.call(document.querySelectorAll('.field-error'), function(group) {
+                group.classList.remove('field-error');
+            });
+        }
+
+        function clearErrorOnEdit(e) {
+            if (!e.target || !e.target.closest) return;
+            const group = e.target.closest('.form-group.field-error');
+            if (group) group.classList.remove('field-error');
+        }
+        document.addEventListener('input', clearErrorOnEdit);
+        document.addEventListener('change', clearErrorOnEdit);
+
+        // ========== 担当・同行を記憶 ==========
+        function rememberSelection(elementId, storageKey) {
+            document.getElementById(elementId).addEventListener('change', function() {
+                try {
+                    localStorage.setItem(storageKey, this.value);
+                } catch (err) {
+                    console.error('選択の保存エラー:', err);
+                }
+            });
+        }
+
+        function restoreSelection(elementId, storageKey) {
+            try {
+                const value = localStorage.getItem(storageKey);
+                if (!value) return;
+                const select = document.getElementById(elementId);
+                select.value = value;
+                if (select.value !== value) select.value = '';
+            } catch (err) {
+                console.error('選択の復元エラー:', err);
+            }
+        }
+
+        // 手入力欄の内容をリストへ追加し、その項目を選択状態にする
+        function saveCustomEntryIfRequested(listType, selectId, inputId, groupId, checkboxId) {
+            const select = document.getElementById(selectId);
+            const checkbox = document.getElementById(checkboxId);
+
+            if (select.value !== 'その他' || !checkbox.checked) return;
+
+            const name = document.getElementById(inputId).value.trim();
+            if (!name) return;
+
+            const added = addToList(listType, name);
+
+            select.value = name;
+            document.getElementById(groupId).style.display = 'none';
+            document.getElementById(inputId).value = '';
+            checkbox.checked = false;
+
+            if (added) {
+                showToast('「' + name + '」をリストに追加しました', 'success');
+            }
+        }
+
+        // ========== 書式の整え ==========
+        // 末尾に敬称を付ける（すでに付いていればそのまま）
+        function withSuffix(value, suffix) {
+            if (!value) return '';
+            const trimmed = value.replace(/[\s　]+$/, '');
+            const bare = suffix.replace(/^[\s　]+/, '');
+            return trimmed.endsWith(bare) ? trimmed : trimmed + suffix;
+        }
+
+        // 2000-05-08 → 2000年5月8日
+        function formatBirthday(value) {
+            if (!value) return '';
+            const p = value.split('-');
+            return Number(p[0]) + '年' + Number(p[1]) + '月' + Number(p[2]) + '日';
+        }
+
+        // 2026-09-30 + 19:00 → 2026/9/30 19:00〜
+        function formatContractDate(date, time) {
+            if (!date) return '';
+            const p = date.split('-');
+            let text = Number(p[0]) + '/' + Number(p[1]) + '/' + Number(p[2]);
+            if (time) text += ' ' + time + '〜';
+            return text;
+        }
+
+        // 数字だけなら単位を付ける
+        function withUnit(value, unit) {
+            if (!value) return '';
+            const half = value.replace(/[０-９．，]/g, function(c) {
+                return String.fromCharCode(c.charCodeAt(0) - 0xFEE0);
+            });
+            return /^[\d.,]+$/.test(half) ? half + unit : value;
+        }
+
+        // ========== 本文の生成（成功=true／未入力=false） ==========
+        function generateReport() {
+            clearFieldErrors();
+
+            const val = function(id) { return document.getElementById(id).value.trim(); };
+
+            const customerName = val('customerName');
+            const propertyName = val('propertyName');
+            const customProperty = val('customProperty');
+            const bank = val('bank');
+            const customBank = val('customBank');
+            const contractDate = val('contractDate');
+            const personInCharge = val('personInCharge');
+
+            // 必須チェック
+            if (!customerName) {
+                return showFieldError('customerName', 'お客様名を入力してください');
+            }
+            if (!propertyName) {
+                return showFieldError('propertyName', '物件名を選んでください');
+            }
+            if (propertyName === 'その他' && !customProperty) {
+                return showFieldError('customProperty', '物件名を入力してください');
+            }
+            if (!bank) {
+                return showFieldError('bank', '金融機関を選んでください');
+            }
+            if (bank === 'その他' && !customBank) {
+                return showFieldError('customBank', '金融機関名を入力してください');
+            }
+            if (!contractDate) {
+                return showFieldError('contractDate', '契約日を入力してください');
+            }
+            if (!personInCharge) {
+                return showFieldError('personInCharge', '担当を選んでください');
+            }
+
+            const deposit = val('deposit');
+            const depositAmount = val('depositAmount');
+            const expenseLoan = val('expenseLoan');
+
+            const items = [
+                ['お客様名　（例）田中　太郎', withSuffix(customerName, '　様')],
+                ['名前（フリガナ）', withSuffix(val('customerKana'), '　サマ')],
+                ['生年月日（西暦）', formatBirthday(val('birthday'))],
+                ['住所', val('address')],
+                ['お客様メールアドレス', val('email')],
+                ['物件名', propertyName === 'その他' ? customProperty : propertyName],
+                ['号室', val('roomNumber')],
+                ['金融機関', bank === 'その他' ? customBank : bank],
+                ['金利', withUnit(val('rate'), '%')],
+                ['借入年数', val('years')],
+                ['ローン金額（満額の場合は満額と記載）', val('loanAmount')],
+                ['売買代金', val('price')],
+                ['手付金（有・無　※有りの場合金額も記載）', deposit === '有り' && depositAmount ? '有り　' + depositAmount : deposit],
+                ['諸費用ローン（有・無）', expenseLoan],
+                ['諸費用ローン額', expenseLoan === '有' ? val('expenseLoanAmount') : ''],
+                ['保証賃料', withUnit(val('rent'), '円')],
+                ['契約日（西暦）、時間', formatContractDate(contractDate, val('contractTime'))],
+                ['契約場所', val('place')],
+                ['担当', personInCharge],
+                ['同行（2人の場合は2人記載）', collectAccompany().join('\n')],
+                ['立会宅建士（有・無）', val('takken')],
+                ['備考', val('remarks')]
+            ];
+
+            let report = '契約作成依頼\n\n\n';
+            report += items.map(function(item) {
+                return '・' + item[0] + '\n' + item[1];
+            }).join('\n\n');
+
+            document.getElementById('previewBox').textContent = report;
+            document.getElementById('previewSection').classList.add('active');
+            document.getElementById('previewSection').scrollIntoView({ behavior: 'smooth' });
+
+            // 手入力した内容を、チェックが入っていればリストへ保存
+            saveCustomEntryIfRequested('property', 'propertyName', 'customProperty', 'customPropertyGroup', 'savePropertyToList');
+            saveCustomEntryIfRequested('bank', 'bank', 'customBank', 'customBankGroup', 'saveBankToList');
+
+            return true;
+        }
+
+        // ========== コピー ==========
+        // クリップボードへコピー（トースト表示なし）
+        function copyToClipboard(text) {
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.top = '0';
+                ta.style.left = '0';
+                ta.style.width = '2em';
+                ta.style.height = '2em';
+                ta.style.padding = '0';
+                ta.style.border = 'none';
+                ta.style.outline = 'none';
+                ta.style.boxShadow = 'none';
+                ta.style.background = 'transparent';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                const ok = document.execCommand('copy');
+                document.body.removeChild(ta);
+                if (!ok && navigator.clipboard) navigator.clipboard.writeText(text);
+                return ok;
+            } catch (err) {
+                console.error('コピーエラー:', err);
+                if (navigator.clipboard) navigator.clipboard.writeText(text);
+                return false;
+            }
+        }
+
+        document.getElementById('btnCopy').addEventListener('click', function() {
+            const text = document.getElementById('previewBox').textContent;
+            if (!text || text.trim() === '') {
+                showToast('先に「Slack投稿」を押してください', 'error');
+                return;
+            }
+            if (copyToClipboard(text)) {
+                showToast('コピーしました！', 'success');
+            } else {
+                showToast('コピーに失敗しました。プレビューを長押ししてコピーしてください。', 'error');
+            }
+        });
+
+        function showToast(message, type) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.background = type === 'error' ? '#ef4444' : '#10b981';
+            toast.classList.add('active');
+            setTimeout(function() {
+                toast.classList.remove('active');
+            }, 3000);
+        }
+
+        // アプリ用のURLを開き、アプリが立ち上がらなければ指定のURLへ切り替える
+        function openAppThenFallback(appUrl, fallbackUrl) {
+            let left = false;
+            const onHide = function() { if (document.hidden) left = true; };
+            document.addEventListener('visibilitychange', onHide);
+            window.addEventListener('pagehide', function() { left = true; });
+
+            window.location.href = appUrl;
+
+            setTimeout(function() {
+                document.removeEventListener('visibilitychange', onHide);
+                if (!left && !document.hidden) {
+                    window.location.href = fallbackUrl;
+                }
+            }, 1500);
+        }
+
+        // Slack投稿ボタン（生成 → コピー → Slackのチャンネルを開く を一括）
+        document.getElementById('btnSlack').addEventListener('click', function() {
+            if (!generateReport()) {
+                return;
+            }
+
+            const copied = copyToClipboard(document.getElementById('previewBox').textContent);
+
+            // team と id の両方が無いとチャンネルに直接飛ばずホーム画面で止まる
+            const team = settings.team;
+            const channel = settings.channel;
+            const appUrl = 'slack://channel?team=' + encodeURIComponent(team) + '&id=' + encodeURIComponent(channel);
+            const webUrl = 'https://app.slack.com/client/' + encodeURIComponent(team) + '/' + encodeURIComponent(channel);
+
+            showToast(copied ? 'コピー完了。Slackに貼り付けてください' : '生成完了。プレビューをコピーしてSlackに貼り付けてください', copied ? 'success' : 'error');
+            openAppThenFallback(appUrl, webUrl);
+        });
+
+        // ページ読み込み時の初期化
+        renderChannelView();
+        renderPropertySelect();
+        renderBankSelect();
+        renderStaffSelects();
+        renderYears();
+        restoreSelection('personInCharge', 'lastPersonInCharge');
+        restoreSelection('accompany', 'lastAccompany');
+        rememberSelection('personInCharge', 'lastPersonInCharge');
+        rememberSelection('accompany', 'lastAccompany');
+    </script>
+</body>
+</html>
