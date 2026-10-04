@@ -572,8 +572,8 @@
             <div class="form-group">
                 <label class="required" for="contractDate">契約日・時間</label>
                 <div class="inline-row">
-                    <input type="date" id="contractDate">
-                    <input type="time" id="contractTime" step="300">
+                    <select id="contractDate"></select>
+                    <select id="contractTime"></select>
                 </div>
             </div>
 
@@ -877,6 +877,44 @@
                 select.appendChild(option);
             }
             select.value = '35';
+        }
+
+        // 契約日：今日から60日先までを「10/5（日）」の形で並べる
+        function renderContractDates() {
+            const select = document.getElementById('contractDate');
+            const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = '日付を選択';
+            select.appendChild(placeholder);
+
+            const today = new Date();
+            for (let i = 0; i <= 60; i++) {
+                const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+                const option = document.createElement('option');
+                // 値は 2026-10-05 の形（依頼文の書式は formatContractDate で整える）
+                option.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                option.textContent = (d.getMonth() + 1) + '/' + d.getDate() + '（' + weekdays[d.getDay()] + '）';
+                select.appendChild(option);
+            }
+        }
+
+        // 契約時間：9:00〜21:00を30分きざみ（初期値19:00）
+        function renderContractTimes() {
+            const select = document.getElementById('contractTime');
+            const none = document.createElement('option');
+            none.value = '';
+            none.textContent = '時間を選択';
+            select.appendChild(none);
+
+            for (let m = 9 * 60; m <= 21 * 60; m += 30) {
+                const time = Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0');
+                const option = document.createElement('option');
+                option.value = time;
+                option.textContent = time;
+                select.appendChild(option);
+            }
+            select.value = '19:00';
         }
 
         // ========== 同行者の追加行 ==========
@@ -1249,7 +1287,7 @@
                 return showFieldError('customBank', '金融機関名を入力してください');
             }
             if (!contractDate) {
-                return showFieldError('contractDate', '契約日を入力してください');
+                return showFieldError('contractDate', '契約日を選んでください');
             }
             if (!personInCharge) {
                 return showFieldError('personInCharge', '担当を選んでください');
@@ -1404,6 +1442,8 @@
         renderBankSelect();
         renderStaffSelects();
         renderYears();
+        renderContractDates();
+        renderContractTimes();
         restoreSelection('personInCharge', 'lastPersonInCharge');
         restoreSelection('accompany', 'lastAccompany');
         rememberSelection('personInCharge', 'lastPersonInCharge');
