@@ -404,7 +404,11 @@ function saveForKeiyaku(bank,uwanose,price){
 }
 
 function backToKeiyaku(){
-  // 契約作成依頼から開いた別タブなので閉じれば元の入力画面に戻る
+  // 契約作成依頼の画面の上に重ねて開かれているときは、閉じる合図を送る
+  if(window.parent!==window){
+    try{ window.parent.postMessage({type:'shohiyo-close'},location.origin); return; }catch(e){}
+  }
+  // 別タブで開かれているときは閉じれば元の入力画面に戻る
   window.close();
   setTimeout(()=>alert('このタブを閉じて、契約作成依頼の画面に戻ってください。上乗せ諸費用は反映済みです。'),300);
 }

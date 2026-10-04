@@ -1499,7 +1499,8 @@ animate();
 <!-- ホーム画面へのインストール
      Androidの Chrome は、同じサイト（iety0214-hub.github.io）のアプリが1つでも入っていると
      メニューの「ホーム画面に追加」で「すでにインストールされています」と出て入れられない。
-     ページから直接インストールの画面を出せば、アプリごとに入れられる。 -->
+     ページから直接インストールの画面を出せば、アプリごとに入れられる。
+     iPhone / iPad はSafariの「ホーム画面に追加」を案内する。 -->
 <div id="pwaInstallBar" style="display:none;position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top, 0px));z-index:3000;background:#1e2a4a;color:#fff;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.28);padding:6px 6px 6px 16px;font-size:14px;font-weight:700;align-items:center;gap:8px;white-space:nowrap;max-width:calc(100vw - 24px);">
   <span>📲 アプリとして追加</span>
   <button type="button" id="pwaInstallBtn" style="border:none;border-radius:999px;background:#fff;color:#1e2a4a;font-size:14px;font-weight:700;padding:8px 16px;cursor:pointer;">追加</button>
@@ -1527,6 +1528,30 @@ animate();
     try { sessionStorage.setItem('pwaInstallClosed', '1'); } catch (err) {}
   });
   window.addEventListener('appinstalled', function () { hide(); deferred = null; });
+
+  // iPhone / iPad はページからインストール画面を出せないので、Safariでの追加方法を案内する
+  var ua = navigator.userAgent;
+  var isIOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  var standalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+  if (isIOS && !standalone) {
+    var key = 'iosA2hsClosed:' + location.pathname;
+    var closed = false;
+    try { closed = !!localStorage.getItem(key); } catch (err) {}
+    if (!closed) {
+      var ios = document.createElement('div');
+      ios.id = 'pwaIosBar';
+      ios.style.cssText = 'position:fixed;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top, 0px));z-index:3000;background:#1e2a4a;color:#fff;border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,.28);padding:10px 8px 10px 14px;font-size:13px;font-weight:600;line-height:1.5;display:flex;align-items:center;gap:8px;';
+      var isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|Line\//.test(ua);
+      ios.innerHTML = '<span style="flex:1;">📲 アプリとして追加するには<br>' +
+        (isSafari ? '下の共有ボタン（□↑）→「ホーム画面に追加」' : 'Safariでこのページを開き、共有ボタン（□↑）→「ホーム画面に追加」') +
+        '</span><button type="button" aria-label="閉じる" style="border:none;background:transparent;color:#fff;font-size:16px;padding:6px 10px;cursor:pointer;">✕</button>';
+      ios.querySelector('button').addEventListener('click', function () {
+        ios.remove();
+        try { localStorage.setItem(key, '1'); } catch (err) {}
+      });
+      document.body.appendChild(ios);
+    }
+  }
 })();
 </script>
 </body>
