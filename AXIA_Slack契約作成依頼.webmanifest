@@ -3,7 +3,7 @@
   "short_name": "契約作成依頼",
   "description": "契約作成依頼をフォーム入力から作ってSlackの#案件進捗に投稿するツール。",
   "lang": "ja",
-  "id": "./AXIA_Slack契約作成依頼.html",
+  "id": "./keiyaku-irai-app",
   "start_url": "./AXIA_Slack契約作成依頼.html",
   "scope": "./AXIA_Slack契約作成依頼.html",
   "display": "standalone",
