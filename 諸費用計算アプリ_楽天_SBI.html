@@ -210,7 +210,8 @@ body {
 
   <button class="copy-btn back-keiyaku" style="display:none;" onclick="backToKeiyaku()">✅ 契約作成依頼に戻る（上乗せ諸費用を反映）</button>
 
-  <div class="section">
+  <!-- 諸費用明細は画面に出さない（計算で使うので要素は残す） -->
+  <div class="section" style="display:none;">
     <div class="section-header rakuten">💰 諸費用明細（自動・固定）</div>
     <div class="calc-row"><label>金融機関事務手数料</label><div class="value">330,000円</div></div>
     <div class="calc-row"><label>登記費用/司法書士手数料等</label><div class="value">350,000円</div></div>
@@ -260,7 +261,8 @@ body {
 
   <button class="copy-btn back-keiyaku" style="display:none;" onclick="backToKeiyaku()">✅ 契約作成依頼に戻る（上乗せ諸費用を反映）</button>
 
-  <div class="section">
+  <!-- 諸費用明細は画面に出さない（計算で使うので要素は残す） -->
+  <div class="section" style="display:none;">
     <div class="section-header sbi">💰 諸費用明細（自動・固定）</div>
     <div class="calc-row">
       <label>A: 販売価格の5%（10万切捨）</label>
