@@ -1086,8 +1086,70 @@
                 return;
             }
             // 「有」にしたら諸費用計算アプリを別タブで開く（入力中のこの画面は残す）
-            const win = window.open(document.getElementById('expenseCalcLink').href, '_blank');
+            openExpenseCalc();
+        });
+
+        // ========== 諸費用計算アプリとの連携 ==========
+        // 売買代金・物件名・号室・銀行を渡して開き、向こうで計算した上乗せ諸費用を
+        // localStorage 経由で受け取って「諸費用ローン額」に入れる（同じサイトなので共有できる）
+        const SHOHIYO_KEY = 'axia_shohiyo_for_keiyaku';
+
+        function openExpenseCalc() {
+            const params = new URLSearchParams({ from: 'keiyaku' });
+            const bank = document.getElementById('bank').value === 'その他'
+                ? document.getElementById('customBank').value : document.getElementById('bank').value;
+            if (/SBI/i.test(bank)) params.set('bank', 'sbi');
+            const price = parseYen(document.getElementById('price').value.trim());
+            if (price) params.set('price', String(price));
+            const name = document.getElementById('propertyName').value === 'その他'
+                ? document.getElementById('customProperty').value.trim() : document.getElementById('propertyName').value;
+            if (name) params.set('name', name);
+            const room = document.getElementById('roomNumber').value.trim().replace(/号室$/, '');
+            if (room) params.set('room', room);
+
+            // 開いた時刻より後の計算結果だけを受け取る
+            try { sessionStorage.setItem('shohiyoOpenedAt', String(Date.now())); } catch (e) {}
+
+            const url = document.getElementById('expenseCalcLink').getAttribute('href').split('?')[0] + '?' + params.toString();
+            const win = window.open(url, '_blank');
             if (!win) showToast('「🧮 諸費用計算アプリ」を押して開いてください', 'error');
+        }
+
+        function applyExpenseCalcResult() {
+            let result = null;
+            let openedAt = 0;
+            try {
+                result = JSON.parse(localStorage.getItem(SHOHIYO_KEY) || 'null');
+                openedAt = Number(sessionStorage.getItem('shohiyoOpenedAt') || 0);
+            } catch (e) {
+                return;
+            }
+            if (!result || !openedAt || result.at < openedAt) return;
+
+            const expenseLoan = document.getElementById('expenseLoan');
+            if (expenseLoan.value !== '有') {
+                expenseLoan.value = '有';
+                document.getElementById('expenseLoanAmountGroup').style.display = 'block';
+            }
+            const text = formatYen(result.amount);
+            const input = document.getElementById('expenseLoanAmount');
+            if (input.value === text) return;
+            input.value = text;
+            updateLoanAmount();
+            showToast('諸費用ローン額に ' + text + '（' + result.bank + '）を反映しました', 'success');
+        }
+
+        document.getElementById('expenseCalcLink').addEventListener('click', function(e) {
+            e.preventDefault();
+            openExpenseCalc();
+        });
+        // 別タブで計算した瞬間（storage）と、この画面に戻ってきたとき（focus / visibilitychange）に反映
+        window.addEventListener('storage', function(e) {
+            if (e.key === SHOHIYO_KEY) applyExpenseCalcResult();
+        });
+        window.addEventListener('focus', applyExpenseCalcResult);
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) applyExpenseCalcResult();
         });
 
         // ========== ローン金額の自動計算（売買代金 − 手付金 ＋ 諸費用ローン額） ==========
