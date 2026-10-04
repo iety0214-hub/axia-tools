@@ -1126,15 +1126,12 @@
         });
 
         // ========== 諸費用計算アプリとの連携 ==========
-        // 売買代金・銀行を渡して開き、向こうで計算した上乗せ諸費用を
+        // 売買代金を渡して開き、向こうで計算した上乗せ諸費用を
         // localStorage 経由で受け取って「諸費用ローン額」に入れる（同じサイトなので共有できる）
         const SHOHIYO_KEY = 'axia_shohiyo_for_keiyaku';
 
         function openExpenseCalc() {
             const params = new URLSearchParams({ from: 'keiyaku' });
-            const bank = document.getElementById('bank').value === 'その他'
-                ? document.getElementById('customBank').value : document.getElementById('bank').value;
-            if (/SBI/i.test(bank)) params.set('bank', 'sbi');
             const price = moneyValue('price');
             if (price) params.set('price', String(price));
 

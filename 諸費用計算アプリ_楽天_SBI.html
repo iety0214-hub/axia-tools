@@ -331,6 +331,7 @@ function switchTab(t) {
     document.getElementById('tab-sbi').className='tab-btn active-sbi';
     document.getElementById('panel-sbi').classList.add('active');
   }
+  t==='rakuten'?calcRakuten():calcSBI();
 }
 
 function calcRakuten() {
@@ -387,7 +388,7 @@ function resetSBI() {
 window.addEventListener('DOMContentLoaded',()=>{calcRakuten();calcSBI();});
 
 // ===== 契約作成依頼アプリとの連携 =====
-// 契約作成依頼から ?from=keiyaku&bank=sbi&price=（万円） で開かれたときだけ、
+// 契約作成依頼から ?from=keiyaku&price=（万円） で開かれたときだけ、
 // 上乗せ諸費用を localStorage に置き、向こうの「諸費用ローン額」に自動で反映させる
 const KEIYAKU_KEY='axia_shohiyo_for_keiyaku';
 const keiyakuParams=new URLSearchParams(location.search);
@@ -395,6 +396,8 @@ const fromKeiyaku=keiyakuParams.get('from')==='keiyaku';
 
 function saveForKeiyaku(bank,uwanose,price){
   if(!fromKeiyaku||!price) return;
+  const panel=bank==='SBI'?'panel-sbi':'panel-rakuten';
+  if(!document.getElementById(panel).classList.contains('active')) return;
   try{ localStorage.setItem(KEIYAKU_KEY,JSON.stringify({amount:uwanose,bank:bank,at:Date.now()})); }catch(e){}
 }
 
@@ -407,11 +410,12 @@ function backToKeiyaku(){
 window.addEventListener('DOMContentLoaded',()=>{
   if(!fromKeiyaku) return;
   document.querySelectorAll('.back-keiyaku').forEach(b=>b.style.display='flex');
-  const t=keiyakuParams.get('bank')==='sbi'?'s':'r';
-  if(t==='s') switchTab('sbi');
+  // いつも楽天銀行のタブで開き、物件価格は両方のタブに入れておく
   const price=keiyakuParams.get('price');
-  if(price){ const el=document.getElementById(t+'-price'); el.value=price; fmtInput(el); fixPrice(el,t); }
-  t==='r'?calcRakuten():calcSBI();
+  if(price){
+    ['r','s'].forEach(t=>{ const el=document.getElementById(t+'-price'); el.value=price; fmtInput(el); fixPrice(el,t); });
+  }
+  calcSBI(); calcRakuten();
 });
 </script>
 </body>
