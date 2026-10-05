@@ -1627,26 +1627,13 @@
             ];
 
             // 項目の間に空行は入れない（値が空の項目は見出しだけ）
-            // 回答はSlackで太字になるよう *〜* で囲む（Slackは行をまたぐ太字ができないので1行ずつ）
             const lines = ['契約作成依頼'];
-            const preview = document.getElementById('previewBox');
-            preview.textContent = '契約作成依頼';
             items.forEach(function(item) {
                 lines.push('【' + item[0] + '】');
-                preview.appendChild(document.createTextNode('\n【' + item[0] + '】'));
-                if (!item[1]) return;
-                String(item[1]).split('\n').forEach(function(line) {
-                    const text = line.trim();
-                    if (!text) return;
-                    lines.push('*' + text + '*');
-                    // プレビューは * を見せずに太字で表示する
-                    const b = document.createElement('b');
-                    b.textContent = text;
-                    preview.appendChild(document.createTextNode('\n'));
-                    preview.appendChild(b);
-                });
+                if (item[1]) lines.push(item[1]);
             });
             reportText = lines.join('\n');
+            document.getElementById('previewBox').textContent = reportText;
             document.getElementById('previewSection').classList.add('active');
             document.getElementById('previewSection').scrollIntoView({ behavior: 'smooth' });
 
@@ -1657,7 +1644,7 @@
             return true;
         }
 
-        // Slackに貼る依頼文（回答は *太字* の書き方。プレビューの見た目とは別に持つ）
+        // Slackに貼る依頼文（コピー・Slack投稿で使う）
         let reportText = '';
 
         // ========== コピー ==========
