@@ -840,10 +840,14 @@
         }
 
         // スレッドを開くURL（Androidは intent:// でSlackアプリを指定）
+        // https のスレッドURLを渡すとSlackアプリが受け取らずWeb版が開くので、
+        // チャンネルと同じ slack:// で開き、投稿の ts を付けてスレッドまで飛ばす
         function threadAppUrl() {
             if (!isAndroidDevice()) return currentThread.url;
-            return 'intent://' + currentThread.url.replace(/^https:\/\//, '') +
-                '#Intent;scheme=https;package=com.Slack;S.browser_fallback_url=' +
+            const query = 'team=' + encodeURIComponent(settings.team) + '&id=' + encodeURIComponent(settings.channel) +
+                '&message=' + encodeURIComponent(currentThread.ts) + '&thread_ts=' + encodeURIComponent(currentThread.ts);
+            return 'intent://channel?' + query +
+                '#Intent;scheme=slack;package=com.Slack;S.browser_fallback_url=' +
                 encodeURIComponent(currentThread.url) + ';end';
         }
 
