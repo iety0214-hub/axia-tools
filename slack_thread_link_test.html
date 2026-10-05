@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slackスレッド リンクテスト</title>
+<style>
+  body { font-family: sans-serif; margin: 16px; background: #fff; color: #222; }
+  a { display: block; margin: 12px 0; padding: 14px; border-radius: 8px; background: #4A154B; color: #fff; text-decoration: none; font-size: 18px; }
+  p { font-size: 14px; color: #555; }
+</style>
+</head>
+<body>
+<h2>Slackスレッド リンクテスト（一時的）</h2>
+<p>#案件進捗 の申込投稿を1件開くリンク。1つずつ押して、Slackアプリでそのスレッドが開いたものの記号を教えてください。</p>
+<div id="links"></div>
+<script>
+  var T = 'T08N4SFEAQN', C = 'C08P1PGLHT5', TS = '1790693733.607799', P = 'p' + TS.replace('.', '');
+  var host = 'axia-japan.slack.com';
+  var links = [
+    ['A', 'https://' + host + '/archives/' + C + '/' + P],
+    ['B', 'https://' + host + '/archives/' + C + '/' + P + '?thread_ts=' + TS + '&cid=' + C],
+    ['C', 'intent://' + host + '/archives/' + C + '/' + P + '#Intent;scheme=https;package=com.Slack;end'],
+    ['D', 'https://app.slack.com/client/' + T + '/' + C + '/thread/' + C + '-' + TS],
+    ['E', 'intent://app.slack.com/client/' + T + '/' + C + '/thread/' + C + '-' + TS + '#Intent;scheme=https;package=com.Slack;end'],
+    ['F', 'https://slack.com/archives/' + C + '/' + P],
+    ['G', 'intent://slack.com/archives/' + C + '/' + P + '#Intent;scheme=https;package=com.Slack;end'],
+    ['H', 'intent://' + host + '/archives/' + C + '/' + P + '#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.Slack;end']
+  ];
+  var box = document.getElementById('links');
+  links.forEach(function (l) {
+    var a = document.createElement('a');
+    a.href = l[1];
+    a.textContent = l[0];
+    box.appendChild(a);
+  });
+</script>
+</body>
+</html>
