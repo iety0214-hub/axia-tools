@@ -443,7 +443,7 @@ function buildCorrectedBlocks_(fields, msg, old) {
 // 訂正で差し替えられた投稿（取り消し線＋訂正後へのリンク）
 function buildSupersededBlocks_(old, newTs, correctionMsg) {
   return [
-    { type: 'header', text: { type: 'plain_text', text: '✏️ ' + old.header + '（訂正前・誤り）', emoji: true } },
+    supersededTitleBlock_(old.header),
     { type: 'section', text: { type: 'mrkdwn', text: strike_(old.detail) } },
     {
       type: 'context',
@@ -455,6 +455,11 @@ function buildSupersededBlocks_(old, newTs, correctionMsg) {
       }]
     }
   ];
+}
+
+// header ブロックは書式が使えず取り消し線を引けないので、太字＋取り消し線の section にする
+function supersededTitleBlock_(header) {
+  return { type: 'section', text: { type: 'mrkdwn', text: '✏️ *~' + header + '~* （訂正前・誤り）' } };
 }
 
 function strike_(text) {
@@ -907,7 +912,7 @@ function markCorrectedPosts() {
         ts: oldTs,
         text: '【訂正前】' + old.header,
         blocks: [
-          { type: 'header', text: { type: 'plain_text', text: '✏️ ' + old.header + '（訂正前・誤り）', emoji: true } },
+          supersededTitleBlock_(old.header),
           { type: 'section', text: { type: 'mrkdwn', text: strike_(old.detail) } },
           { type: 'context', elements: [{ type: 'mrkdwn', text: '✏️ *訂正により差し替え*　|　<' + postLink_(newTs) + '|訂正後の投稿を見る>' }] }
         ],
