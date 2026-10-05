@@ -14,6 +14,13 @@ npx @google/clasp push -f
 
 Slack のトークンはスクリプトプロパティ `SLACK_BOT_TOKEN` に入れてある（コードには書かない）。
 
-デプロイは @HEAD の1つだけなので、push すればトリガーもウェブアプリもそのまま新しいコードで動く。
+トリガーは @HEAD で動くので、push すればそのまま新しいコードになる。
+
+ウェブアプリ（`doGet`）は版を固定したデプロイ `AKfycbzhld5E17COxKKp_L7CLezAbS7H_XGPZNjeWztU9C7GDXm63GTjlx4X7s6XDNSWXsTKmA` で公開している（契約作成依頼アプリにこのURLを埋め込み済み）。`doGet` まわりを直したときは、URLを変えずに同じデプロイを新しい版に差し替える。
+
+```
+npx @google/clasp push -f
+npx @google/clasp deploy -i AKfycbzhld5E17COxKKp_L7CLezAbS7H_XGPZNjeWztU9C7GDXm63GTjlx4X7s6XDNSWXsTKmA -d "申込スレッド検索"
+```
 
 ※ push するとこのフォルダの .gs が Apps Script 側を丸ごと上書きする。
