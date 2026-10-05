@@ -1627,14 +1627,26 @@
             ];
 
             // 項目の間に空行は入れない（値が空の項目は見出しだけ）
+            // 回答はSlackで太字になるよう *〜* で囲む（Slackは行をまたぐ太字ができないので1行ずつ）
             const lines = ['契約作成依頼'];
+            const preview = document.getElementById('previewBox');
+            preview.textContent = '契約作成依頼';
             items.forEach(function(item) {
                 lines.push('・' + item[0]);
-                if (item[1]) lines.push(item[1]);
+                preview.appendChild(document.createTextNode('\n・' + item[0]));
+                if (!item[1]) return;
+                String(item[1]).split('\n').forEach(function(line) {
+                    const text = line.trim();
+                    if (!text) return;
+                    lines.push('*' + text + '*');
+                    // プレビューは * を見せずに太字で表示する
+                    const b = document.createElement('b');
+                    b.textContent = text;
+                    preview.appendChild(document.createTextNode('\n'));
+                    preview.appendChild(b);
+                });
             });
-            const report = lines.join('\n');
-
-            document.getElementById('previewBox').textContent = report;
+            reportText = lines.join('\n');
             document.getElementById('previewSection').classList.add('active');
             document.getElementById('previewSection').scrollIntoView({ behavior: 'smooth' });
 
@@ -1644,6 +1656,9 @@
 
             return true;
         }
+
+        // Slackに貼る依頼文（回答は *太字* の書き方。プレビューの見た目とは別に持つ）
+        let reportText = '';
 
         // ========== コピー ==========
         // クリップボードへコピー（トースト表示なし）
@@ -1691,7 +1706,7 @@
         }
 
         document.getElementById('btnCopy').addEventListener('click', function() {
-            const text = document.getElementById('previewBox').textContent;
+            const text = reportText;
             if (!text || text.trim() === '') {
                 showToast('先に「Slack投稿」を押してください', 'error');
                 return;
@@ -1736,7 +1751,7 @@
                 return;
             }
 
-            const copied = copyToClipboard(document.getElementById('previewBox').textContent);
+            const copied = copyToClipboard(reportText);
 
             const webUrl = slackWebUrl();
 
