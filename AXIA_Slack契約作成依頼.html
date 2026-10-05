@@ -840,12 +840,13 @@
         }
 
         // スレッドを開くURL（Androidは intent:// でSlackアプリを指定）
-        // https のスレッドURLを渡すとSlackアプリが受け取らずWeb版が開くので、
-        // チャンネルと同じ slack:// で開き、投稿の ts を付けてスレッドまで飛ばす
+        // Androidのアプリは https のスレッドURLを受け取れない（Web版かPlayストアになる）。
+        // スレッドを直接開く書き方も無いので、slack://channel に ts= を付けて申込投稿の位置まで飛ばす
+        // （実機で確認済み。message= や thread_ts= ではチャンネルの先頭で止まる）
         function threadAppUrl() {
             if (!isAndroidDevice()) return currentThread.url;
             const query = 'team=' + encodeURIComponent(settings.team) + '&id=' + encodeURIComponent(settings.channel) +
-                '&message=' + encodeURIComponent(currentThread.ts) + '&thread_ts=' + encodeURIComponent(currentThread.ts);
+                '&ts=' + encodeURIComponent(currentThread.ts);
             return 'intent://channel?' + query +
                 '#Intent;scheme=slack;package=com.Slack;S.browser_fallback_url=' +
                 encodeURIComponent(currentThread.url) + ';end';
