@@ -221,8 +221,10 @@ function isOpenMail_(body) {
 //   1) 新フォーマット：【物件名】＋【号室】のキーが完全一致
 //   2) 旧フォーマット：本文のどこかに「物件名＋号室」が含まれる（号室ありキーのみ）
 //   3) 複数ヒットしたときは【顧客名】で絞り込む
+//   ※【物件名】が未定のときは、物件未定の申込投稿を【顧客名】で探す
 function findPostsForOpen_(body) {
   const fields = parseBody_(body);
+  if (isUndecidedProperty_(fields)) return findUndecidedPostsByCustomer_(fields);
   const openKeys = matchKeysOf_(fields);
   const haystack = normalize_(body);
   const props = PropertiesService.getScriptProperties().getProperties();
@@ -258,6 +260,45 @@ function findPostsForOpen_(body) {
   }
 
   return hits;
+}
+
+
+// 物件未定のオープンメール用：物件未定の申込投稿を顧客名で探す。
+//   ・フルネームが一致する投稿を優先（「佐藤 将様」と「佐藤将様」は同じ）
+//   ・なければ「佐藤様」のような姓だけの書き方も同じ人とみなす
+//     ただし別人（佐藤将／佐藤健）が複数当たったときは取り消さず、手動確認に回す
+function findUndecidedPostsByCustomer_(fields) {
+  const name = nameKey_(get_(fields, '顧客名'));
+  if (!name) return [];
+
+  const props = PropertiesService.getScriptProperties().getProperties();
+  const exact = [];
+  const partial = [];
+
+  Object.keys(props).forEach(function (key) {
+    if (key.indexOf('post_') !== 0) return;
+    let rec;
+    try { rec = JSON.parse(props[key]); } catch (e) { return; }
+    if (!rec.ts || !isUndecidedRecord_(rec)) return;
+
+    const recName = rec.name || nameKey_((rec.raw || {})['顧客名']);
+    if (!recName) return;
+    if (recName === name) exact.push(rec);
+    else if (recName.indexOf(name) === 0 || name.indexOf(recName) === 0) partial.push(rec);
+  });
+
+  if (exact.length > 0) return exact;
+  const names = {};
+  partial.forEach(function (rec) { names[rec.name || nameKey_((rec.raw || {})['顧客名'])] = true; });
+  return Object.keys(names).length === 1 ? partial : [];
+}
+
+// 保存してある申込投稿が物件未定のものか
+// （古い記録では「物件未定」がそのまま照合キーに入っていることがある）
+function isUndecidedRecord_(rec) {
+  return (rec.keys || []).every(function (k) {
+    return UNDECIDED_VALUES.indexOf(k) !== -1;
+  });
 }
 
 
