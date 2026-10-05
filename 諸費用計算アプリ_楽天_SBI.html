@@ -356,7 +356,7 @@ function calcRakuten() {
   document.getElementById('r-total-cost').textContent=fmt(total)+'円';
   document.getElementById('r-uwanose').textContent=fmt(uwanose)+'円';
   document.getElementById('r-grand-total').textContent=fmt(grand)+'円';
-  saveForKeiyaku('楽天', uwanose, price);
+  saveForKeiyaku('楽天', uwanose, price, dateVal);
 }
 
 function calcSBI() {
@@ -396,11 +396,11 @@ const KEIYAKU_KEY='axia_shohiyo_for_keiyaku';
 const keiyakuParams=new URLSearchParams(location.search);
 const fromKeiyaku=keiyakuParams.get('from')==='keiyaku';
 
-function saveForKeiyaku(bank,uwanose,price){
+function saveForKeiyaku(bank,uwanose,price,month){
   if(!fromKeiyaku||!price) return;
   const panel=bank==='SBI'?'panel-sbi':'panel-rakuten';
   if(!document.getElementById(panel).classList.contains('active')) return;
-  try{ localStorage.setItem(KEIYAKU_KEY,JSON.stringify({amount:uwanose,bank:bank,at:Date.now()})); }catch(e){}
+  try{ localStorage.setItem(KEIYAKU_KEY,JSON.stringify({amount:uwanose,bank:bank,month:month||'',at:Date.now()})); }catch(e){}
 }
 
 function backToKeiyaku(){

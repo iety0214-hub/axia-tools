@@ -566,6 +566,9 @@
                     <input type="text" id="expenseLoanAmount" class="js-money" inputmode="numeric" placeholder="85">
                     <span class="unit">万円</span>
                 </div>
+                <!-- 諸費用は決済月で変わるので、諸費用計算アプリで指定した月を残す（例：2026-11） -->
+                <input type="hidden" id="expenseMonth">
+                <div class="info-text" id="expenseMonthText" style="display: none;"></div>
             </div>
 
             <div class="form-group">
@@ -587,6 +590,14 @@
                 <div class="inline-row">
                     <select id="contractDate"></select>
                     <select id="contractTime"></select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="gmoDate">GMO送信時間</label>
+                <div class="inline-row">
+                    <select id="gmoDate"></select>
+                    <select id="gmoTime"></select>
                 </div>
             </div>
 
@@ -1004,9 +1015,9 @@
             select.value = '35';
         }
 
-        // 契約日：今日から60日先までを「10/5（日）」の形で並べる
-        function renderContractDates() {
-            const select = document.getElementById('contractDate');
+        // 契約日・GMO送信日：今日から60日先までを「10/5（日）」の形で並べる
+        function renderContractDates(id) {
+            const select = document.getElementById(id);
             const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
             const placeholder = document.createElement('option');
             placeholder.value = '';
@@ -1024,9 +1035,9 @@
             }
         }
 
-        // 契約時間：9:00〜21:00を30分きざみ（初期値19:00）
-        function renderContractTimes() {
-            const select = document.getElementById('contractTime');
+        // 契約時間・GMO送信時間：9:00〜21:00を30分きざみ（初期値があれば選んでおく）
+        function renderContractTimes(id, initial) {
+            const select = document.getElementById(id);
             const none = document.createElement('option');
             none.value = '';
             none.textContent = '時間を選択';
@@ -1039,7 +1050,7 @@
                 option.textContent = time;
                 select.appendChild(option);
             }
-            select.value = '19:00';
+            select.value = initial || '';
         }
 
         // ========== 同行者の追加行 ==========
@@ -1232,6 +1243,7 @@
             group.style.display = this.value === '有' ? 'block' : 'none';
             if (this.value !== '有') {
                 document.getElementById('expenseLoanAmount').value = '';
+                setExpenseMonth('', '');
                 updateLoanAmount();
                 return;
             }
@@ -1285,12 +1297,28 @@
                 expenseLoan.value = '有';
                 document.getElementById('expenseLoanAmountGroup').style.display = 'block';
             }
+            setExpenseMonth(result.month || '', result.bank || '');
             // 上乗せ諸費用は万円単位で入れる（楽天は万円未満・SBIは10万未満切り捨て済み）
             const text = formatComma(Math.round(result.amount / 10000));
             const input = document.getElementById('expenseLoanAmount');
             if (input.value === text) return;
             input.value = text;
             updateLoanAmount();
+        }
+
+        // 諸費用計算アプリで指定した決済月（2026-11）を残して、画面に「2026年11月決済で計算」と出す
+        function setExpenseMonth(month, bank) {
+            document.getElementById('expenseMonth').value = month;
+            const note = document.getElementById('expenseMonthText');
+            const label = formatExpenseMonth(month);
+            note.textContent = label ? '🧮 諸費用計算アプリ：' + label + '決済で計算' + (bank ? '（' + bank + '）' : '') : '';
+            note.style.display = label ? 'block' : 'none';
+        }
+
+        // 2026-11 → 2026年11月
+        function formatExpenseMonth(month) {
+            const m = /^(\d{4})-(\d{2})$/.exec(month || '');
+            return m ? Number(m[1]) + '年' + Number(m[2]) + '月' : '';
         }
 
         document.getElementById('expenseCalcLink').addEventListener('click', function(e) {
@@ -1505,6 +1533,13 @@
             return text;
         }
 
+        // 2026-10-10 + 18:00 → 2026/10/10 18:00
+        function formatGmoDate(date, time) {
+            if (!date) return '';
+            const p = date.split('-');
+            return Number(p[0]) + '/' + Number(p[1]) + '/' + Number(p[2]) + (time ? ' ' + time : '');
+        }
+
         // 数字だけなら単位を付ける
         function withUnit(value, unit) {
             if (!value) return '';
@@ -1564,6 +1599,7 @@
             const withMan = function(id) { return val(id) ? formatComma(moneyValue(id)) + '万' : ''; };
             const place = val('place');
             const expenseLoan = val('expenseLoan');
+            const expenseMonth = formatExpenseMonth(val('expenseMonth'));
 
             const items = [
                 ['お客様名', withSuffix(customerName, '　様')],
@@ -1579,9 +1615,10 @@
                 ['売買代金', withMan('price')],
                 ['手付金（有・無　※有りの場合金額も記載）', deposit === '有り' && depositAmount ? '有り　' + depositAmount : deposit],
                 ['諸費用ローン（有・無）', expenseLoan],
-                ['諸費用ローン額', expenseLoan === '有' ? withMan('expenseLoanAmount') : ''],
+                ['諸費用ローン額', expenseLoan === '有' ? withMan('expenseLoanAmount') + (expenseMonth ? '（' + expenseMonth + '決済で計算）' : '') : ''],
                 ['保証賃料', val('rent') ? val('rent') + '円' : ''],
                 ['契約日（西暦）、時間', formatContractDate(contractDate, val('contractTime'))],
+                ['GMO送信時間', formatGmoDate(val('gmoDate'), val('gmoTime'))],
                 ['契約場所', place],
                 ['担当', withoutTitle(personInCharge)],
                 ['同行（2人の場合は2人記載）', collectAccompany().join('\n')],
@@ -1730,8 +1767,10 @@
         renderBankSelect();
         renderStaffSelects();
         renderYears();
-        renderContractDates();
-        renderContractTimes();
+        renderContractDates('contractDate');
+        renderContractTimes('contractTime', '19:00');
+        renderContractDates('gmoDate');
+        renderContractTimes('gmoTime');
         restoreSelection('personInCharge', 'lastPersonInCharge');
         restoreSelection('accompany', 'lastAccompany');
         rememberSelection('personInCharge', 'lastPersonInCharge');
