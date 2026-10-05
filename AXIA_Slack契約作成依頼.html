@@ -782,7 +782,20 @@
             document.getElementById('threadStatus').textContent = text;
         }
 
-        function lookupThread() {
+        // GASは寝起きだと返事に30秒以上かかることがあるので、待ち時間は長めにとる
+        const THREAD_TIMEOUT_MS = 45000;
+
+        // ページを開いたらGASを起こしておく（入力し終わるころには早く返ってくる）
+        function wakeThreadApi() {
+            if (!settings.threadApi) return;
+            const script = document.createElement('script');
+            script.src = settings.threadApi + (settings.threadApi.indexOf('?') === -1 ? '?' : '&') + 'callback=__threadWake';
+            window.__threadWake = function() { script.remove(); };
+            script.onerror = function() { script.remove(); };
+            document.head.appendChild(script);
+        }
+
+        function lookupThread(retried) {
             currentThread = null;
             renderChannelView();
             const property = selectedPropertyName();
@@ -793,12 +806,15 @@
             const seq = ++threadSeq;
             const cb = '__threadCb' + seq;
             const script = document.createElement('script');
-            const timer = setTimeout(function() { done(null); }, 10000);
+            const timer = setTimeout(function() { done(null); }, THREAD_TIMEOUT_MS);
             function done(data) {
                 clearTimeout(timer);
-                delete window[cb];
+                // 時間切れの後に返事が届いてもエラーにならないよう、受け口は空にして残す
+                window[cb] = function() {};
                 script.remove();
                 if (seq !== threadSeq) return;   // 入力が変わった後の古い返事は捨てる
+                // 届かなかったときは1回だけ聞き直す
+                if (!data && !retried) { lookupThread(true); return; }
                 currentThread = data && data.ts ? data : null;
                 renderChannelView();
                 setThreadStatus(currentThread
@@ -1703,6 +1719,7 @@
         });
 
         // ページ読み込み時の初期化
+        wakeThreadApi();
         renderChannelView();
         renderPropertySelect();
         renderBankSelect();
