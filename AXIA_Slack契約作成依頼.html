@@ -1632,8 +1632,8 @@
             const preview = document.getElementById('previewBox');
             preview.textContent = '契約作成依頼';
             items.forEach(function(item) {
-                lines.push('・' + item[0]);
-                preview.appendChild(document.createTextNode('\n・' + item[0]));
+                lines.push('【' + item[0] + '】');
+                preview.appendChild(document.createTextNode('\n【' + item[0] + '】'));
                 if (!item[1]) return;
                 String(item[1]).split('\n').forEach(function(line) {
                     const text = line.trim();
