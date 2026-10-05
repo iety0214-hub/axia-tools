@@ -17,15 +17,18 @@
 <script>
   var T = 'T08N4SFEAQN', C = 'C08P1PGLHT5', TS = '1790693733.607799', P = 'p' + TS.replace('.', '');
   var host = 'axia-japan.slack.com';
+  function si(q) { return 'intent://' + q + '#Intent;scheme=slack;package=com.Slack;end'; }
+  var ch = 'team=' + T + '&id=' + C;
   var links = [
-    ['A', 'https://' + host + '/archives/' + C + '/' + P],
-    ['B', 'https://' + host + '/archives/' + C + '/' + P + '?thread_ts=' + TS + '&cid=' + C],
-    ['C', 'intent://' + host + '/archives/' + C + '/' + P + '#Intent;scheme=https;package=com.Slack;end'],
-    ['D', 'https://app.slack.com/client/' + T + '/' + C + '/thread/' + C + '-' + TS],
-    ['E', 'intent://app.slack.com/client/' + T + '/' + C + '/thread/' + C + '-' + TS + '#Intent;scheme=https;package=com.Slack;end'],
-    ['F', 'https://slack.com/archives/' + C + '/' + P],
-    ['G', 'intent://slack.com/archives/' + C + '/' + P + '#Intent;scheme=https;package=com.Slack;end'],
-    ['H', 'intent://' + host + '/archives/' + C + '/' + P + '#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.Slack;end']
+    ['I', si('channel?' + ch + '&message=' + TS)],
+    ['J', si('channel?' + ch + '&message_ts=' + TS)],
+    ['K', si('channel?' + ch + '&thread_ts=' + TS)],
+    ['L', si('channel?' + ch + '&ts=' + TS)],
+    ['M', si('thread?team=' + T + '&channel=' + C + '&ts=' + TS)],
+    ['N', si('thread?team=' + T + '&id=' + C + '&thread_ts=' + TS)],
+    ['O', si('message?team=' + T + '&channel=' + C + '&ts=' + TS)],
+    ['P', si('permalink?team=' + T + '&url=' + encodeURIComponent('https://' + host + '/archives/' + C + '/' + P))],
+    ['Q', 'slack://channel?' + ch + '&message=' + TS]
   ];
   var box = document.getElementById('links');
   links.forEach(function (l) {
