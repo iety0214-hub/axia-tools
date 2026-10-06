@@ -1702,7 +1702,7 @@
       ios.style.cssText = 'position:fixed;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top, 0px));z-index:3000;background:#1e2a4a;color:#fff;border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,.28);padding:10px 8px 10px 14px;font-size:13px;font-weight:600;line-height:1.5;display:flex;align-items:center;gap:8px;';
       var isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|Line\//.test(ua);
       ios.innerHTML = '<span style="flex:1;">📲 アプリとして追加するには<br>' +
-        (isSafari ? '下の共有ボタン（□↑）→「ホーム画面に追加」' : 'Safariでこのページを開き、共有ボタン（□↑）→「ホーム画面に追加」') +
+        (isSafari ? '共有ボタン（□↑）、または右下の「…」→「共有」→「ホーム画面に追加」（「Webアプリとして開く」はオンのまま）' : 'Safariでこのページを開き、共有ボタン（□↑）、または右下の「…」→「共有」→「ホーム画面に追加」') +
         '</span><button type="button" aria-label="閉じる" style="border:none;background:transparent;color:#fff;font-size:16px;padding:6px 10px;cursor:pointer;">✕</button>';
       ios.querySelector('button').addEventListener('click', function () {
         ios.remove();
