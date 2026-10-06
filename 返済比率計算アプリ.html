@@ -26,17 +26,18 @@ input[type=number]{-moz-appearance:textfield}
 <script type="text/babel">
 const {useState,useMemo,useEffect}=React;
 
+// 協会けんぽ 健康保険料率（%）。Excel「物件運用ｼﾐｭﾚｰｼｮﾝ原本 令和8年改訂版」社会保険料率シートに合わせる
 const PR={
-"北海道":10.29,"青森県":9.79,"岩手県":9.77,"宮城県":10.05,"秋田県":9.86,
-"山形県":9.98,"福島県":9.53,"茨城県":9.73,"栃木県":9.96,"群馬県":9.76,
-"埼玉県":9.82,"千葉県":9.87,"東京都":10.00,"神奈川県":10.02,"新潟県":9.33,
-"富山県":9.57,"石川県":9.66,"福井県":9.91,"山梨県":9.67,"長野県":9.49,
-"岐阜県":9.80,"静岡県":9.75,"愛知県":10.01,"三重県":9.81,"滋賀県":9.73,
-"京都府":10.09,"大阪府":10.29,"兵庫県":10.17,"奈良県":10.14,"和歌山県":9.94,
-"鳥取県":9.82,"島根県":10.26,"岡山県":10.07,"広島県":9.92,"山口県":9.96,
-"徳島県":10.25,"香川県":10.23,"愛媛県":10.01,"高知県":10.10,"福岡県":10.36,
-"佐賀県":10.51,"長崎県":10.21,"熊本県":10.32,"大分県":10.20,"宮崎県":9.76,
-"鹿児島県":10.26,"沖縄県":9.89
+"北海道":10.31,"青森県":9.85,"岩手県":9.62,"宮城県":10.11,"秋田県":10.01,
+"山形県":9.75,"福島県":9.62,"茨城県":9.67,"栃木県":9.82,"群馬県":9.77,
+"埼玉県":9.76,"千葉県":9.79,"東京都":9.91,"神奈川県":9.92,"新潟県":9.55,
+"富山県":9.65,"石川県":9.88,"福井県":9.94,"山梨県":9.89,"長野県":9.69,
+"岐阜県":9.93,"静岡県":9.80,"愛知県":10.03,"三重県":9.99,"滋賀県":9.97,
+"京都府":10.03,"大阪府":10.24,"兵庫県":10.16,"奈良県":10.02,"和歌山県":10.19,
+"鳥取県":9.93,"島根県":9.94,"岡山県":10.17,"広島県":9.97,"山口県":10.36,
+"徳島県":10.47,"香川県":10.21,"愛媛県":10.18,"高知県":10.13,"福岡県":10.31,
+"佐賀県":10.78,"長崎県":10.41,"熊本県":10.12,"大分県":10.25,"宮崎県":10.09,
+"鹿児島県":10.31,"沖縄県":9.44
 };
 const PREFS=Object.keys(PR);
 
@@ -74,9 +75,10 @@ function calcIns(s,a,pref){
   const m=s/12,stdH=getStdM(m),stdP=Math.min(Math.max(getStdM(m),88000),650000);
   const hr=(PR[pref]||10)/100;
   const health=Math.round(stdH*hr/2-0.001);
-  const care=(a>=40&&a<65)?Math.round(stdH*0.0182/2-0.001):0;
+  const care=(a>=40&&a<65)?Math.round(stdH*0.016/2-0.001):0;
   const pen=Math.round(stdP*0.183/2-0.001);
-  const emp=(a<65)?Math.round(m*0.006-0.001):0;
+  // 雇用保険（一般・労働者負担0.55%、50銭以下切捨て）
+  const emp=(a<65)?Math.max(Math.ceil(m*0.0055-0.5),0):0;
   return(health+care+pen+emp)*12;
 }
 
@@ -324,7 +326,7 @@ function App(){
             <div style={{flex:1}}><Field label="勤続" value={years} onChange={setYears} unit="年"/></div>
             <div style={{flex:1}}><Field label="扶養" value={deps} onChange={setDeps} unit="人"/></div>
           </div>
-          <Field label="住民票住所"><select value={pref} onChange={e=>setPref(e.target.value)} style={sInput}>{PREFS.map(p=><option key={p} value={p}>{p}</option>)}</select></Field>
+          <Field label="勤務先の所在地（健康保険の料率）"><select value={pref} onChange={e=>setPref(e.target.value)} style={sInput}>{PREFS.map(p=><option key={p} value={p}>{p}</option>)}</select></Field>
           <Field label="所得控除の額（源泉徴収票／空欄なら自動計算）" value={deduction} onChange={setDeduction} unit="円"/>
           <div style={{fontSize:10,color:C.sub,marginTop:-4}}>{calc.dedManual?`手入力を使用中（社保相当 ¥${fmt(calc.si)}）`:`自動計算中（社会保険料 ¥${fmt(calc.siAuto)}）`}</div>
         </div>
