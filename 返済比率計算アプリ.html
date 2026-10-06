@@ -60,15 +60,25 @@ const STD=[
 function getStdM(m){for(const[s,lo,hi]of STD){if(hi===Infinity){if(m>=lo)return s}else if(lo===0){if(m<hi)return s}else{if(m>=lo&&m<hi)return s}}return 58000}
 function PMT(r,n,pv){if(r===0)return -pv/n;const x=Math.pow(1+r,n);return(pv*r*x)/(x-1)}
 
-function calcSalaryIncome(s){
+// 給与所得（令和8年分）。minDed＝給与所得控除の最低保障額
+// 所得税は74万（本則69万＋令和8・9年の特例5万）、住民税は69万
+function calcSalaryIncome(s,minDed=740000){
   if(!s||s<=0)return 0;
-  if(s<=550999)return 0;if(s<=1618999)return s-550000;
-  if(s<=1619999)return 1069000;if(s<=1621999)return 1070000;
-  if(s<=1623999)return 1072000;if(s<=1627999)return 1074000;
-  const b=Math.floor(s/4/1000)*1000;
-  if(s<=1799999)return b*2.4+100000;if(s<=3599999)return b*2.8-80000;
-  if(s<=6599999)return b*3.2-440000;if(s<=8499999)return Math.floor(s*0.9)-1100000;
+  if(s<=(minDed-80000)/0.3)return Math.max(0,s-minDed);
+  // 660万未満は年末調整の算出表どおり、収入÷4の千円未満を切り捨ててから計算
+  if(s<6600000){const B=Math.floor(s/4000)*4000;return s<3600000?B*0.7-80000:B*0.8-440000}
+  if(s<=8500000)return Math.floor(s*0.9)-1100000;
   return s-1950000;
+}
+// 所得税の基礎控除（令和8・9年分、合計所得金額で段階）
+function basicIT(inc){
+  if(inc<=4890000)return 1040000;if(inc<=6550000)return 670000;
+  if(inc<=23500000)return 620000;if(inc<=24000000)return 480000;
+  if(inc<=24500000)return 320000;if(inc<=25000000)return 160000;return 0;
+}
+// 住民税の基礎控除
+function basicRT(inc){
+  if(inc<=24000000)return 430000;if(inc<=24500000)return 290000;if(inc<=25000000)return 150000;return 0;
 }
 
 function calcIns(s,a,pref){
@@ -82,17 +92,25 @@ function calcIns(s,a,pref){
   return(health+care+pen+emp)*12;
 }
 
+// si＝基礎控除以外の所得控除（社会保険料など）
 function calcTax(s,si){
-  const inc=calcSalaryIncome(s);
-  const tb=Math.max(Math.floor((inc-si-480000)/1000)*1000,0);
+  // 所得税＋復興特別所得税（2.1%）
+  const inc=calcSalaryIncome(s,740000);
+  const tb=Math.max(Math.floor((inc-si-basicIT(inc))/1000)*1000,0);
   let it;
-  if(tb<1950000)it=tb*0.05;else if(tb<3300000)it=tb*0.10-97500;
-  else if(tb<6950000)it=tb*0.20-427500;else if(tb<9000000)it=tb*0.23-636000;
-  else if(tb<18000000)it=tb*0.33-1536000;else it=tb*0.40-2796000;
-  const rc=Math.floor(it*0.021);
-  const total=Math.floor((rc+it)/100)*100;
-  const res=tb*0.10;
-  return{incomeTax:total,residentTax:res,total:total+res};
+  if(tb<=1949000)it=tb*0.05;else if(tb<=3299000)it=tb*0.10-97500;
+  else if(tb<=6949000)it=tb*0.20-427500;else if(tb<=8999000)it=tb*0.23-636000;
+  else if(tb<=17999000)it=tb*0.33-1536000;else if(tb<=39999000)it=tb*0.40-2796000;
+  else it=tb*0.45-4796000;
+  const incomeTax=Math.floor(it*1.021/100)*100;
+  // 住民税＝所得割10%（調整控除後）＋均等割5,000円（森林環境税込み）
+  const incR=calcSalaryIncome(s,690000);
+  const tbR=Math.max(Math.floor((incR-si-basicRT(incR))/1000)*1000,0);
+  const adj=incR>25000000?0:tbR<=2000000?Math.min(50000,tbR)*0.05:2500;
+  const shotoku=Math.max(Math.floor((tbR*0.10-adj)/100)*100,0);
+  const kintou=incR>450000?5000:0;
+  const residentTax=shotoku+kintou;
+  return{incomeTax,residentTax,total:incomeTax+residentTax};
 }
 
 const fmt=n=>n!=null&&!isNaN(n)?Math.round(n).toLocaleString():"—";
@@ -185,7 +203,6 @@ function App(){
   const uOwn=(i,k,v)=>setOwned(p=>p.map((x,j)=>j===i?{...x,[k]:v}:x));
   const uOth=(i,k,v)=>setOthers(p=>p.map((x,j)=>j===i?{...x,[k]:v}:x));
   const uProp=(i,k,v)=>setProps(p=>p.map((x,j)=>j===i?{...x,[k]:v}:x));
-  const adjSalary=(d)=>setSalary(prev=>Math.max(0,(Number(prev)||0)+d));
 
   const calc=useMemo(()=>{
     const s=Number(salary)||0,a=Number(age)||0,yrs=Number(years)||0,dep=Math.max(0,Math.floor(Number(deps)||0));
@@ -230,7 +247,8 @@ function App(){
     const dedIn=Number(String(deduction).trim());
     const dedManual=String(deduction).trim()!==''&&!isNaN(dedIn)&&dedIn>0;
     const siAuto=calcIns(s,a,pref);
-    const si=dedManual?Math.max(0,dedIn-480000):siAuto;
+    // 源泉徴収票の「所得控除の額の合計額」には基礎控除が含まれるので差し引く
+    const si=dedManual?Math.max(0,dedIn-basicIT(calcSalaryIncome(s))):siAuto;
     const tax=calcTax(s,si);
 
     const rkDebtH=totalDebt*0.5;
@@ -316,17 +334,12 @@ function App(){
         <div style={sCard}>
           <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:12}}>👤 お客様情報</div>
           <Field label="年収" value={salary} onChange={setSalary} unit="円"/>
-          <div style={{display:'flex',gap:4,marginTop:6}}>
-            {[[-1000000,'−100万'],[-100000,'−10万'],[100000,'+10万'],[1000000,'+100万']].map(([d,l])=>
-              <button key={l} onClick={()=>adjSalary(d)} style={{flex:1,padding:'7px 0',borderRadius:8,fontSize:11,fontWeight:700,cursor:'pointer',border:`1px solid ${d<0?'#fecaca':'#bbf7d0'}`,background:d<0?'#fef2f2':'#f0fdf4',color:d<0?'#dc2626':'#16a34a'}}>{l}</button>
-            )}
-          </div>
           <div style={{display:'flex',gap:8,marginTop:10}}>
             <div style={{flex:1}}><Field label="年齢" value={age} onChange={setAge} unit="歳"/></div>
             <div style={{flex:1}}><Field label="勤続" value={years} onChange={setYears} unit="年"/></div>
             <div style={{flex:1}}><Field label="扶養" value={deps} onChange={setDeps} unit="人"/></div>
           </div>
-          <Field label="勤務先の所在地（健康保険の料率）"><select value={pref} onChange={e=>setPref(e.target.value)} style={sInput}>{PREFS.map(p=><option key={p} value={p}>{p}</option>)}</select></Field>
+          <Field label="勤務先所在地（健保料率）"><select value={pref} onChange={e=>setPref(e.target.value)} style={sInput}>{PREFS.map(p=><option key={p} value={p}>{p}</option>)}</select></Field>
           <Field label="所得控除の額（源泉徴収票／空欄なら自動計算）" value={deduction} onChange={setDeduction} unit="円"/>
           <div style={{fontSize:10,color:C.sub,marginTop:-4}}>{calc.dedManual?`手入力を使用中（社保相当 ¥${fmt(calc.si)}）`:`自動計算中（社会保険料 ¥${fmt(calc.siAuto)}）`}</div>
         </div>
@@ -417,7 +430,7 @@ function App(){
         </div>
         <div style={sCard}>
           <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>💰 控除内訳</div>
-          <RRow label={calc.dedManual?"所得控除（手入力−48万）":"社会保険料（年額）"} value={`¥${fmt(calc.si)}`}/>
+          <RRow label={calc.dedManual?"所得控除（手入力−基礎控除）":"社会保険料（年額）"} value={`¥${fmt(calc.si)}`}/>
           <RRow label="所得税＋復興特別税" value={`¥${fmt(calc.tax.incomeTax)}`}/>
           <RRow label="住民税" value={`¥${fmt(calc.tax.residentTax)}`}/>
           <RRow label="税金合計" value={`¥${fmt(calc.tax.total)}`}/>
