@@ -1181,8 +1181,8 @@ function renderQueue(items){
   });
 }
 function logFromInbox(rows){
-  const nm = empName(MAISOKU_EMP);
   rows.forEach(it => {
+    const nm = empName(it.worker === 2 ? 2 : MAISOKU_EMP);   // 2＝MAO、それ以外はヒビキ
     const job = `${it.target} マイソク${mdStr(it.target_date)}`;
     pushLog(nm, `「${job}選別」を受付`, { ts: it.created_at, kind:'order', key:`inbox-${it.id}-q` });
     if (it.started_at) pushLog(nm, `${job} に着手`, { ts: it.started_at, kind:'running', key:`inbox-${it.id}-r` });
