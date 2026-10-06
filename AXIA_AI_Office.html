@@ -1065,7 +1065,8 @@ const live = {};
 const backup = (fn, ms, ch) => setInterval(() => { if (!document.hidden && !live[ch]) fn(); }, ms);
 
 const INBOX = 'axia_claude_inbox';
-const MAISOKU_EMP = 1;                       // 仕入れ（マイソク）＝ヒビキ
+const MAISOKU_EMP = 1;                       // 仕入れ（マイソク）＝ヒビキ（2枠目は MAO＝2）
+const RECEPT_EMP = 5;                        // 依頼の受付＝家原
 // folder＝成果物xlsxを置く Drive フォルダ（URLが取れんかった完了はここを開く）
 const TARGETS = [
   {nm:'髙田',   folder:'1E4yfXKqrGDh3ZcLnL5x_Ww7XACL2C34_'},
@@ -1182,7 +1183,8 @@ function renderQueue(items){
 }
 function logFromInbox(rows){
   rows.forEach(it => {
-    const nm = empName(it.worker === 2 ? 2 : MAISOKU_EMP);   // 2＝MAO、それ以外はヒビキ
+    // 2＝MAO、それ以外はヒビキ。まだ誰も拾っとらん待ちの間は受付役の家原
+    const nm = empName(it.status === 'queued' ? RECEPT_EMP : it.worker === 2 ? 2 : MAISOKU_EMP);
     const job = `${it.target} マイソク${mdStr(it.target_date)}`;
     pushLog(nm, `「${job}選別」を受付`, { ts: it.created_at, kind:'order', key:`inbox-${it.id}-q` });
     if (it.started_at) pushLog(nm, `${job} に着手`, { ts: it.started_at, kind:'running', key:`inbox-${it.id}-r` });
