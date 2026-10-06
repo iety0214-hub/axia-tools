@@ -180,8 +180,8 @@ function YesNo({value,onChange}){
   const b=on=>({flex:1,padding:'9px 0',fontSize:13,fontWeight:on===value?700:500,cursor:'pointer',border:'none',
     background:on===value?C.blue:C.inputBg,color:on===value?'#fff':C.label});
   return <div style={{display:'flex',border:`1px solid ${C.inputBd}`,borderRadius:8,overflow:'hidden'}}>
-    <button style={b(true)} onClick={()=>onChange(true)}>有り</button>
-    <button style={{...b(false),borderLeft:`1px solid ${C.inputBd}`}} onClick={()=>onChange(false)}>無し</button>
+    <button style={b(false)} onClick={()=>onChange(false)}>無</button>
+    <button style={{...b(true),borderLeft:`1px solid ${C.inputBd}`}} onClick={()=>onChange(true)}>有</button>
   </div>
 }
 
@@ -198,9 +198,9 @@ function App(){
   const [age,setAge]=useState(sv('age',26));
   const [years,setYears]=useState(sv('years',3));
   // 扶養人数（本人を含まない）。旧版の「世帯」人数（本人込み）が保存されていれば −1 して引き継ぐ
-  // 扶養：配偶者の有無・16歳未満の扶養の有無
+  // 扶養：配偶者の有無・16歳未満の扶養人数
   const [spouse,setSpouse]=useState(!!sv('spouse',false));
-  const [kids,setKids]=useState(!!sv('kids',false));
+  const [kids,setKids]=useState(()=>{const k=sv('kids',0);return typeof k==='boolean'?(k?1:0):k});
   const [pref,setPref]=useState(sv('pref',"千葉県"));
   const [owned,setOwned]=useState(sv('owned',[{debt:0,payment:0,rent:0,mgmt:0}]));
   const [others,setOthers]=useState(sv('others',[{debt:0,payment:0}]));
@@ -214,7 +214,7 @@ function App(){
   },[salary,age,years,spouse,kids,pref,owned,others,homeRent,props,deduction]);
   const resetAll=()=>{
     if(!confirm('入力内容をすべて初期値に戻す？'))return;
-    setSalary(6100000);setAge(26);setYears(3);setSpouse(false);setKids(false);setPref("千葉県");
+    setSalary(6100000);setAge(26);setYears(3);setSpouse(false);setKids(0);setPref("千葉県");
     setOwned([{debt:0,payment:0,bonus:0,rent:0,mgmt:0}]);setOthers([{debt:0,payment:0,bonus:0}]);
     setHomeRent(30000);setProps([{price:30000000,bonus:0,rent:80000,mgmt:0}]);setDeduction('');
   };
@@ -224,7 +224,7 @@ function App(){
   const uProp=(i,k,v)=>setProps(p=>p.map((x,j)=>j===i?{...x,[k]:v}:x));
 
   const calc=useMemo(()=>{
-    const s=Number(salary)||0,a=Number(age)||0,yrs=Number(years)||0,famN=1+(spouse?1:0)+(kids?1:0);
+    const s=Number(salary)||0,a=Number(age)||0,yrs=Number(years)||0,famN=1+(spouse?1:0)+Math.max(0,Math.floor(Number(kids)||0));
     const rate=RATES.rk;
 
     const existPayY=owned.reduce((t,o)=>t+(Number(o.payment)||0)*12,0);
@@ -360,7 +360,7 @@ function App(){
           </div>
           <div style={{display:'flex',gap:8}}>
             <div style={{flex:1}}><Field label="配偶者"><YesNo value={spouse} onChange={setSpouse}/></Field></div>
-            <div style={{flex:1}}><Field label="16歳未満の扶養"><YesNo value={kids} onChange={setKids}/></Field></div>
+            <div style={{flex:1}}><Field label="16歳未満の扶養" value={kids} onChange={setKids} unit="人"/></div>
           </div>
           <Field label="勤務先所在地（健保料率）"><select value={pref} onChange={e=>setPref(e.target.value)} style={sInput}>{PREFS.map(p=><option key={p} value={p}>{p}</option>)}</select></Field>
           <Field label="所得控除の額（源泉徴収票／空欄なら自動計算）" value={deduction} onChange={setDeduction} unit="円"/>
