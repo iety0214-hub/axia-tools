@@ -92,11 +92,17 @@ function calcIns(s,a,pref){
   return(health+care+pen+emp)*12;
 }
 
-// si＝基礎控除以外の所得控除（社会保険料など）
-function calcTax(s,si){
+// 配偶者控除（一般・配偶者は扶養内とみなす）。本人の合計所得金額で段階
+function spouseIT(inc){return inc<=9000000?380000:inc<=9500000?260000:inc<=10000000?130000:0}
+function spouseRT(inc){return inc<=9000000?330000:inc<=9500000?220000:inc<=10000000?110000:0}
+// 調整控除用の人的控除差（配偶者控除分）
+function spouseDiff(inc){return inc<=9000000?50000:inc<=9500000?40000:inc<=10000000?20000:0}
+
+// si＝基礎控除・配偶者控除以外の所得控除（社会保険料など）
+function calcTax(s,si,spouse){
   // 所得税＋復興特別所得税（2.1%）
   const inc=calcSalaryIncome(s,740000);
-  const tb=Math.max(Math.floor((inc-si-basicIT(inc))/1000)*1000,0);
+  const tb=Math.max(Math.floor((inc-si-basicIT(inc)-(spouse?spouseIT(inc):0))/1000)*1000,0);
   let it;
   if(tb<=1949000)it=tb*0.05;else if(tb<=3299000)it=tb*0.10-97500;
   else if(tb<=6949000)it=tb*0.20-427500;else if(tb<=8999000)it=tb*0.23-636000;
@@ -105,8 +111,10 @@ function calcTax(s,si){
   const incomeTax=Math.floor(it*1.021/100)*100;
   // 住民税＝所得割10%（調整控除後）＋均等割5,000円（森林環境税込み）
   const incR=calcSalaryIncome(s,690000);
-  const tbR=Math.max(Math.floor((incR-si-basicRT(incR))/1000)*1000,0);
-  const adj=incR>25000000?0:tbR<=2000000?Math.min(50000,tbR)*0.05:2500;
+  const tbR=Math.max(Math.floor((incR-si-basicRT(incR)-(spouse?spouseRT(incR):0))/1000)*1000,0);
+  // 調整控除：人的控除差＝基礎控除5万＋配偶者控除分
+  const diff=50000+(spouse?spouseDiff(incR):0);
+  const adj=incR>25000000?0:tbR<=2000000?Math.min(diff,tbR)*0.05:Math.max((diff-(tbR-2000000))*0.05,2500);
   const shotoku=Math.max(Math.floor((tbR*0.10-adj)/100)*100,0);
   const kintou=incR>450000?5000:0;
   const residentTax=shotoku+kintou;
@@ -168,6 +176,15 @@ function Field({label,value,onChange,unit,children}){
   </div>
 }
 
+function YesNo({value,onChange}){
+  const b=on=>({flex:1,padding:'9px 0',fontSize:13,fontWeight:on===value?700:500,cursor:'pointer',border:'none',
+    background:on===value?C.blue:C.inputBg,color:on===value?'#fff':C.label});
+  return <div style={{display:'flex',border:`1px solid ${C.inputBd}`,borderRadius:8,overflow:'hidden'}}>
+    <button style={b(true)} onClick={()=>onChange(true)}>有り</button>
+    <button style={{...b(false),borderLeft:`1px solid ${C.inputBd}`}} onClick={()=>onChange(false)}>無し</button>
+  </div>
+}
+
 // 金融機関ごとの審査金利（固定）
 const RATES={rk:0.03194,sbj:0.022,sbi:0.025,ion:0.03,hig:0.035};
 
@@ -181,7 +198,9 @@ function App(){
   const [age,setAge]=useState(sv('age',26));
   const [years,setYears]=useState(sv('years',3));
   // 扶養人数（本人を含まない）。旧版の「世帯」人数（本人込み）が保存されていれば −1 して引き継ぐ
-  const [deps,setDeps]=useState(sv('deps',SAVED.members!==undefined?Math.max(0,(Number(SAVED.members)||1)-1):0));
+  // 扶養：配偶者の有無・16歳未満の扶養の有無
+  const [spouse,setSpouse]=useState(!!sv('spouse',false));
+  const [kids,setKids]=useState(!!sv('kids',false));
   const [pref,setPref]=useState(sv('pref',"千葉県"));
   const [owned,setOwned]=useState(sv('owned',[{debt:0,payment:0,rent:0,mgmt:0}]));
   const [others,setOthers]=useState(sv('others',[{debt:0,payment:0}]));
@@ -191,11 +210,11 @@ function App(){
   const [tab,setTab]=useState("input");
 
   useEffect(()=>{
-    try{localStorage.setItem(STORE_KEY,JSON.stringify({salary,age,years,deps,pref,owned,others,homeRent,props,deduction}))}catch(e){}
-  },[salary,age,years,deps,pref,owned,others,homeRent,props,deduction]);
+    try{localStorage.setItem(STORE_KEY,JSON.stringify({salary,age,years,spouse,kids,pref,owned,others,homeRent,props,deduction}))}catch(e){}
+  },[salary,age,years,spouse,kids,pref,owned,others,homeRent,props,deduction]);
   const resetAll=()=>{
     if(!confirm('入力内容をすべて初期値に戻す？'))return;
-    setSalary(6100000);setAge(26);setYears(3);setDeps(0);setPref("千葉県");
+    setSalary(6100000);setAge(26);setYears(3);setSpouse(false);setKids(false);setPref("千葉県");
     setOwned([{debt:0,payment:0,bonus:0,rent:0,mgmt:0}]);setOthers([{debt:0,payment:0,bonus:0}]);
     setHomeRent(30000);setProps([{price:30000000,bonus:0,rent:80000,mgmt:0}]);setDeduction('');
   };
@@ -205,7 +224,7 @@ function App(){
   const uProp=(i,k,v)=>setProps(p=>p.map((x,j)=>j===i?{...x,[k]:v}:x));
 
   const calc=useMemo(()=>{
-    const s=Number(salary)||0,a=Number(age)||0,yrs=Number(years)||0,dep=Math.max(0,Math.floor(Number(deps)||0));
+    const s=Number(salary)||0,a=Number(age)||0,yrs=Number(years)||0,famN=1+(spouse?1:0)+(kids?1:0);
     const rate=RATES.rk;
 
     const existPayY=owned.reduce((t,o)=>t+(Number(o.payment)||0)*12,0);
@@ -248,8 +267,9 @@ function App(){
     const dedManual=String(deduction).trim()!==''&&!isNaN(dedIn)&&dedIn>0;
     const siAuto=calcIns(s,a,pref);
     // 源泉徴収票の「所得控除の額の合計額」には基礎控除が含まれるので差し引く
-    const si=dedManual?Math.max(0,dedIn-basicIT(calcSalaryIncome(s))):siAuto;
-    const tax=calcTax(s,si);
+    const incIT=calcSalaryIncome(s);
+    const si=dedManual?Math.max(0,dedIn-basicIT(incIT)-(spouse?spouseIT(incIT):0)):siAuto;
+    const tax=calcTax(s,si,spouse);
 
     const rkDebtH=totalDebt*0.5;
     const rkRepay=PMT(RATES.rk/12,300,rkDebtH)*12;
@@ -264,8 +284,8 @@ function App(){
     const sbjA1=s+existRentY*0.7+propRentTotal*0.7-si-tax.total;
     const sbjB=sbjTotalRepay+homeRentY;
     const sbjRatio=sbjA1>0?sbjB/sbjA1:99;
-    // 生活費＝96万×（本人＋扶養人数）
-    const sbjFam=960000*(1+dep);
+    // 生活費＝96万×（本人＋配偶者＋16歳未満の扶養）
+    const sbjFam=960000*famN;
     const sbjDisp=sbjA1-(sbjB+sbjFam);
 
     const ionAP=existTotalY+propYearlyAt(RATES.ion);
@@ -292,12 +312,12 @@ function App(){
       existTotalY,existDebt,totalAP,totalRent,totalDebt,existBonusY,otherBonusY,
       ratioNet,ratio70,ratio100,yrMult,si,tax,siAuto,dedManual,
       rk:{repay:rkRepay,b:rkB,c:rkC,d:rkD,margin:rkMargin,pass:rkMargin>0},
-      sbj:{fam:sbjFam,famN:1+dep,ym:sbjYM,bm:12,mPass:sbjYM<12,a1:sbjA1,b:sbjB,ratio:sbjRatio,disp:sbjDisp,dPass:sbjDisp>=1000000,pass:sbjYM<12&&sbjDisp>=1000000},
+      sbj:{fam:sbjFam,famN,ym:sbjYM,bm:12,mPass:sbjYM<12,a1:sbjA1,b:sbjB,ratio:sbjRatio,disp:sbjDisp,dPass:sbjDisp>=1000000,pass:sbjYM<12&&sbjDisp>=1000000},
       ion:{ap:ionAP,r1:ionR1,r2:ionR2,bm:ionBM,disp:ionDisp,rPass:ionR1<0.5&&ionR2<0.35,mPass:yrMult<ionBM,dPass:ionDisp>100000,pass:ionR1<0.5&&ionR2<0.35&&yrMult<ionBM&&a>=25&&yrs>=2&&ionDisp>100000},
       sbi:{ap:sbiAP,ratio:sbiRatio,br:sbiBR,bm:sbiBM,rate:sbiRate2,pass:sbiRatio<sbiBR&&yrMult<sbiBM&&a>=25&&yrs>=3},
       hig:{pr:hPR,tr:hTR,s35:hS35,r70:hR70,margin:hMargin,bm:hBM,mPass:yrMult<hBM,pass:hMargin>0&&yrMult<hBM}
     };
-  },[salary,age,years,deps,pref,owned,others,homeRent,props,deduction]);
+  },[salary,age,years,spouse,kids,pref,owned,others,homeRent,props,deduction]);
 
   const banks=[
     {key:"rk",label:"楽天",pass:calc.rk.pass},
@@ -337,7 +357,10 @@ function App(){
           <div style={{display:'flex',gap:8,marginTop:10}}>
             <div style={{flex:1}}><Field label="年齢" value={age} onChange={setAge} unit="歳"/></div>
             <div style={{flex:1}}><Field label="勤続" value={years} onChange={setYears} unit="年"/></div>
-            <div style={{flex:1}}><Field label="扶養" value={deps} onChange={setDeps} unit="人"/></div>
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            <div style={{flex:1}}><Field label="配偶者"><YesNo value={spouse} onChange={setSpouse}/></Field></div>
+            <div style={{flex:1}}><Field label="16歳未満の扶養"><YesNo value={kids} onChange={setKids}/></Field></div>
           </div>
           <Field label="勤務先所在地（健保料率）"><select value={pref} onChange={e=>setPref(e.target.value)} style={sInput}>{PREFS.map(p=><option key={p} value={p}>{p}</option>)}</select></Field>
           <Field label="所得控除の額（源泉徴収票／空欄なら自動計算）" value={deduction} onChange={setDeduction} unit="円"/>
@@ -482,7 +505,7 @@ function App(){
           <RRow label="B（年間返済+自宅賃料）" value={`¥${fmt(calc.sbj.b)}`} sub="本件2.2%"/>
           <RRow label="返済比率" value={fmtP(calc.sbj.ratio)} sub="（基準50%）"/>
           <Divider/>
-          <RRow label="生活費（96万×本人＋扶養）" value={`¥${fmt(calc.sbj.fam)}`} sub={`${calc.sbj.famN}人`}/>
+          <RRow label="生活費（96万×本人＋家族）" value={`¥${fmt(calc.sbj.fam)}`} sub={`${calc.sbj.famN}人`}/>
           <RRow label="可処分所得" value={`¥${fmt(calc.sbj.disp)}`} sub="（100万以上必要）"/>
           <Badge pass={calc.sbj.dPass}/>
         </div>
