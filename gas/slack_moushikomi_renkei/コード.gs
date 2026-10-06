@@ -4,6 +4,7 @@
  *  ・【種別】申込   のメール → Slackに投稿
  *  ・【種別】オープン のメール → 該当する申込投稿を取り消し線に書き換え
  *  ・「訂正」「誤り」と書かれた申込メール → 訂正前の投稿を取り消し線にして、訂正後を投稿
+ *  ・【種別】物件振替／物件確定 のメール → 元の申込投稿を取り消し線にして、新しい物件で投稿し直す
  *
  * セットアップ:
  *   1) 左メニュー「プロジェクトの設定」→「スクリプト プロパティ」に
@@ -57,6 +58,9 @@ const DONE_KEEP_DAYS = 10;
 // 件名か、本文の【項目】より前のあいさつ部分にこの言葉があれば訂正メールとみなす
 const CORRECTION_WORDS = /訂正|誤り|間違い|修正|差し替え|差替/;
 
+// 物件振替・物件確定のメールの【種別】（これを新規投稿＋元の申込を取り消し線にする）
+const TRANSFER_TYPES = ['物件振替', '物件確定'];
+
 // 訂正メールが差し替える申込投稿を探す期間（これより前の投稿は差し替えない）
 const CORRECTION_WINDOW_DAYS = 3;
 
@@ -64,6 +68,7 @@ const CORRECTION_WINDOW_DAYS = 3;
 // ===== トリガーから呼ばれる本体 =====
 function runSync() {
   processApplications_();
+  processTransfers_();
   processOpens_();
   cleanupOldRecords_();
 }
@@ -122,6 +127,148 @@ function strikeCorrectedPost_(old, newTs, msg, body) {
 
 
 // ============================================================
+//  1b. 物件振替・物件確定メール → 元の申込投稿を取り消し線にして、新しく投稿
+// ============================================================
+function processTransfers_() {
+  const label = getOrCreateLabel_(DONE_LABEL);
+  const query = MAIL_SCOPE + ' {subject:物件振替 subject:物件確定} newer_than:3d';
+
+  eachNewMessage_(query, function (msg) {
+    const body = msg.getPlainBody();
+    const fields = parseBody_(body);
+    const kind = transferKind_(fields);
+    if (!kind) return;
+
+    const before = findPostsForTransfer_(fields);   // { recs, keys }
+    const old = before.recs;
+
+    const res = slackApi_('chat.postMessage', {
+      channel: SLACK_CHANNEL,
+      text: headerTextOf_(fields) + '（' + kind + '）',
+      blocks: buildTransferBlocks_(fields, msg, kind, old),
+      unfurl_links: false,
+      unfurl_media: false
+    });
+    rememberPost_(fields, res.ts, msg);
+    Utilities.sleep(1100);
+
+    old.forEach(function (rec) {
+      const part = strikeTransferredPost_(rec, res.ts, msg, body, kind, before.keys);
+      if (!part) forgetPost_(rec.ts);   // 一部だけ振り替えたときは、残りをオープンで取り消せるよう記録を残す
+      Utilities.sleep(1100);
+    });
+  }, label);
+}
+
+// 【種別】が物件振替・物件確定ならその名前を返す（オープンなど他の種別は空）
+function transferKind_(fields) {
+  const shubetsu = ((fields['種別'] || [])[0] || '').trim();
+  if (shubetsu.indexOf('オープン') !== -1) return '';
+  const hit = TRANSFER_TYPES.filter(function (t) { return shubetsu.indexOf(t) !== -1; });
+  return hit[0] || '';
+}
+
+// 振替前の申込投稿を探す。
+//   1) 【振替前】の「物件名＋号室」が一致する投稿（顧客名で絞る）
+//   2) なければ同じ顧客名の物件未定の投稿（物件確定）
+function findPostsForTransfer_(fields) {
+  const beforeKeys = matchKeysOf_({ '物件名': [get_(fields, '振替前')] });
+  const who = customerKey_(get_(fields, '顧客名'));
+  const props = PropertiesService.getScriptProperties().getProperties();
+  let hits = [];
+
+  if (beforeKeys.length > 0) {
+    Object.keys(props).forEach(function (key) {
+      if (key.indexOf('post_') !== 0) return;
+      let rec;
+      try { rec = JSON.parse(props[key]); } catch (e) { return; }
+      if (!rec.keys || !rec.ts) return;
+      if (rec.keys.some(function (k) { return beforeKeys.indexOf(k) !== -1; })) hits.push(rec);
+    });
+    if (hits.length > 1 && who) {
+      const narrowed = hits.filter(function (rec) { return rec.customer === who; });
+      if (narrowed.length > 0) hits = narrowed;
+    }
+  }
+
+  if (hits.length === 0 && beforeKeys.length === 0) {
+    hits = findUndecidedPostsByCustomer_(fields);
+  }
+  return { recs: hits, keys: beforeKeys };
+}
+
+function buildTransferBlocks_(fields, msg, kind, old) {
+  const note = old.length
+    ? '🔁 *' + kind + '*　|　' + old.map(function (r) { return '<' + postLink_(r.ts) + '|' + kind + '前の投稿>'; }).join(' ')
+    : '🔁 *' + kind + '*（元の申込投稿は見つかりませんでした）';
+
+  return [
+    { type: 'header', text: { type: 'plain_text', text: headerTextOf_(fields) + '（' + kind + '）', emoji: true } },
+    { type: 'section', text: { type: 'mrkdwn', text: detailTextOf_(fields) || trimBody_(msg.getPlainBody()) } },
+    {
+      type: 'context',
+      elements: [{
+        type: 'mrkdwn',
+        text: note +
+              '\n送信: ' + msg.getFrom() +
+              '　|　' + fmtDate_(msg.getDate()) +
+              '　|　<' + mailLink_(msg) + '|Gmailで開く>'
+      }]
+    }
+  ];
+}
+
+// 振替前の投稿を取り消し線にする。複数物件のうち一部だけ振り替えたときは、
+// 該当する行だけに線を引く。戻り値: 一部だけ線を引いたなら true
+function strikeTransferredPost_(rec, newTs, msg, body, kind, beforeKeys) {
+  const lines = (rec.detail || '').split('\n');
+  const matched = lines.map(function (line) {
+    return !!line && beforeKeys.indexOf(normalize_(line)) !== -1;
+  });
+  const some = matched.some(Boolean);
+  const all = !some || lines.every(function (line, i) { return !line || matched[i]; });
+  const partial = some && !all;
+
+  const detail = lines.map(function (line, i) {
+    if (!line) return line;
+    return (!some || matched[i]) ? '~' + line + '~' : line;
+  }).join('\n');
+
+  const title = partial
+    ? '🔁 *' + rec.header + '* （一部' + kind + '）'
+    : '🔁 *~' + rec.header + '~* （' + kind + '前）';
+
+  try {
+    slackApi_('chat.update', {
+      channel: SLACK_CHANNEL,
+      ts: rec.ts,
+      text: '【' + kind + '前】' + rec.header,
+      blocks: [
+        { type: 'section', text: { type: 'mrkdwn', text: title } },
+        { type: 'section', text: { type: 'mrkdwn', text: detail } },
+        {
+          type: 'context',
+          elements: [{
+            type: 'mrkdwn',
+            text: '🔁 *' + fmtDate_(msg.getDate()) + ' ' + kind + 'メールにより差し替え*' +
+                  '　|　<' + postLink_(newTs) + '|' + kind + '後の投稿を見る>' +
+                  '　|　<' + mailLink_(msg) + '|メールを開く>'
+          }]
+        }
+      ],
+      attachments: []
+    });
+  } catch (e) {
+    notify_(msg, body,
+      '⚠️ *' + kind + 'メールを受信しましたが、元の投稿「' + rec.header + '」を書き換えられませんでした*\n' +
+      '（理由: ' + e.message + '）手動で対応をお願いします。');
+    return false;
+  }
+  return partial;
+}
+
+
+// ============================================================
 //  2. オープンメール → 該当投稿を取り消し線に
 // ============================================================
 function processOpens_() {
@@ -135,9 +282,8 @@ function processOpens_() {
     const hits = findPostsForOpen_(body);
 
     if (hits.length === 0) {
-      notify_(msg, body,
-        '⚠️ *オープンメールを受信しましたが、対応する申込投稿が見つかりませんでした*\n' +
-        '手動で確認をお願いします。');
+      // メール側の通知で気づけるので、Slackには投稿しない
+      Logger.log('オープンメールに対応する申込投稿なし: ' + msg.getSubject());
       return;
     }
 
