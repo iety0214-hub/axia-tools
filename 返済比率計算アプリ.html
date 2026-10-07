@@ -312,7 +312,7 @@ function App(){
       existTotalY,existDebt,totalAP,totalRent,totalDebt,existBonusY,otherBonusY,
       ratioNet,ratio70,ratio100,yrMult,si,tax,siAuto,dedManual,
       rk:{repay:rkRepay,b:rkB,c:rkC,d:rkD,margin:rkMargin,pass:rkMargin>0},
-      sbj:{fam:sbjFam,famN,ym:sbjYM,bm:12,mPass:sbjYM<12,a1:sbjA1,b:sbjB,ratio:sbjRatio,disp:sbjDisp,dPass:sbjDisp>=1000000,pass:sbjYM<12&&sbjDisp>=1000000},
+      sbj:{fam:sbjFam,famN,ym:sbjYM,bm:12,mPass:sbjYM<12,a1:sbjA1,b:sbjB,ratio:sbjRatio,rPass:sbjRatio<0.5,disp:sbjDisp,dPass:sbjDisp>=1000000,pass:sbjYM<12&&sbjRatio<0.5&&sbjDisp>=1000000},
       ion:{ap:ionAP,r1:ionR1,r2:ionR2,bm:ionBM,disp:ionDisp,rPass:ionR1<0.5&&ionR2<0.35,mPass:yrMult<ionBM,dPass:ionDisp>100000,pass:ionR1<0.5&&ionR2<0.35&&yrMult<ionBM&&a>=25&&yrs>=2&&ionDisp>100000},
       sbi:{ap:sbiAP,ratio:sbiRatio,br:sbiBR,bm:sbiBM,rate:sbiRate2,pass:sbiRatio<sbiBR&&yrMult<sbiBM&&a>=25&&yrs>=3},
       hig:{pr:hPR,tr:hTR,s35:hS35,r70:hR70,margin:hMargin,bm:hBM,mPass:yrMult<hBM,pass:hMargin>0&&yrMult<hBM}
@@ -500,11 +500,14 @@ function App(){
           <Badge pass={calc.sbj.mPass}/>
         </div>
         <div style={sCard}>
-          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>基準2：可処分所得</div>
+          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>基準2：返済比率</div>
           <RRow label="A①（年収+賃料70%−社保−税金）" value={`¥${fmt(calc.sbj.a1)}`}/>
           <RRow label="B（年間返済+自宅賃料）" value={`¥${fmt(calc.sbj.b)}`} sub="本件2.2%"/>
-          <RRow label="返済比率" value={fmtP(calc.sbj.ratio)} sub="（基準50%）"/>
-          <Divider/>
+          <RRow label="返済比率（B÷A①）" value={fmtP(calc.sbj.ratio)} sub="（50%未満）"/>
+          <Badge pass={calc.sbj.rPass}/>
+        </div>
+        <div style={sCard}>
+          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>基準3：可処分所得</div>
           <RRow label="生活費（96万×本人＋家族）" value={`¥${fmt(calc.sbj.fam)}`} sub={`${calc.sbj.famN}人`}/>
           <RRow label="可処分所得" value={`¥${fmt(calc.sbj.disp)}`} sub="（100万以上必要）"/>
           <Badge pass={calc.sbj.dPass}/>
