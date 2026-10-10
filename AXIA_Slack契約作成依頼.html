@@ -1804,6 +1804,8 @@
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault();
     deferred = e;
+    // PCでは出さない（スマホ・タブレットだけ）
+    if (!/Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent)) return;
     try { if (sessionStorage.getItem('pwaInstallClosed')) return; } catch (err) {}
     bar.style.display = 'flex';
   });
