@@ -338,7 +338,7 @@ function TextInput({ value, onCommit, placeholder, style, list, inputMode }) {
 }
 
 /* ===== カード ===== */
-function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onPatch, onDelete, onCopy, onDup, onMove }) {
+function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onPatch, onDelete, onDup, onMove }) {
   // 開閉しても、タップしたカードの見出しが画面上の同じ位置に留まるようにする
   // （上の開いとったカードが閉じて、タップしたカードが上にずれるのを防ぐ）
   const headRef = useRef(null);
@@ -475,10 +475,10 @@ function Card({ r, settings, open, unsaved, suggests, nameSuggest, onToggle, onP
             <div style={{ fontSize: 10, color: '#9ca3af' }}>{done}/{prog.length} {open ? '▲' : '▼'}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', marginLeft: 2 }}>
-            <button onClick={e => { e.stopPropagation(); onCopy(); }} title="この1件をコピー" style={{
-              width: 34, height: 34, borderRadius: 9, border: `1px solid ${LINE}`,
-              background: '#fff', color: NAVY, fontSize: 15, cursor: 'pointer', lineHeight: '32px', padding: 0
-            }}>📋</button>
+            <button onClick={e => { e.stopPropagation(); onDelete(); }} title="この1件を削除" style={{
+              width: 34, height: 34, borderRadius: 9, border: '1px solid #f0c9c9',
+              background: '#fff6f6', color: '#c14040', fontSize: 15, cursor: 'pointer', lineHeight: '32px', padding: 0
+            }}>🗑</button>
           </div>
           {/* 日付バッジはカードの横幅いっぱいに置く（右の丸と同じ行やと、スマホで日付が切れるけん） */}
           <div style={{ width: '100%' }}>
@@ -1116,16 +1116,6 @@ function App() {
     ];
   };
 
-  // カード1枚だけをテキストでコピー
-  const copyOne = (r) => {
-    const cols = exportCols();
-    const txt = cols.map(c => `${c.label}：${c.get(r) || '－'}`).join('\n');
-    navigator.clipboard.writeText(txt).then(
-      () => flash('この1件をコピーしたばい'),
-      () => flash('コピーできんかった')
-    );
-  };
-
   // 印刷用の表を裏側のiframeに作って、その場で印刷ダイアログを出す（タブは開かん）
   // months＝印刷したい月の配列。複数選んだときは改ページせず、月の区切り帯を挟んで続けて流し込む
   const printTable = (months) => {
@@ -1339,7 +1329,7 @@ tr.band { page-break-after:avoid; }
           </div>
         )}
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{(query || bankPick) ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.10.3
+          全 {rows.length} 件{(query || bankPick) ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.10.4
         </div>
       </div>
 
@@ -1379,7 +1369,7 @@ tr.band { page-break-after:avoid; }
             unsaved={!!pending[r.id]} suggests={suggests} nameSuggest={nameSuggest}
             onToggle={() => setOpenId(openId === r.id ? null : r.id)}
             onPatch={p => patch(r.id, p)} onDelete={() => del(r.id)}
-            onCopy={() => copyOne(r)} onDup={() => dup(r)} onMove={d => moveMonth(r, d)} />
+            onDup={() => dup(r)} onMove={d => moveMonth(r, d)} />
         ))}
         {!loading && (
           <div>
