@@ -1,15 +1,16 @@
 /**
- * 【オープン】【物件振替】メールを読んで、金消アプリ（AXIA_Kinsho）から該当の行を消すスクリプト。
+ * 【オープン】【物件振替】メールを読んで、金消アプリ（AXIA_Kinsho）の該当の行を消す（振替は振替後の行を足す）スクリプト。
  *
  * ■ 使い方
  *   ・申込追記.gs の syncMoushikomiMails（10分おき）の最後に一緒に動くけん、トリガーの追加はいらん
- *   ・まず testRunDelete() を実行（何も消さん。消される行がログに出るだけ）
+ *   ・まず testRunDelete() を実行（何も消さん・足さん。消される行と足される行がログに出るだけ）
  *
  * ■ やること
  *   ・オープン   → 【物件名】【号室】（旧形式は【内容】の「○○様 物件名 号室 … ↓ オープン」）の行を消す
- *   ・物件振替   → 【振替前】の「物件名 号室」の行を消す（振替後の物件の行は足さん）
+ *   ・物件振替   → 【振替前】の「物件名 号室」の行を消して、【物件名】【号室】の振替後の行を足す
+ *                  （月・顧客名・銀行・契約日・担当などは元の行を引き継ぐ。元の行が無ければメールの中身から作る）
  *   ・物件名＋号室が一致して、顧客名も食い違わん行が1件に絞れたときだけ消す
- *   ・金消予定日が入っとる行は消さずに知らせる
+ *   ・金消予定日が入っとる行は消さずに知らせる（振替なら振替後の行も足さん）
  *   ・行が見つからんときは、申込の行がまだ作られとらん可能性があるけん1日は待って拾い直す
  */
 
@@ -34,10 +35,11 @@ function syncOpenTransferMails(dryRun) {
 
   const settings = fetchSettings_();
   allRows_(true);
-  const deleted = [], failed = [];
+  const deleted = [], added = [], failed = [];
 
   pending.forEach(msg => {
-    const v = parseBody_(msg.getPlainBody() || '');
+    const body = msg.getPlainBody() || '';
+    const v = parseBody_(body);
     const kind = delKind_(v['種別'] || v['完了種類'] || v['種類']);
     if (!kind) { if (!dry) markDelDone_(props, msg); return; }
 
@@ -50,50 +52,128 @@ function syncOpenTransferMails(dryRun) {
       return;
     }
 
-    const notFound = [];
-    units.forEach(u => {
-      const label = u.bukken + ' ' + u.room + '／' + (customer || '名前なし') + '（' + kind + '）';
-      const hit = delFindRow_(u, customer, settings);
-      if (hit.error) { failed.push(label + '：' + hit.error); return; }
-      if (!hit.row) { notFound.push(label); return; }
-      const k = (hit.row.fields || {})[settings.keyOf.kinsho];
+    // 先に全部の行を探す。見つからん行があるうちは、申込の行がまだ作られとらんだけかもしれんので
+    // 何も触らずに次の回にまた探す（振替で一部だけ消して元の行の中身を失わんようにするため）
+    const found = units.map(u => ({
+      u: u,
+      label: u.bukken + ' ' + u.room + '／' + (customer || '名前なし') + '（' + kind + '）',
+      hit: delFindRow_(u, customer, settings),
+    }));
+    const notFound = found.filter(x => !x.hit.row && !x.hit.error);
+    if (notFound.length && Date.now() - msg.getDate().getTime() < DCFG.RETRY_HOURS * 3600 * 1000) return;
+    notFound.forEach(x => failed.push(x.label + '：アプリに該当の行が見つからんかった'));
+
+    const removed = [];   // 消した元の行（振替後の行のひな形にする）
+    let blocked = false;  // 消せんかった元の行があるか
+    found.forEach(x => {
+      if (x.hit.error) { failed.push(x.label + '：' + x.hit.error); blocked = true; return; }
+      if (!x.hit.row) return;
+      const row = x.hit.row;
+      const k = (row.fields || {})[settings.keyOf.kinsho];
       if (k && typeof k === 'object' ? k.d : k) {
-        failed.push(label + '：金消予定日が入っとるけん消さんかった');
+        failed.push(x.label + '：金消予定日が入っとるけん消さんかった');
+        blocked = true;
         return;
       }
       try {
-        if (!dry) api_('DELETE', '/rest/v1/' + CFG.TABLE + '?id=eq.' + encodeURIComponent(hit.row.id));
-        allRows_.cache = allRows_.cache.filter(r => r.id !== hit.row.id);
-        deleted.push(label + '（' + hit.row.month + '）');
+        if (!dry) api_('DELETE', '/rest/v1/' + CFG.TABLE + '?id=eq.' + encodeURIComponent(row.id));
+        allRows_.cache = allRows_.cache.filter(r => r.id !== row.id);
+        removed.push(row);
+        deleted.push(x.label + '（' + row.month + '）');
       } catch (e) {
-        failed.push(label + '：' + e);
+        failed.push(x.label + '：' + e);
+        blocked = true;
       }
     });
 
-    // 申込の行がまだ作られとらんだけかもしれんので、しばらくは次の回にまた探す
-    if (notFound.length && Date.now() - msg.getDate().getTime() < DCFG.RETRY_HOURS * 3600 * 1000) return;
-    notFound.forEach(s => failed.push(s + '：アプリに該当の行が見つからんかった'));
+    if (kind === '物件振替') {
+      if (blocked) failed.push(subject + '：元の行が消せんかったけん、振替後の行は足さんかった');
+      else delAddTransferRows_(v, body, msg, removed, settings, dry, added, failed);
+    }
     if (!dry) markDelDone_(props, msg);
   });
 
-  Logger.log((dry ? '【お試し】' : '') + '削除 ' + deleted.length + '件' + (failed.length ? ' / 消せんかった ' + failed.length + '件' : ''));
-  deleted.forEach(s => Logger.log('  ✓ ' + s));
+  Logger.log((dry ? '【お試し】' : '') + '削除 ' + deleted.length + '件 ／ 振替後の追加 ' + added.length + '件'
+    + (failed.length ? ' / 要確認 ' + failed.length + '件' : ''));
+  deleted.forEach(s => Logger.log('  ✓ 削除 ' + s));
+  added.forEach(s => Logger.log('  ＋ 追加 ' + s));
   failed.forEach(s => Logger.log('  ⚠ ' + s));
   if (!dry) cleanupDelDone_(props);
 
-  if (!dry && MCFG.REPORT_TO && (deleted.length || failed.length)) {
+  if (!dry && MCFG.REPORT_TO && (deleted.length || added.length || failed.length)) {
     const lines = [];
     if (deleted.length) lines.push('■ オープン・物件振替で消した行（' + deleted.length + '件）', ...deleted.map(s => '・' + s), '');
-    if (failed.length) lines.push('■ 消せんかった（' + failed.length + '件）手で確認してください', ...failed.map(s => '・' + s), '');
+    if (added.length) lines.push('■ 物件振替で足した振替後の行（' + added.length + '件）', ...added.map(s => '・' + s), '');
+    if (failed.length) lines.push('■ 要確認（' + failed.length + '件）手で確認してください', ...failed.map(s => '・' + s), '');
     lines.push('金消アプリ：https://iety0214-hub.github.io/axia-tools/AXIA_Kinsho.html');
     GmailApp.sendEmail(MCFG.REPORT_TO,
-      '【金消アプリ】オープン・物件振替で ' + deleted.length + '件削除' + (failed.length ? ' / ' + failed.length + '件要確認' : ''),
+      '【金消アプリ】オープン・物件振替で ' + deleted.length + '件削除'
+        + (added.length ? ' / ' + added.length + '件追加' : '')
+        + (failed.length ? ' / ' + failed.length + '件要確認' : ''),
       lines.join('\n'));
   }
-  return { deleted: deleted, failed: failed };
+  return { deleted: deleted, added: added, failed: failed };
 }
 
-/** 書き込まずに、消される行だけログに出す（処理済みの記録もせん） */
+/**
+ * 物件振替の振替後の物件（【物件名】【号室】）の行を足す。
+ * ・元の行が消せとったら、その行の月・顧客名・銀行・契約日・担当などを引き継いで、物件名と号室だけ差し替える
+ *   （並び順も元の行の位置に入れる）
+ * ・元の行が無かったら、申込メールと同じ読み方でメールの中身から作る
+ * ・同じ「物件名＋号室」の行がすでにあれば足さん
+ */
+function delAddTransferRows_(v, body, msg, removed, settings, dry, added, failed) {
+  const pairs = propertyPairs_(v);
+  if (!pairs.length) {
+    if (!/未定/.test(v['物件名'] || '')) failed.push(msg.getSubject() + '：振替後の物件名が読み取れんかった');
+    return;
+  }
+  const fromMail = removed.length ? [] : buildRows_(body, msg.getDate(), settings);
+  const bk = settings.keyOf.bukken, rk = settings.keyOf.room;
+
+  pairs.forEach((p, i) => {
+    const tpl = removed[i] || removed[0];
+    let row;
+    if (tpl) {
+      const fields = Object.assign({}, tpl.fields || {});
+      if (bk) fields[bk] = p.bukken;
+      if (rk) { if (p.room) fields[rk] = p.room; else delete fields[rk]; }
+      row = {
+        month: tpl.month,
+        name: tpl.name || (clean_(v['顧客名']) || '').replace(/様\s*$/, ''),
+        fields: fields,
+        sort_order: (tpl.sort_order || 0) + i,
+        _bukken: p.bukken,
+        _room: p.room,
+      };
+    } else {
+      row = fromMail[i];
+      if (!row) return;
+    }
+    const label = p.bukken + (p.room ? ' ' + p.room : '') + '／' + (row.name || '名前なし') + '（' + row.month + '）';
+    const dup = findDuplicate_(row, settings);
+    if (dup) { failed.push(label + '：' + dup.month + ' にすでにあるけん足さんかった'); return; }
+    try {
+      if (row.sort_order == null) {
+        row.sort_order = allRows_().filter(r => r.month === row.month)
+          .reduce((m, r) => Math.max(m, r.sort_order || 0), 0) + 1000;
+      }
+      let id = null;
+      if (!dry) {
+        const made = api_('POST', '/rest/v1/' + CFG.TABLE,
+          { month: row.month, name: row.name, fields: row.fields, sort_order: row.sort_order });
+        id = (made[0] || {}).id;
+      }
+      // 同じ回のうちに同じ物件が2回来ても二重に入れんように、足した行もためておく
+      allRows_().push({ id: id, month: row.month, name: row.name, fields: row.fields, sort_order: row.sort_order });
+      added.push(label + (tpl ? '' : '　※元の行が無かったけんメールの中身から作成'));
+    } catch (e) {
+      failed.push(label + '：' + e);
+    }
+  });
+}
+
+/** 書き込まずに、消される行・足される行だけログに出す（処理済みの記録もせん） */
 function testRunDelete() { syncOpenTransferMails(true); }
 
 /** 【種別】から「オープン」「物件振替」を返す。両方入っとったらオープン扱い。それ以外は '' */
