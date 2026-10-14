@@ -31,7 +31,7 @@ function syncMoushikomiMails() {
   const label = getOrCreateLabel_(MCFG.DONE_LABEL);
   allRows_.cache = null;
   const threads = GmailApp.search(MCFG.QUERY + ' -label:"' + MCFG.DONE_LABEL + '"', 0, 30);
-  if (!threads.length) return;  // 申込メールがない回はSupabaseに問い合わせずに終わる
+  if (!threads.length) { syncOpenTransferMails(); return; }  // 申込メールがない回は申込の処理を飛ばす
   const settings = fetchSettings_();
   const added = [], skipped = [], failed = [];
 
@@ -56,6 +56,8 @@ function syncMoushikomiMails() {
   });
 
   report_(added, skipped, failed);
+  // 申込の行を足したあとで、オープン・物件振替の行を消す（取消削除.gs）
+  syncOpenTransferMails();
   return { added: added, skipped: skipped, failed: failed };
 }
 
