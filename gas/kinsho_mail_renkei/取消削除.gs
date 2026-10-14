@@ -8,7 +8,8 @@
  * ■ やること
  *   ・オープン   → 【物件名】【号室】（旧形式は【内容】の「○○様 物件名 号室 … ↓ オープン」）の行を消す
  *   ・物件振替   → 【振替前】の「物件名 号室」の行を消して、【物件名】【号室】の振替後の行を足す
- *                  （月・顧客名・銀行・契約日・担当などは元の行を引き継ぐ。元の行が無ければメールの中身から作る）
+ *                  （元の行を引き継ぎ、メールに書いてある銀行・契約予定・立会・担当・同行は上書き。
+ *                    元の行が無ければメールの中身から作る）
  *   ・物件名＋号室が一致して、顧客名も食い違わん行が1件に絞れたときだけ消す
  *   ・金消予定日が入っとる行は消さずに知らせる（振替なら振替後の行も足さん）
  *   ・行が見つからんときは、申込の行がまだ作られとらん可能性があるけん1日は待って拾い直す
@@ -117,8 +118,10 @@ function syncOpenTransferMails(dryRun) {
 
 /**
  * 物件振替の振替後の物件（【物件名】【号室】）の行を足す。
- * ・元の行が消せとったら、その行の月・顧客名・銀行・契約日・担当などを引き継いで、物件名と号室だけ差し替える
+ * ・元の行が消せとったら、その行の月・顧客名・銀行・契約日・担当などを引き継いで、物件名と号室を差し替える
  *   （並び順も元の行の位置に入れる）
+ * ・ただしメールに書いてある項目（銀行・契約予定・立会・担当・同行）はメールの内容で上書きする
+ *   契約予定が書いてあれば、申込と同じく契約日の月の一覧に移す。顧客名と金消予定日は元の行のまま
  * ・元の行が無かったら、申込メールと同じ読み方でメールの中身から作る
  * ・同じ「物件名＋号室」の行がすでにあれば足さん
  */
@@ -128,26 +131,40 @@ function delAddTransferRows_(v, body, msg, removed, settings, dry, added, failed
     if (!/未定/.test(v['物件名'] || '')) failed.push(msg.getSubject() + '：振替後の物件名が読み取れんかった');
     return;
   }
-  const fromMail = removed.length ? [] : buildRows_(body, msg.getDate(), settings);
+  // buildRows_ も propertyPairs_ で物件を並べるけん、pairs と同じ順番で1行ずつ対応する
+  const fromMail = buildRows_(body, msg.getDate(), settings);
   const bk = settings.keyOf.bukken, rk = settings.keyOf.room;
+  const ck = settings.keyOf.contract;
+  const hasContract = !!(fromMail[0] && ck && (fromMail[0].fields[ck] || {}).d);
 
   pairs.forEach((p, i) => {
     const tpl = removed[i] || removed[0];
+    const mailRow = fromMail[i];
     let row;
     if (tpl) {
       const fields = Object.assign({}, tpl.fields || {});
       if (bk) fields[bk] = p.bukken;
       if (rk) { if (p.room) fields[rk] = p.room; else delete fields[rk]; }
+      // メールに書いてある項目だけ上書き（buildRows_ は書いてない項目を入れんけん、そのまま写せる）
+      if (mailRow) {
+        const mk = settings.keyOf;
+        [mk.bank, mk.tachiai, mk.tanto, mk.doko].forEach(k => {
+          if (k && mailRow.fields[k]) fields[k] = mailRow.fields[k];
+        });
+        if (hasContract) fields[ck] = mailRow.fields[ck];
+      }
+      const month = hasContract && mailRow ? mailRow.month : tpl.month;
       row = {
-        month: tpl.month,
+        month: month,
         name: tpl.name || (clean_(v['顧客名']) || '').replace(/様\s*$/, ''),
         fields: fields,
-        sort_order: (tpl.sort_order || 0) + i,
+        // 月が変わらんときは元の行の位置に入れる。変わるときは移した先の月の末尾
+        sort_order: month === tpl.month ? (tpl.sort_order || 0) + i : null,
         _bukken: p.bukken,
         _room: p.room,
       };
     } else {
-      row = fromMail[i];
+      row = mailRow;
       if (!row) return;
     }
     const label = p.bukken + (p.room ? ' ' + p.room : '') + '／' + (row.name || '名前なし') + '（' + row.month + '）';
