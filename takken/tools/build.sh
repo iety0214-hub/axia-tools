@@ -10,6 +10,7 @@
 # 環境変数:
 #   TAKKEN_MAXPAGES  ページ上限（既定5。45問=12）
 #   TAKKEN_FONT      フォント名（既定 IPAGothic。Mac は "Hiragino Sans" 等）
+#   TAKKEN_TITLE_FULL タイトル全体を差し替える（既定は「宅地建物取引士試験　2026年度予想問題（<タイトル括弧内>）」）
 set -euo pipefail
 
 if [ $# -lt 4 ]; then
@@ -34,7 +35,7 @@ cd "$WORK"
 echo "== 形式チェック"; python3 check_consistency.py | tail -4
 if [ -f resolve.json ]; then echo "== 独立再解答との照合"; python3 resolve_diff.py | grep -E "不一致|D[0-9]"; fi
 echo "== PDF化"
-TAKKEN_TITLE="宅地建物取引士試験　2026年度予想問題（${LABEL}）" TAKKEN_MAXPAGES="${TAKKEN_MAXPAGES:-5}" bash fit_to_5pages.sh
+TAKKEN_TITLE="${TAKKEN_TITLE_FULL:-宅地建物取引士試験　2026年度予想問題（${LABEL}）}" TAKKEN_MAXPAGES="${TAKKEN_MAXPAGES:-5}" bash fit_to_5pages.sh
 cp 問題編.pdf "$OUTDIR/問題編_${SUBJ}_2026予想_${ROUND}.pdf"
 cp 解答解説編.pdf "$OUTDIR/解答解説編_${SUBJ}_2026予想_${ROUND}.pdf"
 echo "== 出力: $OUTDIR/{問題編,解答解説編}_${SUBJ}_2026予想_${ROUND}.pdf"
