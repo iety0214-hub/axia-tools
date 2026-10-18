@@ -44,6 +44,9 @@ const CFG = {
   // true にすると、すでに承認日が入っとっても上書きする
   OVERWRITE: false,
 
+  // true にすると、申込メールが来とらん（行が無い）本承認メールから行を作って承認日も入れる
+  ADD_WHEN_MISSING: true,
+
   // true にすると書き込みをせずログだけ出す（初回テスト用）
   DRY_RUN: false,
 };
@@ -59,6 +62,7 @@ function syncApprovalMails() {
   const seen = loadSeen();          // 処理済みメッセージIDの記録
 
   const done = [];
+  const added = [];
   const skipped = [];
   let scanned = 0;
 
@@ -76,6 +80,20 @@ function syncApprovalMails() {
 
       const approvalDate = Utilities.formatDate(msg.getDate(), 'Asia/Tokyo', 'yyyy-MM-dd');
       const hit = matchRow(rows, parsed);
+
+      // 申込メールが来とらん（物件＋号室の行がどこにも無い）ときは、承認メールの中身で行を足す
+      if (!hit.row && hit.missing && CFG.ADD_WHEN_MISSING) {
+        try {
+          const made = addRowsFromApproval(msg.getPlainBody(), msg.getDate(), approvalDate, settings, keys, rows);
+          if (made.length) {
+            if (!CFG.DRY_RUN) seen[id] = 'added:' + approvalDate;
+            made.forEach(label => added.push({ label: label, date: approvalDate }));
+            return;
+          }
+        } catch (e) {
+          hit.reason += `／行の追加に失敗：${e}`;
+        }
+      }
 
       if (!hit.row) {
         skipped.push({ reason: hit.reason, mail: parsed, date: approvalDate, subject: msg.getSubject() });
@@ -105,9 +123,38 @@ function syncApprovalMails() {
   });
 
   if (!CFG.DRY_RUN) saveSeen(seen);
-  Logger.log(`完了 — 本承認メール ${scanned}通を確認 ／ 反映 ${done.length}件 ／ 未マッチ ${skipped.length}件`);
+  Logger.log(`完了 — 本承認メール ${scanned}通を確認 ／ 反映 ${done.length}件 ／ 行を追加 ${added.length}件 ／ 未マッチ ${skipped.length}件`);
+  if (added.length) notifyAdded(added);
   if (skipped.length) notifySkipped(skipped);
-  return { done: done.length, skipped: skipped.length };
+  return { done: done.length, added: added.length, skipped: skipped.length };
+}
+
+/**
+ * 本承認メールの中身から金消アプリに行を足す（申込メールが来とらんかった案件用）。
+ * 行の組み立ては 申込追記.gs の buildRows_ をそのまま使い、承認日だけ足す。
+ * 戻り値は足した行のラベル。1通で複数物件なら、まだ無い物件の分だけ足す。
+ */
+function addRowsFromApproval(body, mailDate, approvalDate, settings, keys, rows) {
+  const mset = fetchSettings_();
+  allRows_.cache = rows;   // 同じ実行の中で足した行も二重チェックに効かせる
+  const field = settings.fields.find(f => f.key === keys.approval);
+  const made = [];
+  buildRows_(body, mailDate, mset).forEach(row => {
+    if (findDuplicate_(row, mset)) return;
+    row.fields[keys.approval] = buildValue(field, approvalDate);
+    if (CFG.DRY_RUN) {
+      Logger.log(`【お試し】行を追加: ${row._label} 月=${row.month} ${JSON.stringify(row.fields)}`);
+    } else {
+      insertRow_(row);
+      // insertRow_ が rows に積んだ行を、照合用の形にそろえておく
+      const last = rows[rows.length - 1];
+      last.name = row.name;
+      last._flat = { prop: row._bukken, room: row._room };
+      Logger.log(`行を追加: ${row._label} 月=${row.month} 承認日=${approvalDate}`);
+    }
+    made.push(row._label + '（' + row.month + '）');
+  });
+  return made;
 }
 
 /* ===== 処理済みメッセージの記録 =====
@@ -187,7 +234,7 @@ function matchRow(rows, mail) {
     .map(r => ({ row: r, score: propScore(r._flat.prop, mProp) }))
     .filter(x => x.score > 0);
 
-  if (!scored.length) return { row: null, reason: `物件名が一致する行がなかった（メール:${mProp}）` };
+  if (!scored.length) return { row: null, missing: true, reason: `物件名が一致する行がなかった（メール:${mProp}）` };
 
   // 最も物件名が近いグループに絞る
   const best = Math.max.apply(null, scored.map(x => x.score));
@@ -203,6 +250,7 @@ function matchRow(rows, mail) {
     if (!byRoom.length) {
       return {
         row: null,
+        missing: true,
         reason: `物件は一致したが号室${mail['号室']}の行がなかった（アプリの号室:${cands.map(c => c._flat.room || '空').join('／')}）`
       };
     }
@@ -457,6 +505,18 @@ function notifySkipped(list) {
     `　 行を作ってから再反映したい場合は、そのラベルを外すと次回また拾います。`;
   if (!CFG.NOTIFY_TO) return;  // 通知先が空なら送らない
   GmailApp.sendEmail(CFG.NOTIFY_TO, `【金消アプリ】自動反映できんかった案件 ${list.length}件`, body);
+}
+
+/* ===== 行を追加したときの知らせ ===== */
+function notifyAdded(list) {
+  const to = CFG.NOTIFY_TO || MCFG.REPORT_TO;
+  if (!to || CFG.DRY_RUN) return;
+  const body =
+    `申込メールが来とらん本承認メールがあったけん、金消アプリに行を足して承認日を入れたっちゃ。\n` +
+    `担当・契約予定などはメールの中身から入れとるけん、違っとったらアプリで直して。\n\n` +
+    list.map(a => `・${a.label}　承認日：${a.date}`).join('\n') +
+    `\n\nアプリ：https://iety0214-hub.github.io/axia-tools/AXIA_Kinsho.html`;
+  GmailApp.sendEmail(to, `【金消アプリ】本承認メールから ${list.length}件追加`, body);
 }
 
 /* ===== 初回セットアップ：30分おきのトリガーを作る ===== */
