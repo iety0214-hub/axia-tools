@@ -12,7 +12,8 @@
  *   ・物件名・号室・顧客名・銀行・契約日時・立会・担当・同行を読み取る
  *     （担当・同行は「佐野係長」→「佐野」のように役職を外し、2人以上は「・」でつなぐ）
  *   ・金消アプリ（Supabase）の「契約日の月」の一覧に行を足す。1通で複数物件なら、その数だけ行を作る
- *   ・どこかの月に同じ「物件名＋号室」の行がすでにあったら飛ばす
+ *   ・どこかの月に同じ「物件名＋号室」で同じお客様の行がすでにあったら飛ばす
+ *     （お客様が違えばオープン後の新しい申込として足して、古い行が残っとることを知らせる）
  *   ・処理したメールには「金消登録済」のラベルを付けて、二度と処理せん
  */
 
@@ -44,9 +45,12 @@ function syncMoushikomiMails() {
         if (!rows.length) { failed.push(msg.getSubject() + '：中身を読み取れんかった'); return; }
         rows.forEach(row => {
           const dup = findDuplicate_(row, settings);
-          if (dup) { skipped.push(row._label + '（' + dup.month + ' にすでにある）'); return; }
+          // 同じ部屋でもお客様が違えば、オープン後の新しい申込なので足す（古い行は知らせて人が消す）
+          if (dup && nameMatches(dup.name, row.name)) { skipped.push(row._label + '（' + dup.month + ' にすでにある）'); return; }
           insertRow_(row);
-          added.push(row._label);
+          added.push(row._label + (dup
+            ? '　※同じ部屋に別のお客様（' + (dup.name || '名前なし') + '・' + dup.month + '）の行が残っとる。オープン済みなら消して'
+            : ''));
         });
       } catch (e) {
         failed.push(msg.getSubject() + '：' + e);
@@ -70,8 +74,12 @@ function testRunMoushikomi() {
     if (body.indexOf('【種別】') < 0 || body.indexOf('申込') < 0) return;
     const rows = buildRows_(body, msg.getDate(), settings);
     Logger.log('--- ' + msg.getSubject() + ' (' + msg.getDate() + ')');
-    rows.forEach(r => Logger.log('  ' + r._label + '  月=' + r.month + '  ' + JSON.stringify(r.fields)
-      + (findDuplicate_(r, settings) ? '  ★' + findDuplicate_(r, settings).month + ' にすでにあるけん飛ばす' : '')));
+    rows.forEach(r => {
+      const dup = findDuplicate_(r, settings);
+      Logger.log('  ' + r._label + '  月=' + r.month + '  ' + JSON.stringify(r.fields)
+        + (!dup ? '' : nameMatches(dup.name, r.name) ? '  ★' + dup.month + ' にすでにあるけん飛ばす'
+          : '  ★同じ部屋に別のお客様（' + dup.name + '・' + dup.month + '）の行があるけど足す'));
+    });
   }));
 }
 
@@ -270,7 +278,7 @@ function insertRow_(row) {
     month: row.month, name: row.name, fields: row.fields, sort_order: maxSo + 1000,
   });
   // 足した行もためておく（同じ回のうちに同じ物件が2回来ても二重に入れんように）
-  rows.push({ id: (made[0] || {}).id, month: row.month, fields: row.fields, sort_order: maxSo + 1000 });
+  rows.push({ id: (made[0] || {}).id, month: row.month, name: row.name, fields: row.fields, sort_order: maxSo + 1000 });
 }
 
 function api_(method, path, payload) {
