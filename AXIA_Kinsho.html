@@ -1039,36 +1039,38 @@ function App() {
   };
 
   const mainF = settings.fields.find(f => f.key === settings.mainKey);
-  // 契約日が今日に近い順に並べる（これから来る分が上、過ぎた分はその下で新しいものから）
-  // 契約日が空の行はいちばん後ろ。※金消日が済んだ案件は、さらにその下にまとめる
+  // 並び順：まだ来とらん日付がある案件を上にまとめる
+  //   ① 契約日がこれから（今日を含む）→ 契約日の近い順（同じ日なら金消日の近い順）
+  //   ② 契約日は過ぎた（または空）が金消日がこれから → 金消日の近い順
+  //   ③ 契約日が過ぎて金消日が空 → 契約日の新しい順
+  //   ④ 契約日も金消日も空
+  //   ⑤ 金消日が過ぎた（済）案件 → いちばん下（金消日の新しい順）
   const apprF = settings.fields.find(f => /契約/.test(f.label || ''));
-  const apprDate = (r) => {
-    if (!apprF) return '';
-    const v = (r.fields || {})[apprF.key];
-    return apprF.type === 'datetime' ? dtVal(v).d : (typeof v === 'string' ? v : '');
-  };
-  const apprKey = (r) => {
-    const left = daysLeft(apprDate(r));
-    if (left == null) return 9e9;                 // 契約日なし＝いちばん後ろ
-    return left >= 0 ? left : 1e6 + (-left);      // これから来る分＝近い順／過ぎた分＝新しい順
-  };
-  // 同じ日のときは時刻の早い順
-  const apprTime = (r) => {
-    if (!apprF || apprF.type !== 'datetime') return '';
-    return dtVal((r.fields || {})[apprF.key]).t || '';
-  };
-  // 金消日が過ぎた（済）案件は、契約日に関係なく下へまとめる
   const kinshoF = settings.fields.find(f => /金消/.test(f.label || ''));
-  const kinshoDone = (r) => {
-    if (!kinshoF) return 0;
-    const v = (r.fields || {})[kinshoF.key];
-    const d = kinshoF.type === 'datetime' ? dtVal(v).d : (typeof v === 'string' ? v : '');
-    const left = daysLeft(d);
-    return (left != null && left < 0) ? 1 : 0;
+  const dOf = (f, r) => {
+    if (!f) return '';
+    const v = (r.fields || {})[f.key];
+    return f.type === 'datetime' ? dtVal(v).d : (typeof v === 'string' ? v : '');
   };
-  const byAppr = (a, b) => kinshoDone(a) - kinshoDone(b)
-    || apprKey(a) - apprKey(b) || apprTime(a).localeCompare(apprTime(b))
-    || (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id;
+  const tOf = (f, r) => (f && f.type === 'datetime') ? (dtVal((r.fields || {})[f.key]).t || '') : '';
+  const sortKey = (r) => {
+    const c = daysLeft(dOf(apprF, r)), k = daysLeft(dOf(kinshoF, r));
+    const near = (x) => x == null ? 9e9 : x;   // 日付が空なら同じ段の後ろ
+    if (k != null && k < 0) return [5, -k, ''];
+    if (c != null && c >= 0) return [1, c, tOf(apprF, r), near(k), tOf(kinshoF, r)];
+    if (k != null) return [2, k, tOf(kinshoF, r)];
+    if (c != null) return [3, -c, ''];
+    return [4, 0, ''];
+  };
+  const byAppr = (a, b) => {
+    const x = sortKey(a), y = sortKey(b);
+    for (let i = 0; i < Math.max(x.length, y.length); i++) {
+      const p = x[i] ?? '', q = y[i] ?? '';
+      if (p === q) continue;
+      return typeof p === 'number' && typeof q === 'number' ? p - q : String(p).localeCompare(String(q));
+    }
+    return (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id;
+  };
   const pendingCount = Object.keys(pending).length;
 
   // 過去に入力した値を候補にして、2回目からは選ぶだけで済むようにする
@@ -1329,7 +1331,7 @@ tr.band { page-break-after:avoid; }
           </div>
         )}
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{(query || bankPick) ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.10.4
+          全 {rows.length} 件{(query || bankPick) ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.11.0
         </div>
       </div>
 
