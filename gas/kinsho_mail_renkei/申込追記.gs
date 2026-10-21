@@ -219,7 +219,7 @@ function normalizeBank_(raw, options) {
 /** 「安部課長、佐野係長」→「安部・佐野」。役職や「さん」を外して「・」でつなぐ。空や「－」「なし」は '' */
 function staffNames_(raw) {
   return (clean_(raw) || '').split(/[、,，・／\/\n]+/)
-    .map(s => s.trim().replace(/(課長代理|部長代理|部長|次長|課長|係長|主任|店長|社長|専務|常務|室長|さん|様)$/, '').trim())
+    .map(s => s.trim().replace(/(課長代理|部長代理|部長|次長|課長|係長|主任|店長|社長|専務|常務|室長|社員|さん|様)$/, '').trim())
     .filter(s => s && !/^(－|-|ー|―|なし|無し)$/.test(s))
     .join('・');
 }
