@@ -624,10 +624,16 @@
             'AXIA CITY神戸松原',
             'AXIA CITY武蔵小山',
             'AXIA CITY大阪瑞光',
-            'AXIA CITY浮間舟渡',
+            'AXIA M-CITY浮間公園',
             'AXIA CITY 下井草全',
             'AXIA CITY 亀有'
         ];
+
+        // 名称が変わった物件（保存済みのリストも読み替える）
+        const PROPERTY_RENAMES = {
+            'AXIA CITY浮間舟渡': 'AXIA M-CITY浮間公園',
+            'AXIA M-CITY浮間舟渡': 'AXIA M-CITY浮間公園'
+        };
 
         // 旧バージョンの初期値（自分で追加した物件だけを引き継ぐために使う）
         const OLD_DEFAULT_PROPERTIES = [
@@ -692,6 +698,7 @@
             try {
                 migrateProperties();
                 migrateBanks();
+                renameSavedProperties();
             } catch (e) {
                 console.error('リスト移行エラー:', e);
             }
@@ -717,6 +724,23 @@
                 if (merged.indexOf(name) === -1) merged.push(name);
             });
             localStorage.setItem(LIST_DEFS.property.key, JSON.stringify(merged));
+        }
+
+        // 物件：保存済みリストの旧名称を新名称に読み替える
+        function renameSavedProperties() {
+            const saved = localStorage.getItem(LIST_DEFS.property.key);
+            if (!saved) return;
+            const arr = JSON.parse(saved);
+            if (!Array.isArray(arr)) return;
+
+            const renamed = [];
+            arr.forEach(function(name) {
+                const fixed = PROPERTY_RENAMES[name] || name;
+                if (renamed.indexOf(fixed) === -1) renamed.push(fixed);
+            });
+            if (JSON.stringify(renamed) !== saved) {
+                localStorage.setItem(LIST_DEFS.property.key, JSON.stringify(renamed));
+            }
         }
 
         // 銀行：改称した名前に読み替えて引き継ぐ
