@@ -888,10 +888,16 @@
             'AXIA CITY神戸松原',
             'AXIA CITY武蔵小山',
             'AXIA CITY大阪瑞光',
-            'AXIA CITY浮間舟渡',
+            'AXIA M-CITY浮間公園',
             'AXIA CITY 下井草全',
             'AXIA CITY 亀有'
         ];
+
+        // 名称が変わった物件（保存済みのリストも読み替える）
+        const PROPERTY_RENAMES = {
+            'AXIA CITY浮間舟渡': 'AXIA M-CITY浮間公園',
+            'AXIA M-CITY浮間舟渡': 'AXIA M-CITY浮間公園'
+        };
 
         const DEFAULT_BANKS = [
             '楽天銀行',
@@ -920,13 +926,29 @@
             try {
                 const saved = localStorage.getItem(def.key);
                 if (saved) {
-                    const arr = JSON.parse(saved);
-                    if (Array.isArray(arr) && arr.length > 0) return arr;
+                    let arr = JSON.parse(saved);
+                    if (Array.isArray(arr) && arr.length > 0) {
+                        if (type === 'property') arr = renameProperties(arr, def.key, saved);
+                        return arr;
+                    }
                 }
             } catch (e) {
                 console.error('リスト読み込みエラー:', e);
             }
             return def.defaults.slice();
+        }
+
+        // 物件：保存済みリストの旧名称を新名称に読み替えて保存し直す
+        function renameProperties(arr, key, saved) {
+            const renamed = [];
+            arr.forEach(function(name) {
+                const fixed = PROPERTY_RENAMES[name] || name;
+                if (renamed.indexOf(fixed) === -1) renamed.push(fixed);
+            });
+            if (JSON.stringify(renamed) !== saved) {
+                localStorage.setItem(key, JSON.stringify(renamed));
+            }
+            return renamed;
         }
 
         // リスト保存＋ドロップダウン再描画
