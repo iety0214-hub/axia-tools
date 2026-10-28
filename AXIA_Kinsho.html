@@ -1101,7 +1101,7 @@ function App() {
   const isCity = (r) => !!bukkenF && CITY_RE.test(String((r.fields || {})[bukkenF.key] || ''));
   const RK_CITY = '楽天::city', RK_OTHER = '楽天::other';
   const chipOpts = bankOpts.flatMap(b => b === '楽天' ? [RK_CITY, RK_OTHER] : [b]);
-  const chipLabel = (b) => b === RK_CITY ? '楽天 CITY・M-City' : b === RK_OTHER ? '楽天 その他' : b;
+  const chipLabel = (b) => b === RK_CITY ? '楽天AXIA' : b === RK_OTHER ? '楽天中古' : b;
   const matchBank = (r, b) => {
     const v = ((r.fields || {})[bankF.key] || '');
     if (b === RK_CITY) return v === '楽天' && isCity(r);
@@ -1344,7 +1344,7 @@ tr.band { page-break-after:avoid; }
           </div>
         )}
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{(query || bankPick) ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.12.0
+          全 {rows.length} 件{(query || bankPick) ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.12.1
         </div>
       </div>
 
