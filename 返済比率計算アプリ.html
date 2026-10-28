@@ -186,7 +186,8 @@ function YesNo({value,onChange}){
 }
 
 // 金融機関ごとの審査金利（固定）
-const RATES={rk:0.03194,sbj:0.022,sbi:0.025,ion:0.03,hig:0.035};
+// base＝結果タブ等の共通計算用（旧楽天金利）。楽天の審査は rk を使う
+const RATES={base:0.03194,rk:0.04847,sbj:0.022,sbi:0.025,ion:0.03,hig:0.035};
 
 const STORE_KEY='axia_hensai_v1';
 function loadSaved(){try{return JSON.parse(localStorage.getItem(STORE_KEY))||{}}catch(e){return {}}}
@@ -225,7 +226,7 @@ function App(){
 
   const calc=useMemo(()=>{
     const s=Number(salary)||0,a=Number(age)||0,yrs=Number(years)||0,famN=1+(spouse?1:0)+Math.max(0,Math.floor(Number(kids)||0));
-    const rate=RATES.rk;
+    const rate=RATES.base;
 
     const existPayY=owned.reduce((t,o)=>t+(Number(o.payment)||0)*12,0);
     const existRentY=owned.reduce((t,o)=>t+(Number(o.rent)||0)*12,0);
@@ -278,7 +279,7 @@ function App(){
     const rkHomeM=Math.max(Number(homeRent)||0,80000);
     const rkB=rkA-rkHomeM*12;
     const rkC=rkB-(otherPayY+otherBonusY);
-    // 購入物件・所有物件（当初借入）の50%を3.194%・25年で返済した額
+    // 購入物件・所有物件（当初借入）の50%を4.847%・25年で返済した額
     const rkD=propPriceTotal*0.5;
     const rkOrigMissing=owned.some(o=>!(Number(o.orig)>0)&&Number(o.debt)>0);
     const rkE=owned.reduce((t,o)=>t+(Number(o.orig)>0?Number(o.orig):(Number(o.debt)||0)),0)*0.5;
@@ -431,7 +432,7 @@ function App(){
           <div style={{marginTop:10,padding:10,background:C.inputBg,border:`1px solid ${C.border}`,borderRadius:8}}>
             <div style={{fontSize:11,fontWeight:700,color:C.label,marginBottom:6}}>審査金利（固定・35年）</div>
             <div style={{display:'flex',flexWrap:'wrap',gap:6,fontSize:11,color:C.sub}}>
-              {[['楽天','3.194%'],['SBJ','2.2%'],['SBI','2.5%'],['イオン','3.0%'],['東日本','3.5%']].map(([n,r])=>
+              {[['楽天','4.847%（25年）'],['SBJ','2.2%'],['SBI','2.5%'],['イオン','3.0%'],['東日本','3.5%']].map(([n,r])=>
                 <span key={n} style={{background:'#fff',border:`1px solid ${C.border}`,borderRadius:6,padding:'3px 8px'}}>{n} <b style={{color:C.text}}>{r}</b></span>)}
             </div>
           </div>
@@ -499,7 +500,7 @@ function App(){
           <RRow label="D（購入物件価格×50%）" value={`¥${fmt(calc.rk.d)}`}/>
           <RRow label="E（所有物件当初借入×50%）" value={`¥${fmt(calc.rk.e)}`} sub={calc.rk.origMissing?"一部残債で代用":null}/>
           <RRow label="F（D + E）" value={`¥${fmt(calc.rk.f)}`}/>
-          <RRow label="月額支払額（3.194%・25年）" value={`¥${fmt(calc.rk.monthly)}`}/>
+          <RRow label="月額支払額（4.847%・25年）" value={`¥${fmt(calc.rk.monthly)}`}/>
           <RRow label="年間返済額（月額×12）" value={`¥${fmt(calc.rk.repay)}`}/>
           <Divider/>
           <RRow label="返済比率額（C − 年間返済額）" value={`¥${fmt(calc.rk.margin)}`} sub="プラスで基準クリア"/>
