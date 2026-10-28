@@ -202,7 +202,7 @@ function App(){
   const [spouse,setSpouse]=useState(!!sv('spouse',false));
   const [kids,setKids]=useState(()=>{const k=sv('kids',0);return typeof k==='boolean'?(k?1:0):k});
   const [pref,setPref]=useState(sv('pref',"千葉県"));
-  const [owned,setOwned]=useState(sv('owned',[{debt:0,payment:0,rent:0,mgmt:0}]));
+  const [owned,setOwned]=useState(sv('owned',[{orig:0,debt:0,payment:0,rent:0,mgmt:0}]));
   const [others,setOthers]=useState(sv('others',[{debt:0,payment:0}]));
   const [homeRent,setHomeRent]=useState(sv('homeRent',30000));
   const [props,setProps]=useState(sv('props',[{price:30000000,bonus:0,rent:80000,mgmt:0}]));
@@ -215,7 +215,7 @@ function App(){
   const resetAll=()=>{
     if(!confirm('入力内容をすべて初期値に戻す？'))return;
     setSalary(6100000);setAge(26);setYears(3);setSpouse(false);setKids(0);setPref("千葉県");
-    setOwned([{debt:0,payment:0,bonus:0,rent:0,mgmt:0}]);setOthers([{debt:0,payment:0,bonus:0}]);
+    setOwned([{orig:0,debt:0,payment:0,bonus:0,rent:0,mgmt:0}]);setOthers([{debt:0,payment:0,bonus:0}]);
     setHomeRent(30000);setProps([{price:30000000,bonus:0,rent:80000,mgmt:0}]);setDeduction('');
   };
 
@@ -271,12 +271,21 @@ function App(){
     const si=dedManual?Math.max(0,dedIn-basicIT(incIT)-(spouse?spouseIT(incIT):0)):siAuto;
     const tax=calcTax(s,si,spouse);
 
-    const rkDebtH=totalDebt*0.5;
-    const rkRepay=PMT(RATES.rk/12,300,rkDebtH)*12;
-    const rkB=s*0.7-2000000;
-    const rkC=rkB-homeRentY;
-    const rkD=rkC-(otherPayY+otherBonusY);
-    const rkMargin=rkD-rkRepay;
+    // 楽天（Excel「楽天返済比率計算 - 変更版」準拠）
+    // 生活費＝200万と年収20%の高い方／住宅費は最低8万円/月で計上
+    const rkLiving=Math.max(2000000,s*0.2);
+    const rkA=s*0.7-rkLiving;
+    const rkHomeM=Math.max(Number(homeRent)||0,80000);
+    const rkB=rkA-rkHomeM*12;
+    const rkC=rkB-(otherPayY+otherBonusY);
+    // 購入物件・所有物件（当初借入）の50%を3.194%・25年で返済した額
+    const rkD=propPriceTotal*0.5;
+    const rkOrigMissing=owned.some(o=>!(Number(o.orig)>0)&&Number(o.debt)>0);
+    const rkE=owned.reduce((t,o)=>t+(Number(o.orig)>0?Number(o.orig):(Number(o.debt)||0)),0)*0.5;
+    const rkF=rkD+rkE;
+    const rkMonthly=rkF>0?PMT(RATES.rk/12,300,rkF):0;
+    const rkRepay=rkMonthly*12;
+    const rkMargin=rkC-rkRepay;
 
     const sbjPWB=propYearlyAt(RATES.sbj);
     const sbjTotalRepay=sbjPWB+existPayY+otherPayY+existBonusY+otherBonusY;
@@ -311,7 +320,7 @@ function App(){
       pc,propYearlyTotal,propRentTotal,propPriceTotal,
       existTotalY,existDebt,totalAP,totalRent,totalDebt,existBonusY,otherBonusY,
       ratioNet,ratio70,ratio100,yrMult,si,tax,siAuto,dedManual,
-      rk:{repay:rkRepay,b:rkB,c:rkC,d:rkD,margin:rkMargin,pass:rkMargin>0},
+      rk:{living:rkLiving,a:rkA,homeM:rkHomeM,b:rkB,c:rkC,d:rkD,e:rkE,f:rkF,monthly:rkMonthly,repay:rkRepay,origMissing:rkOrigMissing,margin:rkMargin,pass:rkMargin>0},
       sbj:{fam:sbjFam,famN,ym:sbjYM,bm:12,mPass:sbjYM<12,a1:sbjA1,b:sbjB,ratio:sbjRatio,rPass:sbjRatio<0.5,disp:sbjDisp,dPass:sbjDisp>=1000000,pass:sbjYM<12&&sbjRatio<0.5&&sbjDisp>=1000000},
       ion:{ap:ionAP,r1:ionR1,r2:ionR2,bm:ionBM,disp:ionDisp,rPass:ionR1<0.5&&ionR2<0.35,mPass:yrMult<ionBM,dPass:ionDisp>100000,pass:ionR1<0.5&&ionR2<0.35&&yrMult<ionBM&&a>=25&&yrs>=2&&ionDisp>100000},
       sbi:{ap:sbiAP,ratio:sbiRatio,br:sbiBR,bm:sbiBM,rate:sbiRate2,pass:sbiRatio<sbiBR&&yrMult<sbiBM&&a>=25&&yrs>=3},
@@ -374,7 +383,10 @@ function App(){
               <span style={{fontSize:11,color:C.sub}}>物件 {i+1}</span>
               {owned.length>1&&rmBtn(()=>setOwned(p=>p.filter((_,j)=>j!==i)))}
             </div>
-            <Field label="残債" value={o.debt||0} onChange={v=>uOwn(i,'debt',v)} unit="円"/>
+            <div style={{display:'flex',gap:8}}>
+              <div style={{flex:1}}><Field label="当初借入（楽天用）" value={o.orig||0} onChange={v=>uOwn(i,'orig',v)} unit="円"/></div>
+              <div style={{flex:1}}><Field label="残債" value={o.debt||0} onChange={v=>uOwn(i,'debt',v)} unit="円"/></div>
+            </div>
             <div style={{display:'flex',gap:8}}>
               <div style={{flex:1}}><Field label="月支払額" value={o.payment} onChange={v=>uOwn(i,'payment',v)} unit="円"/></div>
               <div style={{flex:1}}><Field label="ボーナス" value={o.bonus||0} onChange={v=>uOwn(i,'bonus',v)} unit="円"/></div>
@@ -384,8 +396,8 @@ function App(){
               <div style={{flex:1}}><Field label="管積" value={o.mgmt} onChange={v=>uOwn(i,'mgmt',v)} unit="円"/></div>
             </div>
           </div>)}
-          <div style={{fontSize:10,color:C.sub,marginTop:4}}>※ボーナスは1回あたりの額（年2回で計算）</div>
-          {owned.length<4&&addBtn('＋ 物件追加',()=>setOwned(p=>[...p,{debt:0,payment:0,bonus:0,rent:0,mgmt:0}]))}
+          <div style={{fontSize:10,color:C.sub,marginTop:4}}>※ボーナスは1回あたりの額（年2回で計算）<br/>※当初借入は楽天の計算に使用（未入力の物件は残債で代用）</div>
+          {owned.length<10&&addBtn('＋ 物件追加',()=>setOwned(p=>[...p,{orig:0,debt:0,payment:0,bonus:0,rent:0,mgmt:0}]))}
         </div>
 
         <div style={sCard}>
@@ -478,12 +490,19 @@ function App(){
         </div>
         <div style={sCard}>
           <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>返済比率計算</div>
-          <RRow label="A（3.194%審査金利での年間返済）" value={`¥${fmt(calc.rk.repay)}`}/>
-          <RRow label="B（給与×70% − 200万）" value={`¥${fmt(calc.rk.b)}`}/>
-          <RRow label="C（B − 家賃）" value={`¥${fmt(calc.rk.c)}`}/>
-          <RRow label="D（C − その他借入）" value={`¥${fmt(calc.rk.d)}`}/>
+          <RRow label="生活費（200万と年収20%の高い方）" value={`¥${fmt(calc.rk.living)}`}/>
+          <RRow label="A（年収×0.7 − 生活費）" value={`¥${fmt(calc.rk.a)}`}/>
+          <RRow label="住宅費（最低8万円/月）" value={`¥${fmt(calc.rk.homeM)}/月`} sub={Number(homeRent)<80000?"8万円で計上":null}/>
+          <RRow label="B（A − 住宅費×12）" value={`¥${fmt(calc.rk.b)}`}/>
+          <RRow label="C（B − その他借入支払）" value={`¥${fmt(calc.rk.c)}`}/>
           <Divider/>
-          <RRow label="余裕額（D − A）" value={`¥${fmt(calc.rk.margin)}`}/>
+          <RRow label="D（購入物件価格×50%）" value={`¥${fmt(calc.rk.d)}`}/>
+          <RRow label="E（所有物件当初借入×50%）" value={`¥${fmt(calc.rk.e)}`} sub={calc.rk.origMissing?"一部残債で代用":null}/>
+          <RRow label="F（D + E）" value={`¥${fmt(calc.rk.f)}`}/>
+          <RRow label="月額支払額（3.194%・25年）" value={`¥${fmt(calc.rk.monthly)}`}/>
+          <RRow label="年間返済額（月額×12）" value={`¥${fmt(calc.rk.repay)}`}/>
+          <Divider/>
+          <RRow label="返済比率額（C − 年間返済額）" value={`¥${fmt(calc.rk.margin)}`} sub="プラスで基準クリア"/>
           <RRow label="年収倍率（参考・判定対象外）" value={`${fmtR(calc.yrMult)}倍`}/>
         </div>
       </>}
