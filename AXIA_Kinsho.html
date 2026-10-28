@@ -1095,8 +1095,21 @@ function App() {
   // 検索：名前と全項目の中身をまとめて対象にする
   const bankF = settings.fields.find(f => /銀行/.test(f.label || ''));
   const bankOpts = (bankF && bankF.options) || [];
+  // 楽天は物件名で2つに分ける：①AXIA CITY・AXIA M-City ②それ以外
+  const bukkenF = settings.fields.find(f => f.key === 'bukken') || settings.fields.find(f => /物件/.test(f.label || ''));
+  const CITY_RE = /AXIA\s*(M\s*[-‐－ー―]?\s*)?CITY|アクシア\s*(エム\s*)?シティ/i;
+  const isCity = (r) => !!bukkenF && CITY_RE.test(String((r.fields || {})[bukkenF.key] || ''));
+  const RK_CITY = '楽天::city', RK_OTHER = '楽天::other';
+  const chipOpts = bankOpts.flatMap(b => b === '楽天' ? [RK_CITY, RK_OTHER] : [b]);
+  const chipLabel = (b) => b === RK_CITY ? '楽天 CITY・M-City' : b === RK_OTHER ? '楽天 その他' : b;
+  const matchBank = (r, b) => {
+    const v = ((r.fields || {})[bankF.key] || '');
+    if (b === RK_CITY) return v === '楽天' && isCity(r);
+    if (b === RK_OTHER) return v === '楽天' && !isCity(r);
+    return v === b;
+  };
   const hit = (r) => {
-    if (bankPick && bankF && ((r.fields || {})[bankF.key] || '') !== bankPick) return false;
+    if (bankPick && bankF && !matchBank(r, bankPick)) return false;
     const q = query.trim().toLowerCase();
     if (!q) return true;
     const fv = r.fields || {};
@@ -1216,7 +1229,7 @@ tr.band { page-break-after:avoid; }
 </style></head><body>
 <div class="head">
 <p class="logo"><img src="${LOGO}" alt=""></p>
-<h1>${esc(settings.appTitle || '一覧')}（${esc(titleM)}${bankPick ? '／' + esc(bankPick) : ''}）</h1>
+<h1>${esc(settings.appTitle || '一覧')}（${esc(titleM)}${bankPick ? '／' + esc(chipLabel(bankPick)) : ''}）</h1>
 <p class="meta">${esc(settings.subTitle || '')}　作成日：${dstr}</p>
 </div>
 <table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>
@@ -1317,21 +1330,21 @@ tr.band { page-break-after:avoid; }
         {/* 銀行で絞り込み。選んどる間は印刷もその銀行の分だけになる */}
         {!!bankOpts.length && (
           <div style={{ display: 'flex', gap: 5, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-            {['', ...bankOpts].map(b => {
+            {['', ...chipOpts].map(b => {
               const on = bankPick === b;
-              const n = b ? rows.filter(r => ((r.fields || {})[bankF.key] || '') === b).length : rows.length;
+              const n = b ? rows.filter(r => matchBank(r, b)).length : rows.length;
               return (
                 <button key={b || '__all'} onClick={() => setBankPick(b)} style={{
                   padding: '5px 11px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer',
                   border: `1px solid ${on ? GOLD : 'rgba(255,255,255,.25)'}`,
                   background: on ? GOLD : 'rgba(255,255,255,.10)', color: on ? NAVY : '#fff',
-                }}>{b || '全部'} {n}</button>
+                }}>{b ? chipLabel(b) : '全部'} {n}</button>
               );
             })}
           </div>
         )}
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{(query || bankPick) ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.11.0
+          全 {rows.length} 件{(query || bankPick) ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.12.0
         </div>
       </div>
 
