@@ -1095,17 +1095,16 @@ function App() {
   // 検索：名前と全項目の中身をまとめて対象にする
   const bankF = settings.fields.find(f => /銀行/.test(f.label || ''));
   const bankOpts = (bankF && bankF.options) || [];
-  // 物件種別：物件名が AXIA CITY・AXIA M-City なら新築、それ以外は中古（銀行は問わない）
+  // 物件種別：物件名が AXIA CITY・AXIA M-City なら新築（銀行は問わない）
   const bukkenF = settings.fields.find(f => f.key === 'bukken') || settings.fields.find(f => /物件/.test(f.label || ''));
   const CITY_RE = /AXIA\s*(M\s*[-‐－ー―]?\s*)?CITY|アクシア\s*(エム\s*)?シティ/i;
   const isCity = (r) => !!bukkenF && CITY_RE.test(String((r.fields || {})[bukkenF.key] || ''));
-  const K_NEW = 'type::new', K_USED = 'type::used';
-  // ボタンは ①全部 ／ ②新築・中古 ／ ③銀行 の3グループ
-  const chipGroups = [[''], bukkenF ? [K_NEW, K_USED] : [], bankOpts].filter(g => g.length);
-  const chipLabel = (b) => b === K_NEW ? '新築' : b === K_USED ? '中古' : b;
+  const K_NEW = 'type::new';
+  // ボタンは ①全部 ／ ②新築 ／ ③銀行 の3グループ
+  const chipGroups = [[''], bukkenF ? [K_NEW] : [], bankOpts].filter(g => g.length);
+  const chipLabel = (b) => b === K_NEW ? '新築' : b;
   const matchBank = (r, b) => {
     if (b === K_NEW) return isCity(r);
-    if (b === K_USED) return !isCity(r);
     return ((r.fields || {})[bankF.key] || '') === b;
   };
   const hit = (r) => {
@@ -1349,7 +1348,7 @@ tr.band { page-break-after:avoid; }
           </div>
         )}
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{(query || bankPick) ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.13.0
+          全 {rows.length} 件{(query || bankPick) ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.13.1
         </div>
       </div>
 
