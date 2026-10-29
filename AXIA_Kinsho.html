@@ -1095,18 +1095,18 @@ function App() {
   // 検索：名前と全項目の中身をまとめて対象にする
   const bankF = settings.fields.find(f => /銀行/.test(f.label || ''));
   const bankOpts = (bankF && bankF.options) || [];
-  // 楽天は物件名で2つに分ける：①AXIA CITY・AXIA M-City ②それ以外
+  // 物件種別：物件名が AXIA CITY・AXIA M-City なら新築、それ以外は中古（銀行は問わない）
   const bukkenF = settings.fields.find(f => f.key === 'bukken') || settings.fields.find(f => /物件/.test(f.label || ''));
   const CITY_RE = /AXIA\s*(M\s*[-‐－ー―]?\s*)?CITY|アクシア\s*(エム\s*)?シティ/i;
   const isCity = (r) => !!bukkenF && CITY_RE.test(String((r.fields || {})[bukkenF.key] || ''));
-  const RK_CITY = '楽天::city', RK_OTHER = '楽天::other';
-  const chipOpts = bankOpts.flatMap(b => b === '楽天' ? [RK_CITY, RK_OTHER] : [b]);
-  const chipLabel = (b) => b === RK_CITY ? '楽天AXIA' : b === RK_OTHER ? '楽天中古' : b;
+  const K_NEW = 'type::new', K_USED = 'type::used';
+  // ボタンは ①全部 ／ ②新築・中古 ／ ③銀行 の3グループ
+  const chipGroups = [[''], bukkenF ? [K_NEW, K_USED] : [], bankOpts].filter(g => g.length);
+  const chipLabel = (b) => b === K_NEW ? '新築' : b === K_USED ? '中古' : b;
   const matchBank = (r, b) => {
-    const v = ((r.fields || {})[bankF.key] || '');
-    if (b === RK_CITY) return v === '楽天' && isCity(r);
-    if (b === RK_OTHER) return v === '楽天' && !isCity(r);
-    return v === b;
+    if (b === K_NEW) return isCity(r);
+    if (b === K_USED) return !isCity(r);
+    return ((r.fields || {})[bankF.key] || '') === b;
   };
   const hit = (r) => {
     if (bankPick && bankF && !matchBank(r, bankPick)) return false;
@@ -1329,22 +1329,27 @@ tr.band { page-break-after:avoid; }
         </div>
         {/* 銀行で絞り込み。選んどる間は印刷もその銀行の分だけになる */}
         {!!bankOpts.length && (
-          <div style={{ display: 'flex', gap: 5, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-            {['', ...chipOpts].map(b => {
-              const on = bankPick === b;
-              const n = b ? rows.filter(r => matchBank(r, b)).length : rows.length;
-              return (
-                <button key={b || '__all'} onClick={() => setBankPick(b)} style={{
-                  padding: '5px 11px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                  border: `1px solid ${on ? GOLD : 'rgba(255,255,255,.25)'}`,
-                  background: on ? GOLD : 'rgba(255,255,255,.10)', color: on ? NAVY : '#fff',
-                }}>{b ? chipLabel(b) : '全部'} {n}</button>
-              );
-            })}
+          <div style={{ display: 'flex', gap: 5, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
+            {chipGroups.map((g, gi) => (
+              <React.Fragment key={gi}>
+                {gi > 0 && <span style={{ width: 1, height: 18, background: 'rgba(255,255,255,.3)', margin: '0 3px' }} />}
+                {g.map(b => {
+                  const on = bankPick === b;
+                  const n = b ? rows.filter(r => matchBank(r, b)).length : rows.length;
+                  return (
+                    <button key={b || '__all'} onClick={() => setBankPick(b)} style={{
+                      padding: '5px 11px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                      border: `1px solid ${on ? GOLD : 'rgba(255,255,255,.25)'}`,
+                      background: on ? GOLD : 'rgba(255,255,255,.10)', color: on ? NAVY : '#fff',
+                    }}>{b ? chipLabel(b) : '全部'} {n}</button>
+                  );
+                })}
+              </React.Fragment>
+            ))}
           </div>
         )}
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{(query || bankPick) ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.12.1
+          全 {rows.length} 件{(query || bankPick) ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.13.0
         </div>
       </div>
 
