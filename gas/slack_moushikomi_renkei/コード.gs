@@ -67,6 +67,7 @@ const CORRECTION_WINDOW_DAYS = 3;
 
 // ===== トリガーから呼ばれる本体 =====
 function runSync() {
+  return; // 停止中
   processApplications_();
   processTransfers_();
   processOpens_();
@@ -1116,6 +1117,7 @@ function undecidedLines_(fields) {
 const SLACK_WORKSPACE_URL = 'https://axia-japan.slack.com';
 
 function doGet(e) {
+  return; // 停止中
   const p = (e && e.parameter) || {};
   let result;
   try {

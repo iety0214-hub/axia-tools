@@ -62,6 +62,7 @@ function setup() {
 }
 
 function syncZaikoStatus() {
+  return; // 停止中
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(10 * 1000)) return;
   try {
