@@ -1,3 +1,1177 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>停止中</title>
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:sans-serif;background:#f5f5f5;color:#333}@media(prefers-color-scheme:dark){body{background:#1b1b1b;color:#ddd}}</style></head>
-<body><p>このアプリは現在停止中です。</p></body></html>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AXIA Coworkオフィス</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Zen+Maru+Gothic:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --floor-a:#f4ecd8;
+    --floor-b:#ece0c4;
+    --ink:#2b2440;
+    --ink-soft:#6b6280;
+    --gold:#e8a33d;
+    --gold-dark:#c47f1f;
+    --cream:#fffaf0;
+    --paper:#fffdf8;
+    --danger:#e2694f;
+    --ok:#3fae6a;
+    --warn:#e8a33d;
+    --idle:#9c93b0;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Zen Maru Gothic','M PLUS Rounded 1c',sans-serif;
+    background:
+      repeating-linear-gradient(45deg, var(--floor-a) 0 28px, var(--floor-b) 28px 56px);
+    color:var(--ink);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::-webkit-scrollbar{display:none;}
+  .mono{font-family:'DM Mono',monospace;}
+
+  /* ===== Title chrome ===== */
+  .chrome{
+    max-width:1600px;
+    margin:0 auto;
+    padding:14px 24px 90px;
+  }
+  .titlebar{
+    background:var(--ink);
+    border-radius:18px 18px 8px 8px;
+    padding:14px 18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    box-shadow:0 6px 0 rgba(0,0,0,0.15);
+    position:relative;
+  }
+  .titlebar:after{
+    content:'';
+    position:absolute; left:18px; right:18px; bottom:-6px; height:6px;
+    background:var(--gold);
+    border-radius:0 0 6px 6px;
+  }
+  .titlebar h1{
+    font-family:'M PLUS Rounded 1c',sans-serif;
+    font-weight:800;
+    font-size:19px;
+    color:#fff;
+    margin:0;
+    letter-spacing:.02em;
+  }
+  .titlebar .sub{
+    color:#c9c0e0;
+    font-size:11px;
+    margin-top:2px;
+  }
+  .titlebar-emoji{font-size:22px; margin-right:8px;}
+  .titlebar-left{display:flex; align-items:center;}
+
+  /* ===== Toggle ===== */
+  .toolbar{
+    display:flex; gap:10px; align-items:center; justify-content:space-between;
+    margin-top:16px; flex-wrap:wrap;
+  }
+  .segtoggle{
+    display:flex; background:var(--paper); border-radius:999px; padding:4px;
+    box-shadow:0 3px 0 rgba(43,36,64,0.12), inset 0 0 0 2px #fff;
+    gap:2px;
+  }
+  .segtoggle button{
+    border:none; background:transparent; padding:9px 16px; border-radius:999px;
+    font-family:'M PLUS Rounded 1c',sans-serif; font-weight:700; font-size:13px;
+    color:var(--ink-soft); cursor:pointer; transition:all .15s;
+  }
+  .segtoggle button.active{
+    background:var(--ink); color:#fff; box-shadow:0 2px 0 rgba(0,0,0,0.2);
+  }
+  .statchips{display:flex; gap:6px; flex-wrap:wrap;}
+  .chip{
+    font-size:11px; font-weight:700; padding:6px 10px; border-radius:999px;
+    background:#fff; box-shadow:0 2px 0 rgba(43,36,64,0.1);
+    display:flex; align-items:center; gap:4px;
+  }
+
+  /* ===== Office floor ===== */
+  .floor{
+    margin-top:26px;
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(300px,1fr));
+    gap:22px 16px;
+  }
+  .room{
+    position:relative;
+    border-radius:10px;
+    padding:26px 14px 14px;
+    cursor:pointer;
+    min-height:190px;
+    border:4px solid rgba(43,36,64,0.18);
+    box-shadow:0 5px 0 rgba(43,36,64,0.16);
+    transition:transform .12s ease;
+  }
+  .room:active{transform:translateY(2px); box-shadow:0 2px 0 rgba(43,36,64,0.14);}
+  .room-inner{
+    border-radius:6px;
+    min-height:130px;
+    padding:14px 12px 10px;
+    background-image:
+      linear-gradient(45deg, rgba(255,255,255,.3) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.3) 75%),
+      linear-gradient(45deg, rgba(255,255,255,.3) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.3) 75%);
+    background-size:26px 26px;
+    background-position:0 0, 13px 13px;
+    background-color:rgba(255,255,255,0.12);
+  }
+  .room-plaque{
+    position:absolute; top:-14px; left:50%; transform:translateX(-50%);
+    background:var(--ink); color:#fff;
+    font-family:'M PLUS Rounded 1c',sans-serif; font-weight:800; font-size:13px;
+    padding:5px 16px; border-radius:8px;
+    box-shadow:0 3px 0 rgba(0,0,0,0.25);
+    white-space:nowrap; z-index:5;
+    display:flex; align-items:center; gap:8px;
+  }
+  .room-count{
+    font-family:'DM Mono',monospace; font-size:10px; font-weight:500;
+    background:rgba(255,255,255,0.25); border-radius:6px; padding:1px 7px;
+  }
+  .room-break{
+    display:block;
+    margin-top:14px;
+    min-height:120px;
+    background:linear-gradient(135deg,#f0e2b8,#ead9a6);
+    border:4px solid rgba(43,36,64,0.18);
+    border-radius:10px;
+    padding:26px 14px 14px;
+    position:relative;
+    cursor:pointer;
+    box-shadow:0 5px 0 rgba(43,36,64,0.16);
+  }
+  .room-break .room-inner{min-height:70px;}
+  .room-break .room-plaque{background:#7a6a3a;}
+  .corridor{
+    margin-top:30px;
+    display:flex; align-items:center; gap:12px;
+  }
+  .corridor:before, .corridor:after{
+    content:''; flex:1; height:8px;
+    background:repeating-linear-gradient(90deg, #d9cba6 0 18px, #cbbb92 18px 36px);
+    border-radius:4px;
+  }
+  .corridor span{
+    font-size:11px; font-weight:800; color:var(--ink-soft);
+    font-family:'M PLUS Rounded 1c',sans-serif;
+  }
+  .reorder-btn{
+    border:none; border-radius:999px; padding:9px 14px;
+    background:var(--paper); color:var(--ink-soft);
+    font-family:'M PLUS Rounded 1c',sans-serif; font-weight:700; font-size:12px;
+    cursor:pointer; box-shadow:0 3px 0 rgba(43,36,64,0.12);
+  }
+  .reorder-btn.on{background:var(--gold); color:#fff; box-shadow:0 3px 0 var(--gold-dark);}
+  .room.reordering{animation:wiggle 0.5s ease-in-out infinite; cursor:default;}
+  @keyframes wiggle{0%,100%{transform:rotate(0deg)}25%{transform:rotate(0.4deg)}75%{transform:rotate(-0.4deg)}}
+  .move-controls{
+    position:absolute; top:-14px; right:10px; z-index:6;
+    display:flex; gap:4px;
+  }
+  .move-btn{
+    width:28px; height:28px; border-radius:8px; border:none;
+    background:#fff; color:var(--ink); font-size:12px; font-weight:800;
+    cursor:pointer; box-shadow:0 2px 0 rgba(43,36,64,0.25);
+  }
+  .move-btn:disabled{opacity:0.3; cursor:default;}
+  .move-btn:not(:disabled):active{transform:translateY(1px);}
+  .avatars{
+    display:flex; flex-wrap:wrap; gap:14px 18px; align-items:flex-end;
+  }
+  .avatar{
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+    width:88px;
+  }
+  .avatar-bubble{
+    background:#fff; border-radius:8px; padding:2px 8px;
+    font-size:9px; font-weight:700; color:var(--ink);
+    max-width:88px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    box-shadow:0 2px 0 rgba(43,36,64,0.12);
+    position:relative;
+  }
+  .avatar-bubble:after{
+    content:''; position:absolute; left:50%; bottom:-4px; transform:translateX(-50%);
+    border:4px solid transparent; border-top-color:#fff; border-bottom:none;
+  }
+  .avatar-nametag{
+    background:#fff; border-radius:999px; padding:1px 9px;
+    font-family:'M PLUS Rounded 1c',sans-serif;
+    font-size:9px; font-weight:800; color:var(--ink);
+    margin-top:3px;
+    max-width:88px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    box-shadow:0 1.5px 0 rgba(43,36,64,0.18);
+    border:1.5px solid rgba(43,36,64,0.12);
+  }
+  .avatar-status{
+    font-size:8px; font-weight:700; padding:1px 7px; border-radius:999px;
+    margin-top:3px; margin-bottom:1px; color:#fff;
+  }
+  .avatar-status.st-進行中{background:#4f8ef7;}
+  .avatar-status.st-未着手{background:var(--idle);}
+  .avatar-status.st-保留{background:var(--warn);}
+  .avatar-status.st-完了{background:var(--ok);}
+  .avatar-figure{
+    position:relative;
+    animation:bob 2.8s ease-in-out infinite;
+  }
+  .avatar:nth-child(2n) .avatar-figure{animation-delay:.5s;}
+  .avatar:nth-child(3n) .avatar-figure{animation-delay:1.1s;}
+  .avatar-badge{
+    position:absolute; top:-2px; right:-6px; font-size:11px; z-index:3;
+  }
+  .avatar-badge-left{
+    position:absolute; top:-2px; left:-6px; font-size:11px; z-index:3;
+  }
+  .room-empty{
+    font-size:11px; color:rgba(43,36,64,0.5); font-weight:600; padding:20px 6px;
+  }
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+
+  .roomcolor-0{background:#f6d9a8;} .roomcolor-1{background:#a9d6ef;}
+  .roomcolor-2{background:#d3c2ef;} .roomcolor-3{background:#f3bccb;}
+  .roomcolor-4{background:#f0c6a0;} .roomcolor-5{background:#a9e3c4;}
+  .roomcolor-6{background:#f6e39a;}
+
+  .idle-banner{
+    margin-top:14px; background:#fff; border-radius:12px; padding:10px 14px;
+    display:flex; align-items:center; gap:10px; box-shadow:0 2px 0 rgba(43,36,64,0.1);
+    font-size:12px; color:var(--ink-soft); font-weight:600;
+  }
+  .idle-banner .face{font-size:22px; animation:bob 2.6s ease-in-out infinite;}
+
+  /* ===== FAB ===== */
+  .fab{
+    position:fixed; right:20px; bottom:24px; z-index:40;
+    width:56px; height:56px; border-radius:50%;
+    background:var(--gold); color:#fff; border:none;
+    font-size:26px; box-shadow:0 5px 0 var(--gold-dark);
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .fab:active{transform:translateY(3px); box-shadow:0 2px 0 var(--gold-dark);}
+
+  /* ===== Slide panel ===== */
+  .overlay{
+    position:fixed; inset:0; background:rgba(43,36,64,0.45); z-index:50;
+    display:flex; justify-content:flex-end;
+  }
+  .panel{
+    width:min(420px,100%); background:var(--cream); height:100%;
+    display:flex; flex-direction:column;
+    animation:slidein .18s ease-out;
+  }
+  @keyframes slidein{from{transform:translateX(24px);opacity:0}to{transform:translateX(0);opacity:1}}
+  .panel-head{
+    background:var(--ink); color:#fff; padding:16px 18px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .panel-head h2{font-family:'M PLUS Rounded 1c',sans-serif; font-size:16px; margin:0;}
+  .panel-close{background:transparent; border:none; color:#fff; font-size:20px; cursor:pointer;}
+  .panel-body{flex:1; overflow-y:auto; padding:14px;}
+  .task-card{
+    background:#fff; border-radius:12px; padding:12px; margin-bottom:10px;
+    box-shadow:0 2px 0 rgba(43,36,64,0.1);
+  }
+  .task-card input[type=text], .task-card textarea, .task-card select{
+    width:100%; border:1.5px solid #e8e0cf; border-radius:8px; padding:8px 10px;
+    font-family:'Zen Maru Gothic',sans-serif; font-size:13px; margin-top:6px;
+    background:var(--paper); color:var(--ink);
+  }
+  .avatar-editor{
+    display:flex; gap:10px; margin-top:10px; padding:10px;
+    background:var(--paper); border-radius:10px; border:1.5px dashed #e0d6bd;
+  }
+  .avatar-preview{
+    flex-shrink:0; display:flex; align-items:center;
+    background-image:
+      linear-gradient(45deg, rgba(0,0,0,.04) 25%, transparent 25%, transparent 75%, rgba(0,0,0,.04) 75%),
+      linear-gradient(45deg, rgba(0,0,0,.04) 25%, transparent 25%, transparent 75%, rgba(0,0,0,.04) 75%);
+    background-size:16px 16px; background-position:0 0, 8px 8px;
+    border-radius:8px; padding:4px;
+  }
+  .avatar-controls{flex:1; min-width:0;}
+  .swatch-row{display:flex; gap:5px; margin-top:5px; flex-wrap:wrap;}
+  .swatch{
+    width:22px; height:22px; border-radius:6px; border:2px solid transparent;
+    cursor:pointer; padding:0;
+  }
+  .swatch.sel{border-color:var(--ink); box-shadow:0 0 0 2px #fff inset;}
+  .task-card textarea{resize:vertical; min-height:44px;}
+  .field-row{display:flex; gap:8px;}
+  .field-row > div{flex:1;}
+  .field-label{font-size:10px; color:var(--ink-soft); font-weight:700; margin-top:8px;}
+  .task-top{display:flex; align-items:center; justify-content:space-between; gap:8px;}
+  .del-btn{
+    border:none; background:#fbe4de; color:var(--danger); font-size:12px; font-weight:700;
+    padding:6px 10px; border-radius:8px; cursor:pointer; white-space:nowrap;
+  }
+  .add-form{
+    background:#fff; border:2px dashed #d8cdb0; border-radius:12px; padding:12px; margin-top:6px;
+  }
+  .add-form input, .add-form select{
+    width:100%; border:1.5px solid #e8e0cf; border-radius:8px; padding:9px 10px;
+    font-size:13px; margin-top:6px; background:var(--paper);
+  }
+  .primary-btn{
+    width:100%; margin-top:10px; border:none; border-radius:10px; padding:10px;
+    background:var(--gold); color:#fff; font-weight:800; font-size:13px; cursor:pointer;
+    box-shadow:0 3px 0 var(--gold-dark);
+  }
+  .primary-btn:active{transform:translateY(2px); box-shadow:0 1px 0 var(--gold-dark);}
+  .ghost-btn{
+    width:100%; margin-top:10px; border:1.5px dashed #c9bfa0; border-radius:10px; padding:10px;
+    background:transparent; color:var(--ink-soft); font-weight:700; font-size:13px; cursor:pointer;
+  }
+  .savepill{
+    position:fixed; top:14px; left:50%; transform:translateX(-50%);
+    background:var(--ink); color:#fff; padding:6px 14px; border-radius:999px;
+    font-size:11px; z-index:80; opacity:0; transition:opacity .25s; pointer-events:none;
+  }
+  .savepill.show{opacity:1;}
+  .empty-state{
+    text-align:center; padding:60px 20px; color:var(--ink-soft);
+  }
+  .empty-state .big{font-size:40px; margin-bottom:8px;}
+</style>
+
+<style>
+/* ===== ログインゲート ===== */
+body.auth-locked > *:not(#authGate) { display: none !important; }
+#authGate { display: none; }
+body.auth-locked #authGate {
+  display: grid; place-items: center;
+  position: fixed; inset: 0; z-index: 2147483000;
+  background: #f2f3f7; padding: 24px;
+  font-family: 'Noto Sans JP', system-ui, sans-serif; color: #1a1d28;
+}
+#authGate .gate-card {
+  background: #fff; border: 1px solid #e0e3eb; border-radius: 14px;
+  padding: 28px 24px; max-width: 340px; width: 100%; text-align: center;
+  box-shadow: 0 4px 24px rgba(0,0,0,.08);
+}
+#authGate h2 { font-size: 16px; font-weight: 700; margin: 0; }
+#authGate .gate-sub { font-size: 12px; color: #6b7086; margin: 8px 0 0; line-height: 1.7; }
+#authGate #gbtn { display: flex; justify-content: center; margin-top: 20px; min-height: 44px; }
+#authGate .gate-msg { font-size: 12px; color: #d32f2f; margin: 14px 0 0; min-height: 18px; line-height: 1.6; }
+.auth-signout {
+  display: block; margin: 24px auto 32px; background: none; border: none;
+  font: inherit; font-size: 11px; color: #6b7086; text-decoration: underline; cursor: pointer;
+}
+</style>
+</head>
+<body class="auth-locked">
+
+<div id="authGate">
+  <div class="gate-card">
+    <h2>AXIA Coworkオフィス</h2>
+    <p class="gate-sub">本人のGoogleアカウントで<br>ログインしてください</p>
+    <div id="gbtn"></div>
+    <p class="gate-msg" id="gateMsg"></p>
+  </div>
+</div>
+
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+// ══════════════════════════════════════
+// ⚙️ Supabase設定（axia-todoプロジェクト共通）
+// ══════════════════════════════════════
+const SUPABASE_URL  = 'https://zrqdoorolwvjlwuatlkc.supabase.co';
+const SUPABASE_KEY  = 'sb_publishable_qTfps32ER4iHTo_o3zkCEw_HlJdMq_c';
+const TABLE_NAME    = 'axia_cowork_office';
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const STATUS = ['未着手','進行中','完了','保留'];
+const STATUS_FACE = {未着手:'😐', 進行中:'🙂', 完了:'😄', 保留:'😴'};
+const SCHEDULE_TYPES = ['なし','単発','毎日','毎週','毎月'];
+const PRIORITIES = ['高','中','低'];
+
+const SCHEDULE_ROOMS = [
+  {key:'毎日', label:'⏰ 毎日', color:1, icon:'☀️'},
+  {key:'毎週', label:'📅 毎週', color:5, icon:'🗓️'},
+  {key:'毎月', label:'🗂️ 毎月', color:2, icon:'📆'},
+  {key:'単発', label:'📌 単発', color:4, icon:'✏️'},
+  {key:'なし', label:'💤 スケジュールなし', color:6, icon:'—'},
+];
+
+function hashColor(str){
+  let h = 0;
+  for (let i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i)) >>> 0; }
+  return h % 7;
+}
+
+// ══════════════════════════════════════
+// 常設プロジェクト部屋（タスクが0件でも常に表示）
+// ══════════════════════════════════════
+const FIXED_PROJECTS = [
+  {name:'仕入れ事業部', color:0},
+  {name:'業務',         color:5},
+  {name:'家原個室',     color:2},
+];
+
+// アバターのバリエーション（タスク名から髪色・服色を安定して決定）
+const HAIR_COLORS  = ['#3fae6a','#f06292','#5b8def','#8e5bd6','#7a4e2d','#e8c34a','#d35b4e','#3a3a4a'];
+const SHIRT_COLORS = ['#4f8ef7','#e8638c','#3fae6a','#e0b23e','#8e5bd6','#4fb8c4','#c96a4e','#5a6acf'];
+function taskHash(task){
+  const key = String(task.task_name || task.id || '');
+  let h = 0;
+  for (let i=0;i<key.length;i++){ h = (h*17 + key.charCodeAt(i)) >>> 0; }
+  return h;
+}
+
+// カスタマイズ選択肢
+const OUTFITS = [
+  {key:'shirt',  label:'👕 シャツ'},
+  {key:'suit',   label:'🤵 スーツ'},
+  {key:'hoodie', label:'🧥 パーカー'},
+  {key:'vest',   label:'🦺 作業着'},
+];
+const ACCESSORIES = [
+  {key:'none',       label:'なし'},
+  {key:'headphones', label:'🎧 ヘッドホン'},
+  {key:'cap',        label:'🧢 帽子'},
+  {key:'glasses',    label:'👓 メガネ'},
+];
+const HAIR_LABELS = ['緑','ピンク','青','紫','茶','金','赤','黒'];
+
+// アバターのデフォルト名プール（タスクごとに自動で別の名前になる）
+const NAME_POOL = ['ハル','ソラ','ユイ','レン','アオイ','ヒナタ','リク','メイ','カイト','サクラ','ツバサ','コハル','ミナト','アカリ','イツキ','ニコ','ダイチ','スミレ','ゲン','モモ'];
+
+// タスクのアバター設定を取得（手動設定 > 自動）
+function getAvatar(task){
+  const h = taskHash(task);
+  const saved = task.avatar || {};
+  return {
+    hair:      Number.isInteger(saved.hair) ? saved.hair : h % HAIR_COLORS.length,
+    shirt:     Number.isInteger(saved.shirt) ? saved.shirt : (h >> 3) % SHIRT_COLORS.length,
+    outfit:    saved.outfit || 'shirt',
+    accessory: saved.accessory || 'none',
+    name:      saved.name || NAME_POOL[(h >> 5) % NAME_POOL.length],
+  };
+}
+
+// ピクセルアート風：デスクに座るキャラクター
+function PixelWorker({ task, resting }){
+  const av = getAvatar(task);
+  const hair  = HAIR_COLORS[av.hair];
+  const shirt = SHIRT_COLORS[av.shirt];
+  const eyesClosed = resting || task.status === '保留';
+  const isSuit = av.outfit === 'suit';
+  const isHoodie = av.outfit === 'hoodie';
+  const isVest = av.outfit === 'vest';
+  const bodyColor = isSuit ? '#2e3350' : shirt;
+  return (
+    <svg width="72" height="64" viewBox="0 0 36 32" shapeRendering="crispEdges" style={{display:'block'}}>
+      {/* 髪 */}
+      <rect x="12" y="2"  width="12" height="3" fill={hair}/>
+      <rect x="11" y="4"  width="3"  height="5" fill={hair}/>
+      <rect x="22" y="4"  width="3"  height="5" fill={hair}/>
+      {/* 帽子（髪の上に被せる） */}
+      {av.accessory === 'cap' && (
+        <React.Fragment>
+          <rect x="11" y="1" width="14" height="3" fill="#d35b4e"/>
+          <rect x="23" y="3" width="5"  height="2" fill="#d35b4e"/>
+        </React.Fragment>
+      )}
+      {/* 顔 */}
+      <rect x="13" y="5"  width="10" height="7" fill="#ffd9b3"/>
+      {/* 目 */}
+      {eyesClosed ? (
+        <React.Fragment>
+          <rect x="15" y="8" width="2" height="1" fill="#5a4632"/>
+          <rect x="19" y="8" width="2" height="1" fill="#5a4632"/>
+        </React.Fragment>
+      ) : (
+        <React.Fragment>
+          <rect x="15" y="7" width="2" height="2" fill="#3a3028"/>
+          <rect x="19" y="7" width="2" height="2" fill="#3a3028"/>
+        </React.Fragment>
+      )}
+      {/* メガネ */}
+      {av.accessory === 'glasses' && (
+        <React.Fragment>
+          <rect x="14" y="7" width="4" height="2.6" fill="none" stroke="#2e3350" strokeWidth="0.7"/>
+          <rect x="18.5" y="7" width="4" height="2.6" fill="none" stroke="#2e3350" strokeWidth="0.7"/>
+          <rect x="18" y="8" width="0.8" height="0.8" fill="#2e3350"/>
+        </React.Fragment>
+      )}
+      {/* ヘッドホン */}
+      {av.accessory === 'headphones' && (
+        <React.Fragment>
+          <rect x="12" y="1" width="12" height="1.4" fill="#2e3350"/>
+          <rect x="11" y="5" width="2.5" height="4" fill="#2e3350"/>
+          <rect x="22.5" y="5" width="2.5" height="4" fill="#2e3350"/>
+        </React.Fragment>
+      )}
+      {/* 口 */}
+      <rect x="17" y="10" width="2" height="1" fill="#d08c6a"/>
+      {/* パーカーのフード（肩の後ろ） */}
+      {isHoodie && <rect x="11" y="11" width="14" height="2.5" fill={shirt} opacity="0.75"/>}
+      {/* 体 */}
+      <rect x="12" y="12" width="12" height="7" fill={bodyColor}/>
+      {/* スーツ：白シャツ＋ネクタイ */}
+      {isSuit && (
+        <React.Fragment>
+          <rect x="16" y="12" width="4" height="4" fill="#fff"/>
+          <rect x="17.3" y="12" width="1.4" height="5" fill="#c0392b"/>
+        </React.Fragment>
+      )}
+      {/* 作業着：反射ベストのライン */}
+      {isVest && (
+        <React.Fragment>
+          <rect x="13.5" y="12" width="2" height="7" fill="#f5a623"/>
+          <rect x="20.5" y="12" width="2" height="7" fill="#f5a623"/>
+        </React.Fragment>
+      )}
+      {/* パーカー：前ポケット＋紐 */}
+      {isHoodie && (
+        <React.Fragment>
+          <rect x="15" y="16" width="6" height="2.5" fill="rgba(0,0,0,0.15)"/>
+          <rect x="16.5" y="12" width="0.8" height="3" fill="#fff" opacity="0.8"/>
+          <rect x="18.7" y="12" width="0.8" height="3" fill="#fff" opacity="0.8"/>
+        </React.Fragment>
+      )}
+      {/* 腕 */}
+      <rect x="10" y="13" width="2" height="5" fill={bodyColor}/>
+      <rect x="24" y="13" width="2" height="5" fill={bodyColor}/>
+      <rect x="10" y="18" width="2" height="2" fill="#ffd9b3"/>
+      <rect x="24" y="18" width="2" height="2" fill="#ffd9b3"/>
+      {/* デスク */}
+      <rect x="5"  y="20" width="26" height="2" fill="#c89b6a"/>
+      <rect x="6"  y="22" width="24" height="8" fill="#b8895a"/>
+      <rect x="8"  y="23" width="8"  height="5" fill="#a5764a"/>
+      {/* PCモニター（休憩中は消灯） */}
+      <rect x="19" y="15" width="9" height="6" fill="#3a3a4a"/>
+      <rect x="20" y="16" width="7" height="4" fill={resting ? '#555566' : '#8fd4ff'}/>
+      <rect x="22" y="21" width="3" height="1" fill="#3a3a4a"/>
+    </svg>
+  );
+}
+
+const STATUS_BUBBLE = {未着手:'⏸ 待機中', 進行中:'💭 作業中...', 完了:'✅ 完了！', 保留:'💤 保留中'};
+
+// ══════════════════════════════════════
+// DebouncedInput（blur時コミット方式・Realtime競合対策）
+// ══════════════════════════════════════
+function DebouncedInput({ value, onCommit, as='input', style, placeholder, className }) {
+  const [local, setLocal] = useState(value || '');
+  const focusedRef = useRef(false);
+  const prevValueRef = useRef(value);
+
+  useEffect(() => {
+    if (value !== prevValueRef.current && !focusedRef.current) {
+      setLocal(value || '');
+    }
+    prevValueRef.current = value;
+  }, [value]);
+
+  const commonProps = {
+    value: local,
+    onChange: e => setLocal(e.target.value),
+    onFocus: () => { focusedRef.current = true; },
+    onBlur: () => {
+      focusedRef.current = false;
+      if (local !== (value || '')) onCommit(local);
+    },
+    placeholder,
+    className,
+    style,
+  };
+
+  return as === 'textarea' ? <textarea {...commonProps} /> : <input type="text" {...commonProps} />;
+}
+
+const SK_ROOM_ORDER = 'axia_cowork_room_order_v1';
+function loadRoomOrder(){
+  try { return JSON.parse(localStorage.getItem(SK_ROOM_ORDER)) || {project:[], schedule:[]}; }
+  catch(e){ return {project:[], schedule:[]}; }
+}
+
+// ══════════════════════════════════════
+// メインApp
+// ══════════════════════════════════════
+function App(){
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState('project'); // 'project' | 'schedule'
+  const [openRoomKey, setOpenRoomKey] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [reorderMode, setReorderMode] = useState(false);
+  const [roomOrder, setRoomOrder] = useState(loadRoomOrder);
+  const editingLockRef = useRef(0);
+
+  const saveRoomOrder = useCallback((next) => {
+    setRoomOrder(next);
+    try { localStorage.setItem(SK_ROOM_ORDER, JSON.stringify(next)); } catch(e){}
+  }, []);
+
+  const showSaved = useCallback(()=>{
+    setSaved(true);
+    setTimeout(()=>setSaved(false), 1200);
+  },[]);
+
+  const loadTasks = useCallback(async () => {
+    const { data, error } = await supabase.from(TABLE_NAME).select('*').order('created_at', {ascending:true});
+    if (!error && data) setTasks(data);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadTasks(); }, [loadTasks]);
+
+  useEffect(() => {
+    const channel = supabase.channel('axia_cowork_office_realtime')
+      .on('postgres_changes', { event:'*', schema:'public', table:TABLE_NAME }, () => {
+        if (Date.now() - editingLockRef.current < 3000) return;
+        loadTasks();
+      }).subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [loadTasks]);
+
+  const updateTask = useCallback((id, patch) => {
+    editingLockRef.current = Date.now();
+    setTasks(ts => ts.map(t => t.id===id ? {...t, ...patch} : t));
+    supabase.from(TABLE_NAME).update(patch).eq('id', id).then(({error})=>{ if(!error) showSaved(); });
+  }, [showSaved]);
+
+  const deleteTask = useCallback((id) => {
+    editingLockRef.current = Date.now();
+    setTasks(ts => ts.filter(t => t.id !== id));
+    supabase.from(TABLE_NAME).delete().eq('id', id).then(()=>showSaved());
+  }, [showSaved]);
+
+  const addTask = useCallback(async (payload) => {
+    editingLockRef.current = Date.now();
+    const { data, error } = await supabase.from(TABLE_NAME).insert(payload).select();
+    if (!error && data) {
+      setTasks(ts => [...ts, ...data]);
+      showSaved();
+    }
+  }, [showSaved]);
+
+  const projectNames = useMemo(() => {
+    const set = new Set(FIXED_PROJECTS.map(f => f.name));
+    tasks.forEach(t => { if (t.project_name) set.add(t.project_name); });
+    return Array.from(set);
+  }, [tasks]);
+
+  const activeTasks = useMemo(() => tasks.filter(t => t.status !== '完了'), [tasks]);
+  const doneTasks = useMemo(() => tasks.filter(t => t.status === '完了'), [tasks]);
+
+  const rooms = useMemo(() => {
+    let base;
+    if (viewMode === 'project') {
+      const dynamicNames = Array.from(new Set(activeTasks.map(t => t.project_name).filter(Boolean)))
+        .filter(n => !FIXED_PROJECTS.some(f => f.name === n));
+      const fixedRooms = FIXED_PROJECTS.map(f => ({
+        key: f.name,
+        label: '🏠 ' + f.name,
+        color: f.color,
+        tasks: activeTasks.filter(t => t.project_name === f.name),
+      }));
+      const dynamicRooms = dynamicNames.map(name => ({
+        key: name,
+        label: '🏠 ' + name,
+        color: hashColor(name),
+        tasks: activeTasks.filter(t => t.project_name === name),
+      })).sort((a,b)=> b.tasks.length - a.tasks.length);
+      base = [...fixedRooms, ...dynamicRooms];
+    } else {
+      base = SCHEDULE_ROOMS.map(r => ({
+        key: r.key,
+        label: r.label,
+        color: r.color,
+        tasks: activeTasks.filter(t => (t.schedule_type || 'なし') === r.key),
+      }));
+    }
+    // 保存済み並び順を適用（未登録の部屋は末尾）
+    const order = roomOrder[viewMode] || [];
+    base.sort((a,b) => {
+      const ia = order.indexOf(a.key), ib = order.indexOf(b.key);
+      if (ia === -1 && ib === -1) return 0;
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
+    return base;
+  }, [activeTasks, viewMode, roomOrder]);
+
+  const moveRoom = useCallback((key, dir) => {
+    const keys = rooms.map(r => r.key);
+    const i = keys.indexOf(key);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= keys.length) return;
+    [keys[i], keys[j]] = [keys[j], keys[i]];
+    saveRoomOrder({ ...roomOrder, [viewMode]: keys });
+  }, [rooms, roomOrder, viewMode, saveRoomOrder]);
+
+  const breakRoom = useMemo(() => ({
+    key: '__break__',
+    label: '☕ 休憩部屋',
+    color: 'break',
+    tasks: doneTasks,
+  }), [doneTasks]);
+
+  const stats = useMemo(() => {
+    const total = tasks.length;
+    const done = tasks.filter(t=>t.status==='完了').length;
+    const active = tasks.filter(t=>t.status==='進行中').length;
+    return { total, done, active };
+  }, [tasks]);
+
+  const openRoom = openRoomKey === '__break__' ? breakRoom : (rooms.find(r => r.key === openRoomKey) || null);
+
+  return (
+    <div className="chrome">
+      <div className={`savepill ${saved?'show':''}`}>💾 保存しました</div>
+
+      <div className="titlebar">
+        <div className="titlebar-left">
+          <span className="titlebar-emoji">🏢</span>
+          <div>
+            <h1>AXIA Coworkオフィス</h1>
+            <div className="sub">利博さんのタスク可視化ボード</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="toolbar">
+        <div className="segtoggle">
+          <button className={viewMode==='project'?'active':''} onClick={()=>{setViewMode('project'); setOpenRoomKey(null);}}>🏠 プロジェクト別</button>
+          <button className={viewMode==='schedule'?'active':''} onClick={()=>{setViewMode('schedule'); setOpenRoomKey(null);}}>⏰ スケジュール別</button>
+        </div>
+        <div style={{display:'flex', gap:8, alignItems:'center'}}>
+          <button className={`reorder-btn ${reorderMode?'on':''}`} onClick={()=>setReorderMode(m=>!m)}>
+            {reorderMode ? '✅ 並び替え完了' : '🔀 部屋を並び替え'}
+          </button>
+          <div className="statchips">
+            <span className="chip">📋 {stats.total}</span>
+            <span className="chip">🙂 {stats.active}</span>
+            <span className="chip">😄 {stats.done}</span>
+          </div>
+        </div>
+      </div>
+
+      {!loading && stats.active === 0 && stats.total > 0 && (
+        <div className="idle-banner">
+          <span className="face">😌</span>
+          今は進行中のタスクなし。オフィスはのんびりモードです。
+        </div>
+      )}
+
+      {loading ? (
+        <div className="empty-state"><div className="big">🏗️</div>オフィスを準備中...</div>
+      ) : (
+        <React.Fragment>
+          <div className="floor">
+            {rooms.map((room, idx) => (
+              <RoomView key={room.key} room={room} isBreak={false}
+                onOpen={()=>{ if(!reorderMode) setOpenRoomKey(room.key); }}
+                reorderMode={reorderMode}
+                canLeft={idx > 0} canRight={idx < rooms.length-1}
+                onMove={(dir)=>moveRoom(room.key, dir)} />
+            ))}
+          </div>
+          <div className="corridor"><span>🚪 廊下</span></div>
+          <RoomView room={breakRoom} isBreak={true} onOpen={()=>setOpenRoomKey('__break__')} />
+        </React.Fragment>
+      )}
+
+      <button className="fab" onClick={()=>setShowAddModal(true)}>＋</button>
+
+      {openRoom && (
+        <RoomPanel
+          room={openRoom}
+          viewMode={viewMode}
+          projectNames={projectNames}
+          onClose={()=>setOpenRoomKey(null)}
+          onUpdate={updateTask}
+          onDelete={deleteTask}
+          onAdd={addTask}
+        />
+      )}
+
+      {showAddModal && (
+        <QuickAddPanel
+          projectNames={projectNames}
+          onClose={()=>setShowAddModal(false)}
+          onAdd={addTask}
+        />
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════
+// 部屋の表示（作業部屋・休憩部屋共通）
+// ══════════════════════════════════════
+function RoomView({ room, isBreak, onOpen, reorderMode, canLeft, canRight, onMove }){
+  const max = isBreak ? 16 : 8;
+  return (
+    <div className={`room ${isBreak ? 'room-break' : 'roomcolor-'+room.color} ${reorderMode?'reordering':''}`} onClick={onOpen}>
+      <div className="room-plaque">
+        {room.label}
+        <span className="room-count">{room.tasks.filter(t=>t.status==='完了').length}/{room.tasks.length}</span>
+      </div>
+      {reorderMode && !isBreak && (
+        <div className="move-controls" onClick={e=>e.stopPropagation()}>
+          <button className="move-btn" disabled={!canLeft} onClick={()=>onMove(-1)}>◀</button>
+          <button className="move-btn" disabled={!canRight} onClick={()=>onMove(1)}>▶</button>
+        </div>
+      )}
+      <div className="room-inner">
+        {room.tasks.length === 0 ? (
+          <div className="room-empty">{isBreak ? '完了タスクが増えるとここに集まります' : 'タスクなし'}</div>
+        ) : (
+          <div className="avatars">
+            {room.tasks.slice(0, max).map(t => {
+              const av = getAvatar(t);
+              return (
+              <div className="avatar" key={t.id}>
+                <div className="avatar-bubble">{t.task_name}</div>
+                <div className="avatar-nametag">{av.name}</div>
+                <div className={`avatar-status st-${t.status||'未着手'}`}>{STATUS_BUBBLE[t.status]||'⏸ 待機中'}</div>
+                <div className="avatar-figure">
+                  {t.priority === '高' && <span className="avatar-badge-left">⭐</span>}
+                  {(t.schedule_type && t.schedule_type !== 'なし') && <span className="avatar-badge">⏰</span>}
+                  <PixelWorker task={t} resting={isBreak} />
+                </div>
+              </div>
+              );
+            })}
+            {room.tasks.length > max && (
+              <div className="avatar">
+                <div className="avatar-bubble">＋{room.tasks.length - max}件</div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════
+// タスク1件の編集カード
+// ══════════════════════════════════════
+function TaskCard({ task, viewMode, onUpdate, onDelete }){
+  const av = getAvatar(task);
+  const setAvatar = (patch) => {
+    onUpdate(task.id, { avatar: { ...av, ...patch } });
+  };
+  return (
+    <div className="task-card">
+      <div className="task-top">
+        <DebouncedInput
+          value={task.task_name}
+          onCommit={(v)=>onUpdate(task.id, {task_name:v})}
+          placeholder="タスク名"
+          style={{fontWeight:700, fontSize:14, flex:1}}
+        />
+        <button className="del-btn" onClick={()=>{ if(confirm('このタスクを削除しますか？')) onDelete(task.id); }}>削除</button>
+      </div>
+
+      {/* 見た目カスタマイズ */}
+      <div className="avatar-editor">
+        <div className="avatar-preview">
+          <PixelWorker task={task} resting={false} />
+        </div>
+        <div className="avatar-controls">
+          <div className="field-label">なまえ</div>
+          <DebouncedInput
+            value={av.name}
+            onCommit={(v)=>setAvatar({name: v || av.name})}
+            placeholder="アバターの名前"
+            style={{fontWeight:700}}
+          />
+          <div className="field-label">髪色</div>
+          <div className="swatch-row">
+            {HAIR_COLORS.map((c,i)=>(
+              <button key={i} className={`swatch ${av.hair===i?'sel':''}`} style={{background:c}}
+                title={HAIR_LABELS[i]} onClick={()=>setAvatar({hair:i})} />
+            ))}
+          </div>
+          <div className="field-label">服の色</div>
+          <div className="swatch-row">
+            {SHIRT_COLORS.map((c,i)=>(
+              <button key={i} className={`swatch ${av.shirt===i?'sel':''}`} style={{background:c}}
+                onClick={()=>setAvatar({shirt:i})} />
+            ))}
+          </div>
+          <div className="field-row">
+            <div>
+              <div className="field-label">服装</div>
+              <select value={av.outfit} onChange={e=>setAvatar({outfit:e.target.value})}>
+                {OUTFITS.map(o=><option key={o.key} value={o.key}>{o.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <div className="field-label">アクセサリー</div>
+              <select value={av.accessory} onChange={e=>setAvatar({accessory:e.target.value})}>
+                {ACCESSORIES.map(a=><option key={a.key} value={a.key}>{a.label}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {viewMode === 'schedule' && (
+        <React.Fragment>
+          <div className="field-label">プロジェクト</div>
+          <DebouncedInput value={task.project_name} onCommit={(v)=>onUpdate(task.id, {project_name:v})} placeholder="プロジェクト名" />
+        </React.Fragment>
+      )}
+
+      <div className="field-row">
+        <div>
+          <div className="field-label">ステータス</div>
+          <select value={task.status||'未着手'} onChange={e=>onUpdate(task.id,{status:e.target.value})}>
+            {STATUS.map(s=><option key={s} value={s}>{STATUS_FACE[s]} {s}</option>)}
+          </select>
+        </div>
+        <div>
+          <div className="field-label">優先度</div>
+          <select value={task.priority||'中'} onChange={e=>onUpdate(task.id,{priority:e.target.value})}>
+            {PRIORITIES.map(p=><option key={p} value={p}>{p}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {viewMode === 'project' && (
+        <React.Fragment>
+          <div className="field-label">スケジュール</div>
+          <select value={task.schedule_type||'なし'} onChange={e=>onUpdate(task.id,{schedule_type:e.target.value})}>
+            {SCHEDULE_TYPES.map(s=><option key={s} value={s}>{s}</option>)}
+          </select>
+        </React.Fragment>
+      )}
+
+      {(task.schedule_type && task.schedule_type !== 'なし') && (
+        <React.Fragment>
+          <div className="field-label">スケジュール詳細（例：毎週金 9:00）</div>
+          <DebouncedInput value={task.schedule_detail} onCommit={(v)=>onUpdate(task.id,{schedule_detail:v})} placeholder="実行タイミング" />
+        </React.Fragment>
+      )}
+
+      <div className="field-label">メモ</div>
+      <DebouncedInput as="textarea" value={task.memo} onCommit={(v)=>onUpdate(task.id,{memo:v})} placeholder="メモ・進捗など" />
+    </div>
+  );
+}
+
+// ══════════════════════════════════════
+// 部屋パネル（既存タスク編集＋その部屋への追加）
+// ══════════════════════════════════════
+function RoomPanel({ room, viewMode, projectNames, onClose, onUpdate, onDelete, onAdd }){
+  const [showAdd, setShowAdd] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newProject, setNewProject] = useState(viewMode === 'project' ? room.key : (projectNames[0]||''));
+
+  const submitAdd = () => {
+    if (!newName.trim()) return;
+    const payload = {
+      task_name: newName.trim(),
+      project_name: viewMode === 'project' ? room.key : (newProject.trim() || '未分類'),
+      schedule_type: viewMode === 'schedule' ? room.key : 'なし',
+      status: '未着手',
+      priority: '中',
+    };
+    onAdd(payload);
+    setNewName('');
+    setShowAdd(false);
+  };
+
+  return (
+    <div className="overlay" onClick={(e)=>{ if(e.target===e.currentTarget) onClose(); }}>
+      <div className="panel">
+        <div className="panel-head">
+          <h2>{room.label}</h2>
+          <button className="panel-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="panel-body">
+          {room.tasks.length === 0 && <div className="empty-state">まだタスクがありません</div>}
+          {room.tasks.map(t => (
+            <TaskCard key={t.id} task={t} viewMode={viewMode} onUpdate={onUpdate} onDelete={onDelete} />
+          ))}
+
+          {room.key === '__break__' ? (
+            <div className="room-empty" style={{marginTop:14}}>
+              休憩部屋はタスクを「完了」にすると自動的に集まる場所です。直接タスクは追加できません。
+            </div>
+          ) : showAdd ? (
+            <div className="add-form">
+              <input type="text" placeholder="タスク名" value={newName} onChange={e=>setNewName(e.target.value)} autoFocus />
+              {viewMode === 'schedule' && (
+                <input type="text" list="proj-list" placeholder="プロジェクト名" value={newProject} onChange={e=>setNewProject(e.target.value)} />
+              )}
+              <datalist id="proj-list">
+                {projectNames.map(p=><option key={p} value={p} />)}
+              </datalist>
+              <button className="primary-btn" onClick={submitAdd}>この部屋に追加</button>
+            </div>
+          ) : (
+            <button className="ghost-btn" onClick={()=>setShowAdd(true)}>＋ この部屋にタスクを追加</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════
+// クイック追加（新規プロジェクトもここから作れる）
+// ══════════════════════════════════════
+function QuickAddPanel({ projectNames, onClose, onAdd }){
+  const [project, setProject] = useState('');
+  const [name, setName] = useState('');
+  const [scheduleType, setScheduleType] = useState('なし');
+
+  const submit = () => {
+    if (!project.trim() || !name.trim()) return;
+    onAdd({
+      task_name: name.trim(),
+      project_name: project.trim(),
+      schedule_type: scheduleType,
+      status: '未着手',
+      priority: '中',
+    });
+    onClose();
+  };
+
+  return (
+    <div className="overlay" onClick={(e)=>{ if(e.target===e.currentTarget) onClose(); }}>
+      <div className="panel">
+        <div className="panel-head">
+          <h2>🆕 タスクを追加</h2>
+          <button className="panel-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="panel-body">
+          <div className="add-form">
+            <div className="field-label">プロジェクト名（新規もOK）</div>
+            <input type="text" list="proj-list2" placeholder="例：仕入れ事業部" value={project} onChange={e=>setProject(e.target.value)} autoFocus />
+            <datalist id="proj-list2">
+              {projectNames.map(p=><option key={p} value={p} />)}
+            </datalist>
+            <div className="field-label">タスク名</div>
+            <input type="text" placeholder="例：マイソク選別（週次）" value={name} onChange={e=>setName(e.target.value)} />
+            <div className="field-label">スケジュール</div>
+            <select value={scheduleType} onChange={e=>setScheduleType(e.target.value)}>
+              {SCHEDULE_TYPES.map(s=><option key={s} value={s}>{s}</option>)}
+            </select>
+            <button className="primary-btn" onClick={submit}>追加する</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+<button class="auth-signout" id="authSignOut" type="button">ログアウト</button>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+/* ===== ログインゲート =====
+   使えるのは AUTH_ALLOWED のGoogleアカウントだけ。
+   ※ 静的ホスティングなので、これは「使用の鍵」。HTMLソース自体は誰でも読める。 */
+(function () {
+  var CLIENT_ID = '871191983845-kr61ap39ilh7s5fcvvntvfq91tpbak17.apps.googleusercontent.com';
+  var AUTH_ALLOWED = ['iety0214@gmail.com'];
+  var STORE_KEY = 'axia_auth';
+  var SESSION_HOURS = 12;
+
+  var msg = document.getElementById('gateMsg');
+  var signOutBtn = document.getElementById('authSignOut');
+
+  function decodeJwt(token) {
+    try {
+      var p = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      var json = decodeURIComponent(atob(p).split('').map(function (c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(json);
+    } catch (e) { return null; }
+  }
+  function unlock() { document.body.classList.remove('auth-locked'); }
+  function saveSession(email) {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        email: email, exp: Date.now() + SESSION_HOURS * 3600 * 1000
+      }));
+    } catch (e) {}
+  }
+  function readSession() {
+    try {
+      var s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+      if (s && s.exp > Date.now() && AUTH_ALLOWED.indexOf(s.email) !== -1) return s;
+    } catch (e) {}
+    return null;
+  }
+  function clearSession() { try { localStorage.removeItem(STORE_KEY); } catch (e) {} }
+
+  window.handleGoogleCredential = function (res) {
+    var payload = res && res.credential ? decodeJwt(res.credential) : null;
+    if (!payload || !payload.email) {
+      msg.textContent = 'ログイン情報が読めんかった。もう一回試して。'; return;
+    }
+    if (payload.email_verified === false || AUTH_ALLOWED.indexOf(payload.email) === -1) {
+      msg.textContent = 'このアカウント（' + payload.email + '）では使えません。';
+      try { google.accounts.id.disableAutoSelect(); } catch (e) {}
+      return;
+    }
+    if (payload.aud !== CLIENT_ID) { msg.textContent = 'ログインの検証に失敗した。'; return; }
+    saveSession(payload.email); msg.textContent = ''; unlock();
+  };
+
+  signOutBtn.addEventListener('click', function () {
+    clearSession();
+    try { google.accounts.id.disableAutoSelect(); } catch (e) {}
+    location.reload();
+  });
+
+  if (readSession()) { unlock(); return; }
+
+  var tries = 0;
+  (function waitGis() {
+    if (window.google && google.accounts && google.accounts.id) {
+      google.accounts.id.initialize({
+        client_id: CLIENT_ID,
+        callback: window.handleGoogleCredential,
+        auto_select: true,
+        cancel_on_tap_outside: false
+      });
+      google.accounts.id.renderButton(document.getElementById('gbtn'), {
+        theme: 'outline', size: 'large', type: 'standard',
+        text: 'signin_with', shape: 'pill', locale: 'ja'
+      });
+      google.accounts.id.prompt();
+      return;
+    }
+    if (++tries > 100) {
+      msg.textContent = 'Googleログインを読み込めんかった。通信を確認して再読み込みして。'; return;
+    }
+    setTimeout(waitGis, 100);
+  })();
+})();
+</script>
+
+</body>
+</html>

@@ -1,3 +1,730 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>停止中</title>
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:sans-serif;background:#f5f5f5;color:#333}@media(prefers-color-scheme:dark){body{background:#1b1b1b;color:#ddd}}</style></head>
-<body><p>このアプリは現在停止中です。</p></body></html>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>返済比率計算シート - AXIA JAPAN</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html{zoom:1.3}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Noto Sans JP','Hiragino Kaku Gothic ProN',sans-serif;background:#f5f7fb;color:#1e293b}
+#root{height:100%;display:flex;flex-direction:column}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#c5cde0;border-radius:4px}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield}
+</style>
+
+<style>
+/* ===== ログインゲート ===== */
+body.auth-locked > *:not(#authGate) { display: none !important; }
+#authGate { display: none; }
+body.auth-locked #authGate {
+  display: grid; place-items: center;
+  position: fixed; inset: 0; z-index: 2147483000;
+  background: #f2f3f7; padding: 24px;
+  font-family: 'Noto Sans JP', system-ui, sans-serif; color: #1a1d28;
+}
+#authGate .gate-card {
+  background: #fff; border: 1px solid #e0e3eb; border-radius: 14px;
+  padding: 28px 24px; max-width: 340px; width: 100%; text-align: center;
+  box-shadow: 0 4px 24px rgba(0,0,0,.08);
+}
+#authGate h2 { font-size: 16px; font-weight: 700; margin: 0; }
+#authGate .gate-sub { font-size: 12px; color: #6b7086; margin: 8px 0 0; line-height: 1.7; }
+#authGate #gbtn { display: flex; justify-content: center; margin-top: 20px; min-height: 44px; }
+#authGate .gate-msg { font-size: 12px; color: #d32f2f; margin: 14px 0 0; min-height: 18px; line-height: 1.6; }
+.auth-signout {
+  display: block; margin: 24px auto 32px; background: none; border: none;
+  font: inherit; font-size: 11px; color: #6b7086; text-decoration: underline; cursor: pointer;
+}
+</style>
+</head>
+<body class="auth-locked">
+
+<div id="authGate">
+  <div class="gate-card">
+    <h2>返済比率計算シート - AXIA JAPAN</h2>
+    <p class="gate-sub">本人のGoogleアカウントで<br>ログインしてください</p>
+    <div id="gbtn"></div>
+    <p class="gate-msg" id="gateMsg"></p>
+  </div>
+</div>
+
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useMemo,useEffect}=React;
+
+// 協会けんぽ 健康保険料率（%）。Excel「物件運用ｼﾐｭﾚｰｼｮﾝ原本 令和8年改訂版」社会保険料率シートに合わせる
+const PR={
+"北海道":10.31,"青森県":9.85,"岩手県":9.62,"宮城県":10.11,"秋田県":10.01,
+"山形県":9.75,"福島県":9.62,"茨城県":9.67,"栃木県":9.82,"群馬県":9.77,
+"埼玉県":9.76,"千葉県":9.79,"東京都":9.91,"神奈川県":9.92,"新潟県":9.55,
+"富山県":9.65,"石川県":9.88,"福井県":9.94,"山梨県":9.89,"長野県":9.69,
+"岐阜県":9.93,"静岡県":9.80,"愛知県":10.03,"三重県":9.99,"滋賀県":9.97,
+"京都府":10.03,"大阪府":10.24,"兵庫県":10.16,"奈良県":10.02,"和歌山県":10.19,
+"鳥取県":9.93,"島根県":9.94,"岡山県":10.17,"広島県":9.97,"山口県":10.36,
+"徳島県":10.47,"香川県":10.21,"愛媛県":10.18,"高知県":10.13,"福岡県":10.31,
+"佐賀県":10.78,"長崎県":10.41,"熊本県":10.12,"大分県":10.25,"宮崎県":10.09,
+"鹿児島県":10.31,"沖縄県":9.44
+};
+const PREFS=Object.keys(PR);
+
+const STD=[
+[58000,0,63000],[68000,63000,73000],[78000,73000,83000],[88000,83000,93000],
+[98000,93000,101000],[104000,101000,107000],[110000,107000,114000],[118000,114000,122000],
+[126000,122000,130000],[134000,130000,138000],[142000,138000,146000],[150000,146000,155000],
+[160000,155000,165000],[170000,165000,175000],[180000,175000,185000],[190000,185000,195000],
+[200000,195000,210000],[220000,210000,230000],[240000,230000,250000],[260000,250000,270000],
+[280000,270000,290000],[300000,290000,310000],[320000,310000,330000],[340000,330000,350000],
+[360000,350000,370000],[380000,370000,395000],[410000,395000,425000],[440000,425000,455000],
+[470000,455000,485000],[500000,485000,515000],[530000,515000,545000],[560000,545000,575000],
+[590000,575000,605000],[620000,605000,635000],[650000,635000,665000],[680000,665000,695000],
+[710000,695000,730000],[750000,730000,770000],[790000,770000,810000],[830000,810000,855000],
+[880000,855000,905000],[930000,905000,955000],[980000,955000,1005000],[1030000,1005000,1055000],
+[1090000,1055000,1115000],[1150000,1115000,1175000],[1210000,1175000,1235000],
+[1270000,1235000,1295000],[1330000,1295000,1355000],[1390000,1355000,Infinity]
+];
+
+function getStdM(m){for(const[s,lo,hi]of STD){if(hi===Infinity){if(m>=lo)return s}else if(lo===0){if(m<hi)return s}else{if(m>=lo&&m<hi)return s}}return 58000}
+function PMT(r,n,pv){if(r===0)return -pv/n;const x=Math.pow(1+r,n);return(pv*r*x)/(x-1)}
+
+// 給与所得（令和8年分）。minDed＝給与所得控除の最低保障額
+// 所得税は74万（本則69万＋令和8・9年の特例5万）、住民税は69万
+function calcSalaryIncome(s,minDed=740000){
+  if(!s||s<=0)return 0;
+  if(s<=(minDed-80000)/0.3)return Math.max(0,s-minDed);
+  // 660万未満は年末調整の算出表どおり、収入÷4の千円未満を切り捨ててから計算
+  if(s<6600000){const B=Math.floor(s/4000)*4000;return s<3600000?B*0.7-80000:B*0.8-440000}
+  if(s<=8500000)return Math.floor(s*0.9)-1100000;
+  return s-1950000;
+}
+// 所得税の基礎控除（令和8・9年分、合計所得金額で段階）
+function basicIT(inc){
+  if(inc<=4890000)return 1040000;if(inc<=6550000)return 670000;
+  if(inc<=23500000)return 620000;if(inc<=24000000)return 480000;
+  if(inc<=24500000)return 320000;if(inc<=25000000)return 160000;return 0;
+}
+// 住民税の基礎控除
+function basicRT(inc){
+  if(inc<=24000000)return 430000;if(inc<=24500000)return 290000;if(inc<=25000000)return 150000;return 0;
+}
+
+function calcIns(s,a,pref){
+  const m=s/12,stdH=getStdM(m),stdP=Math.min(Math.max(getStdM(m),88000),650000);
+  const hr=(PR[pref]||10)/100;
+  const health=Math.round(stdH*hr/2-0.001);
+  const care=(a>=40&&a<65)?Math.round(stdH*0.016/2-0.001):0;
+  const pen=Math.round(stdP*0.183/2-0.001);
+  // 雇用保険（一般・労働者負担0.55%、50銭以下切捨て）
+  const emp=(a<65)?Math.max(Math.ceil(m*0.0055-0.5),0):0;
+  return(health+care+pen+emp)*12;
+}
+
+// 配偶者控除（一般・配偶者は扶養内とみなす）。本人の合計所得金額で段階
+function spouseIT(inc){return inc<=9000000?380000:inc<=9500000?260000:inc<=10000000?130000:0}
+function spouseRT(inc){return inc<=9000000?330000:inc<=9500000?220000:inc<=10000000?110000:0}
+// 調整控除用の人的控除差（配偶者控除分）
+function spouseDiff(inc){return inc<=9000000?50000:inc<=9500000?40000:inc<=10000000?20000:0}
+
+// si＝基礎控除・配偶者控除以外の所得控除（社会保険料など）
+function calcTax(s,si,spouse){
+  // 所得税＋復興特別所得税（2.1%）
+  const inc=calcSalaryIncome(s,740000);
+  const tb=Math.max(Math.floor((inc-si-basicIT(inc)-(spouse?spouseIT(inc):0))/1000)*1000,0);
+  let it;
+  if(tb<=1949000)it=tb*0.05;else if(tb<=3299000)it=tb*0.10-97500;
+  else if(tb<=6949000)it=tb*0.20-427500;else if(tb<=8999000)it=tb*0.23-636000;
+  else if(tb<=17999000)it=tb*0.33-1536000;else if(tb<=39999000)it=tb*0.40-2796000;
+  else it=tb*0.45-4796000;
+  const incomeTax=Math.floor(it*1.021/100)*100;
+  // 住民税＝所得割10%（調整控除後）＋均等割5,000円（森林環境税込み）
+  const incR=calcSalaryIncome(s,690000);
+  const tbR=Math.max(Math.floor((incR-si-basicRT(incR)-(spouse?spouseRT(incR):0))/1000)*1000,0);
+  // 調整控除：人的控除差＝基礎控除5万＋配偶者控除分
+  const diff=50000+(spouse?spouseDiff(incR):0);
+  const adj=incR>25000000?0:tbR<=2000000?Math.min(diff,tbR)*0.05:Math.max((diff-(tbR-2000000))*0.05,2500);
+  const shotoku=Math.max(Math.floor((tbR*0.10-adj)/100)*100,0);
+  const kintou=incR>450000?5000:0;
+  const residentTax=shotoku+kintou;
+  return{incomeTax,residentTax,total:incomeTax+residentTax};
+}
+
+const fmt=n=>n!=null&&!isNaN(n)?Math.round(n).toLocaleString():"—";
+const fmtP=n=>n!=null&&!isNaN(n)?(n*100).toFixed(2)+"%":"—";
+const fmtR=n=>n!=null&&!isNaN(n)?n.toFixed(2):"—";
+
+const C={
+  bg:'#f5f7fb',card:'#ffffff',border:'#e2e8f0',
+  blue:'#2563eb',blueLight:'#eff4ff',
+  text:'#1e293b',sub:'#94a3b8',label:'#475569',
+  green:'#16a34a',greenBg:'rgba(22,163,74,0.08)',greenBd:'rgba(22,163,74,0.25)',
+  red:'#dc2626',redBg:'rgba(220,38,38,0.08)',redBd:'rgba(220,38,38,0.25)',
+  inputBg:'#f8fafc',inputBd:'#cbd5e1',
+  headerBg:'linear-gradient(135deg,#2563eb,#4f46e5)'
+};
+
+const sCard={background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16,marginBottom:14,boxShadow:'0 1px 3px rgba(0,0,0,0.04)'};
+const sInput={width:'100%',padding:'9px 10px',background:C.inputBg,border:`1px solid ${C.inputBd}`,borderRadius:8,color:C.text,fontSize:14,outline:'none'};
+const sLabel={display:'block',fontSize:11,color:C.label,marginBottom:4,fontWeight:600};
+
+function Badge({pass}){
+  return <span style={{display:'inline-block',padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:700,
+    background:pass?C.greenBg:C.redBg,color:pass?C.green:C.red,border:`1px solid ${pass?C.greenBd:C.redBd}`}}>
+    {pass?"基準クリア":"基準オーバー"}
+  </span>
+}
+function RRow({label,value,sub}){
+  return <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'7px 0',borderBottom:'1px solid #f1f5f9'}}>
+    <span style={{fontSize:12,color:C.label}}>{label}</span>
+    <span style={{fontSize:13,fontWeight:600,color:C.text,textAlign:'right'}}>{value}{sub&&<span style={{fontSize:10,color:C.sub,marginLeft:4}}>{sub}</span>}</span>
+  </div>
+}
+function Divider(){return <div style={{height:1,background:C.border,margin:'8px 0'}}/>}
+
+function toComma(v){const s=String(v).replace(/[^0-9.\-]/g,'');if(!s||s==='-')return s;const parts=s.split('.');const intPart=parts[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return parts.length>1?intPart+'.'+parts[1]:intPart}
+function fromComma(v){return String(v).replace(/,/g,'')}
+function NumInput({value,onChange,unit}){
+  const [focused,setFocused]=useState(false);
+  const [local,setLocal]=useState('');
+  const displayed=focused?local:toComma(value);
+  const onFocus=()=>{setFocused(true);setLocal(toComma(value))};
+  const onBlur=()=>{setFocused(false);onChange(fromComma(local))};
+  const onCh=e=>{const raw=e.target.value.replace(/[^0-9,.\-]/g,'');const nums=fromComma(raw);setLocal(toComma(nums));onChange(nums)};
+  const uW=unit?Math.max(36,unit.length*14+12):10;
+  return <div style={{position:'relative'}}>
+    <input type="text" inputMode="decimal" value={displayed} onFocus={onFocus} onBlur={onBlur}
+      onChange={onCh} style={{...sInput,paddingRight:uW,textAlign:'right'}}/>
+    {unit&&<span style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',fontSize:11,color:C.sub,pointerEvents:'none'}}>{unit}</span>}
+  </div>
+}
+function Field({label,value,onChange,unit,children}){
+  return <div style={{marginBottom:10}}>
+    <label style={sLabel}>{label}</label>
+    {children||<NumInput value={value} onChange={onChange} unit={unit}/>}
+  </div>
+}
+
+function YesNo({value,onChange}){
+  const b=on=>({flex:1,padding:'9px 0',fontSize:13,fontWeight:on===value?700:500,cursor:'pointer',border:'none',
+    background:on===value?C.blue:C.inputBg,color:on===value?'#fff':C.label});
+  return <div style={{display:'flex',border:`1px solid ${C.inputBd}`,borderRadius:8,overflow:'hidden'}}>
+    <button style={b(false)} onClick={()=>onChange(false)}>無</button>
+    <button style={{...b(true),borderLeft:`1px solid ${C.inputBd}`}} onClick={()=>onChange(true)}>有</button>
+  </div>
+}
+
+// 金融機関ごとの審査金利（固定）
+// base＝結果タブ等の共通計算用（旧楽天金利）。楽天の審査は rk を使う
+const RATES={base:0.03194,rk:0.04847,sbj:0.022,sbi:0.025,ion:0.03,hig:0.035};
+
+const STORE_KEY='axia_hensai_v1';
+function loadSaved(){try{return JSON.parse(localStorage.getItem(STORE_KEY))||{}}catch(e){return {}}}
+const SAVED=loadSaved();
+const sv=(k,d)=>SAVED[k]!==undefined?SAVED[k]:d;
+
+function App(){
+  const [salary,setSalary]=useState(sv('salary',6100000));
+  const [age,setAge]=useState(sv('age',26));
+  const [years,setYears]=useState(sv('years',3));
+  // 扶養人数（本人を含まない）。旧版の「世帯」人数（本人込み）が保存されていれば −1 して引き継ぐ
+  // 扶養：配偶者の有無・16歳未満の扶養人数
+  const [spouse,setSpouse]=useState(!!sv('spouse',false));
+  const [kids,setKids]=useState(()=>{const k=sv('kids',0);return typeof k==='boolean'?(k?1:0):k});
+  const [pref,setPref]=useState(sv('pref',"千葉県"));
+  const [owned,setOwned]=useState(sv('owned',[{orig:0,debt:0,payment:0,rent:0,mgmt:0}]));
+  const [others,setOthers]=useState(sv('others',[{debt:0,payment:0}]));
+  const [homeRent,setHomeRent]=useState(sv('homeRent',30000));
+  const [props,setProps]=useState(sv('props',[{price:30000000,bonus:0,rent:80000,mgmt:0}]));
+  const [deduction,setDeduction]=useState(sv('deduction',''));
+  const [tab,setTab]=useState("input");
+
+  useEffect(()=>{
+    try{localStorage.setItem(STORE_KEY,JSON.stringify({salary,age,years,spouse,kids,pref,owned,others,homeRent,props,deduction}))}catch(e){}
+  },[salary,age,years,spouse,kids,pref,owned,others,homeRent,props,deduction]);
+  const resetAll=()=>{
+    if(!confirm('入力内容をすべて初期値に戻す？'))return;
+    setSalary(6100000);setAge(26);setYears(3);setSpouse(false);setKids(0);setPref("千葉県");
+    setOwned([{orig:0,debt:0,payment:0,bonus:0,rent:0,mgmt:0}]);setOthers([{debt:0,payment:0,bonus:0}]);
+    setHomeRent(30000);setProps([{price:30000000,bonus:0,rent:80000,mgmt:0}]);setDeduction('');
+  };
+
+  const uOwn=(i,k,v)=>setOwned(p=>p.map((x,j)=>j===i?{...x,[k]:v}:x));
+  const uOth=(i,k,v)=>setOthers(p=>p.map((x,j)=>j===i?{...x,[k]:v}:x));
+  const uProp=(i,k,v)=>setProps(p=>p.map((x,j)=>j===i?{...x,[k]:v}:x));
+
+  const calc=useMemo(()=>{
+    const s=Number(salary)||0,a=Number(age)||0,yrs=Number(years)||0,famN=1+(spouse?1:0)+Math.max(0,Math.floor(Number(kids)||0));
+    const rate=RATES.base;
+
+    const existPayY=owned.reduce((t,o)=>t+(Number(o.payment)||0)*12,0);
+    const existRentY=owned.reduce((t,o)=>t+(Number(o.rent)||0)*12,0);
+    const existMgmtY=owned.reduce((t,o)=>t+(Number(o.mgmt)||0)*12,0);
+    const otherPayY=others.reduce((t,o)=>t+(Number(o.payment)||0)*12,0);
+    // ボーナス払いは年2回（Excel 入力シート!H17＝年額＋ボーナス×2）
+    const existBonusY=owned.reduce((t,o)=>t+(Number(o.bonus)||0)*2,0);
+    const otherBonusY=others.reduce((t,o)=>t+(Number(o.bonus)||0)*2,0);
+    const homeRentY=(Number(homeRent)||0)*12;
+    const existTotalY=existPayY+otherPayY+existBonusY+otherBonusY+homeRentY;
+    const existDebt=owned.reduce((t,o)=>t+(Number(o.debt)||0),0)+others.reduce((t,o)=>t+(Number(o.debt)||0),0);
+
+    const pc=props.map(p=>{
+      const price=Number(p.price)||0;
+      const mp=price>0?PMT(rate/12,35*12,price):0;
+      const yp=mp*12;const bonus=Number(p.bonus)||0;
+      const rent=Number(p.rent)||0;const mgmt=Number(p.mgmt)||0;
+      return{price,mp,yp,bonus,rent,mgmt};
+    });
+    const propYearlyTotal=pc.reduce((t,p)=>t+p.yp+p.bonus*2,0);
+    // 指定金利での今回物件の年間返済（ボーナス込み）
+    const propYearlyAt=r=>pc.reduce((t,p)=>t+(p.price>0?PMT(r/12,35*12,p.price)*12:0)+p.bonus*2,0);
+    const propRentTotal=pc.reduce((t,p)=>t+p.rent,0)*12;
+    const propMgmtTotal=pc.reduce((t,p)=>t+p.mgmt,0)*12;
+    const propPriceTotal=pc.reduce((t,p)=>t+p.price,0);
+
+    const totalAP=existTotalY+propYearlyTotal;
+    const totalRent=existRentY+propRentTotal;
+    // 年収倍率の分子＝既存借入の残債＋今回物件価格（Excel 入力シート!C24）
+    const totalDebt=existDebt+propPriceTotal;
+
+    const ratioNet=s>0?totalAP/s:0;
+    const ratio70=(s+totalRent*0.7)>0?totalAP/(s+totalRent*0.7):0;
+    const ratio100=(s+totalRent)>0?totalAP/(s+totalRent):0;
+    const yrMult=s>0?totalDebt/s:0;
+
+    // 所得控除の額を手入力したときはそれを優先（Excel 給与計算Seat!E35）
+    const dedIn=Number(String(deduction).trim());
+    const dedManual=String(deduction).trim()!==''&&!isNaN(dedIn)&&dedIn>0;
+    const siAuto=calcIns(s,a,pref);
+    // 源泉徴収票の「所得控除の額の合計額」には基礎控除が含まれるので差し引く
+    const incIT=calcSalaryIncome(s);
+    const si=dedManual?Math.max(0,dedIn-basicIT(incIT)-(spouse?spouseIT(incIT):0)):siAuto;
+    const tax=calcTax(s,si,spouse);
+
+    // 楽天（Excel「楽天返済比率計算 - 変更版」準拠）
+    // 生活費＝200万と年収20%の高い方／住宅費は最低8万円/月で計上
+    const rkLiving=Math.max(2000000,s*0.2);
+    const rkA=s*0.7-rkLiving;
+    const rkHomeM=Math.max(Number(homeRent)||0,80000);
+    const rkB=rkA-rkHomeM*12;
+    const rkC=rkB-(otherPayY+otherBonusY);
+    // 購入物件・所有物件（当初借入）の50%を4.847%・25年で返済した額
+    const rkD=propPriceTotal*0.5;
+    const rkOrigMissing=owned.some(o=>!(Number(o.orig)>0)&&Number(o.debt)>0);
+    const rkE=owned.reduce((t,o)=>t+(Number(o.orig)>0?Number(o.orig):(Number(o.debt)||0)),0)*0.5;
+    const rkF=rkD+rkE;
+    const rkMonthly=rkF>0?PMT(RATES.rk/12,300,rkF):0;
+    const rkRepay=rkMonthly*12;
+    const rkMargin=rkC-rkRepay;
+
+    const sbjPWB=propYearlyAt(RATES.sbj);
+    const sbjTotalRepay=sbjPWB+existPayY+otherPayY+existBonusY+otherBonusY;
+    const sbjYM=s>0?totalDebt/s:99;
+    const sbjA1=s+existRentY*0.7+propRentTotal*0.7-si-tax.total;
+    const sbjB=sbjTotalRepay+homeRentY;
+    const sbjRatio=sbjA1>0?sbjB/sbjA1:99;
+    // 生活費＝96万×（本人＋配偶者＋16歳未満の扶養）
+    const sbjFam=960000*famN;
+    const sbjDisp=sbjA1-(sbjB+sbjFam);
+
+    const ionAP=existTotalY+propYearlyAt(RATES.ion);
+    const ionR1=s>0?ionAP/s:99;
+    const ionR2=(s+totalRent)>0?ionAP/(s+totalRent):99;
+    const ionBM=s<=7000000?7:s<=8500000?9:s<=10000000?11:12;
+    // existTotalYに自宅家賃を含むため、ここで家賃を再度足さない（二重計上防止）
+    const ionDisp=(s-si-tax.total)-(ionAP+3360000);
+
+    const sbiAP=existTotalY+propYearlyAt(RATES.sbi);
+    const sbiRatio=(s+totalRent)>0?sbiAP/(s+totalRent):99;
+    const sbiBR=0.4;const sbiBM=s<=10000000?10:12;
+    const sbiRate2=s<5000000?0.022:s<=10000000?0.018:0.016;
+
+    const hPR=propYearlyAt(RATES.hig);
+    const hTR=hPR+existTotalY;
+    const hS35=s*0.35;
+    const hR70=(totalRent-(existMgmtY+propMgmtTotal))*0.7;
+    const hMargin=(hS35+hR70)-hTR;
+    const hBM=s<=10000000?10:12;
+
+    return{
+      pc,propYearlyTotal,propRentTotal,propPriceTotal,
+      existTotalY,existDebt,totalAP,totalRent,totalDebt,existBonusY,otherBonusY,
+      ratioNet,ratio70,ratio100,yrMult,si,tax,siAuto,dedManual,
+      rk:{living:rkLiving,a:rkA,homeM:rkHomeM,b:rkB,c:rkC,d:rkD,e:rkE,f:rkF,monthly:rkMonthly,repay:rkRepay,origMissing:rkOrigMissing,margin:rkMargin,pass:rkMargin>0},
+      sbj:{fam:sbjFam,famN,ym:sbjYM,bm:12,mPass:sbjYM<12,a1:sbjA1,b:sbjB,ratio:sbjRatio,rPass:sbjRatio<0.5,disp:sbjDisp,dPass:sbjDisp>=1000000,pass:sbjYM<12&&sbjRatio<0.5&&sbjDisp>=1000000},
+      ion:{ap:ionAP,r1:ionR1,r2:ionR2,bm:ionBM,disp:ionDisp,rPass:ionR1<0.5&&ionR2<0.35,mPass:yrMult<ionBM,dPass:ionDisp>100000,pass:ionR1<0.5&&ionR2<0.35&&yrMult<ionBM&&a>=25&&yrs>=2&&ionDisp>100000},
+      sbi:{ap:sbiAP,ratio:sbiRatio,br:sbiBR,bm:sbiBM,rate:sbiRate2,pass:sbiRatio<sbiBR&&yrMult<sbiBM&&a>=25&&yrs>=3},
+      hig:{pr:hPR,tr:hTR,s35:hS35,r70:hR70,margin:hMargin,bm:hBM,mPass:yrMult<hBM,pass:hMargin>0&&yrMult<hBM}
+    };
+  },[salary,age,years,spouse,kids,pref,owned,others,homeRent,props,deduction]);
+
+  const banks=[
+    {key:"rk",label:"楽天",pass:calc.rk.pass},
+    {key:"sbj",label:"SBJ",pass:calc.sbj.pass},
+    {key:"ion",label:"イオン",pass:calc.ion.pass},
+    {key:"sbi",label:"SBI",pass:calc.sbi.pass},
+    {key:"hig",label:"東日本",pass:calc.hig.pass},
+  ];
+
+  const tabS=(a)=>({flex:1,minWidth:48,padding:'10px 2px',textAlign:'center',fontSize:11,fontWeight:a?700:500,color:a?C.blue:'#94a3b8',background:a?C.blueLight:'transparent',border:'none',borderBottom:a?`2px solid ${C.blue}`:'2px solid transparent',cursor:'pointer',whiteSpace:'nowrap'});
+  const addBtn=(t,fn)=><button onClick={fn} style={{background:'none',border:'1px dashed #cbd5e1',color:'#94a3b8',padding:8,borderRadius:8,width:'100%',cursor:'pointer',fontSize:12,marginTop:8}}>{t}</button>;
+  const rmBtn=(fn)=><button onClick={fn} style={{background:'none',border:'none',color:C.red,cursor:'pointer',fontSize:18,padding:'0 4px',lineHeight:1}}>×</button>;
+  const backBtn=<button onClick={()=>setTab("summary")} style={{background:'none',border:`1px solid ${C.border}`,color:C.label,padding:'5px 12px',borderRadius:6,fontSize:11,cursor:'pointer'}}>← 戻る</button>;
+
+  return <div style={{display:'flex',flexDirection:'column',height:'100%',background:C.bg}}>
+    <div style={{background:C.headerBg,padding:'18px 16px 14px',textAlign:'center',flexShrink:0}}>
+      <div style={{fontSize:17,fontWeight:900,color:'#fff',letterSpacing:1}}>返済比率計算シート</div>
+      <div style={{fontSize:10,color:'rgba(255,255,255,0.7)',marginTop:2,fontFamily:'DM Mono'}}>AXIA JAPAN ─ 融資審査シミュレーター</div>
+    </div>
+
+    <div style={{display:'flex',background:'#fff',borderBottom:`1px solid ${C.border}`,overflowX:'auto',flexShrink:0}}>
+      <button style={tabS(tab==="input")} onClick={()=>setTab("input")}>📝 入力</button>
+      <button style={tabS(tab==="summary")} onClick={()=>setTab("summary")}>📊 結果</button>
+      {banks.map(b=><button key={b.key} style={tabS(tab===b.key)} onClick={()=>setTab(b.key)}>
+        <span style={{display:'inline-block',width:8,height:8,borderRadius:4,background:b.pass?C.green:C.red,marginRight:4,verticalAlign:'middle'}}/>
+        {b.label}
+      </button>)}
+    </div>
+
+    <div style={{flex:1,overflowY:'auto',padding:14}}>
+      <div style={{maxWidth:560,margin:'0 auto'}}>
+
+      {tab==="input"&&<>
+        <div style={sCard}>
+          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:12}}>👤 お客様情報</div>
+          <Field label="年収" value={salary} onChange={setSalary} unit="円"/>
+          <div style={{display:'flex',gap:8,marginTop:10}}>
+            <div style={{flex:1}}><Field label="年齢" value={age} onChange={setAge} unit="歳"/></div>
+            <div style={{flex:1}}><Field label="勤続" value={years} onChange={setYears} unit="年"/></div>
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            <div style={{flex:1}}><Field label="配偶者"><YesNo value={spouse} onChange={setSpouse}/></Field></div>
+            <div style={{flex:1}}><Field label="16歳未満の扶養" value={kids} onChange={setKids} unit="人"/></div>
+          </div>
+          <Field label="勤務先所在地（健保料率）"><select value={pref} onChange={e=>setPref(e.target.value)} style={sInput}>{PREFS.map(p=><option key={p} value={p}>{p}</option>)}</select></Field>
+          <Field label="所得控除の額（源泉徴収票／空欄なら自動計算）" value={deduction} onChange={setDeduction} unit="円"/>
+          <div style={{fontSize:10,color:C.sub,marginTop:-4}}>{calc.dedManual?`手入力を使用中（社保相当 ¥${fmt(calc.si)}）`:`自動計算中（社会保険料 ¥${fmt(calc.siAuto)}）`}</div>
+        </div>
+
+        <div style={sCard}>
+          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:12}}>🏠 既存借入（所有物件）</div>
+          {owned.map((o,i)=><div key={i} style={{borderBottom:'1px solid #f1f5f9',paddingBottom:8,marginBottom:8}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <span style={{fontSize:11,color:C.sub}}>物件 {i+1}</span>
+              {owned.length>1&&rmBtn(()=>setOwned(p=>p.filter((_,j)=>j!==i)))}
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <div style={{flex:1}}><Field label="当初借入（楽天用）" value={o.orig||0} onChange={v=>uOwn(i,'orig',v)} unit="円"/></div>
+              <div style={{flex:1}}><Field label="残債" value={o.debt||0} onChange={v=>uOwn(i,'debt',v)} unit="円"/></div>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <div style={{flex:1}}><Field label="月支払額" value={o.payment} onChange={v=>uOwn(i,'payment',v)} unit="円"/></div>
+              <div style={{flex:1}}><Field label="ボーナス" value={o.bonus||0} onChange={v=>uOwn(i,'bonus',v)} unit="円"/></div>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <div style={{flex:1}}><Field label="賃料" value={o.rent} onChange={v=>uOwn(i,'rent',v)} unit="円"/></div>
+              <div style={{flex:1}}><Field label="管積" value={o.mgmt} onChange={v=>uOwn(i,'mgmt',v)} unit="円"/></div>
+            </div>
+          </div>)}
+          <div style={{fontSize:10,color:C.sub,marginTop:4}}>※ボーナスは1回あたりの額（年2回で計算）<br/>※当初借入は楽天の計算に使用（未入力の物件は残債で代用）</div>
+          {owned.length<10&&addBtn('＋ 物件追加',()=>setOwned(p=>[...p,{orig:0,debt:0,payment:0,bonus:0,rent:0,mgmt:0}]))}
+        </div>
+
+        <div style={sCard}>
+          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:12}}>💳 その他借入</div>
+          {others.map((o,i)=><div key={i} style={{display:'flex',gap:8,alignItems:'end'}}>
+            <div style={{flex:1}}><Field label={`借入${i+1} 残債`} value={o.debt||0} onChange={v=>uOth(i,'debt',v)} unit="円"/></div>
+            <div style={{flex:1}}><Field label={`借入${i+1} 月額`} value={o.payment} onChange={v=>uOth(i,'payment',v)} unit="円"/></div>
+            <div style={{flex:1}}><Field label={`ボーナス`} value={o.bonus||0} onChange={v=>uOth(i,'bonus',v)} unit="円"/></div>
+            {others.length>1&&<div style={{marginBottom:12}}>{rmBtn(()=>setOthers(p=>p.filter((_,j)=>j!==i)))}</div>}
+          </div>)}
+          {others.length<4&&addBtn('＋ 借入追加',()=>setOthers(p=>[...p,{debt:0,payment:0,bonus:0}]))}
+          <div style={{marginTop:10}}><Field label="家賃（自宅/社宅）" value={homeRent} onChange={setHomeRent} unit="円/月"/></div>
+        </div>
+
+        <div style={sCard}>
+          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:12}}>🏢 今回購入物件</div>
+          {props.map((p,i)=><div key={i} style={{borderBottom:'1px solid #f1f5f9',paddingBottom:10,marginBottom:10}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+              <span style={{fontSize:12,color:C.blue,fontWeight:700}}>物件 {i+1}</span>
+              {props.length>1&&rmBtn(()=>setProps(pr=>pr.filter((_,j)=>j!==i)))}
+            </div>
+            <Field label="購入価格" value={p.price} onChange={v=>uProp(i,'price',v)} unit="円"/>
+            <div style={{display:'flex',gap:8}}>
+              <div style={{flex:1}}><Field label="賃料" value={p.rent} onChange={v=>uProp(i,'rent',v)} unit="円/月"/></div>
+              <div style={{flex:1}}><Field label="管積" value={p.mgmt} onChange={v=>uProp(i,'mgmt',v)} unit="円/月"/></div>
+              <div style={{flex:1}}><Field label="ボーナス" value={p.bonus||0} onChange={v=>uProp(i,'bonus',v)} unit="円"/></div>
+            </div>
+            <div style={{fontSize:11,color:C.sub,marginTop:2}}>月支払: ¥{fmt(calc.pc[i]?.mp)}（3.194%・35年）</div>
+          </div>)}
+          {props.length<6&&addBtn('＋ 物件追加',()=>setProps(p=>[...p,{price:0,bonus:0,rent:0,mgmt:0}]))}
+          <div style={{marginTop:10,padding:10,background:C.inputBg,border:`1px solid ${C.border}`,borderRadius:8}}>
+            <div style={{fontSize:11,fontWeight:700,color:C.label,marginBottom:6}}>審査金利（固定・35年）</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6,fontSize:11,color:C.sub}}>
+              {[['楽天','4.847%（25年）'],['SBJ','2.2%'],['SBI','2.5%'],['イオン','3.0%'],['東日本','3.5%']].map(([n,r])=>
+                <span key={n} style={{background:'#fff',border:`1px solid ${C.border}`,borderRadius:6,padding:'3px 8px'}}>{n} <b style={{color:C.text}}>{r}</b></span>)}
+            </div>
+          </div>
+        </div>
+        <div style={{...sCard,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <span style={{fontSize:12,color:C.label}}>年収倍率 <span style={{fontSize:10,color:C.sub}}>（残債＋購入価格）÷年収</span></span>
+          <span style={{fontSize:16,fontWeight:700,fontFamily:'DM Mono'}}>{fmtR(calc.yrMult)}倍</span>
+        </div>
+        <button onClick={resetAll} style={{background:'none',border:`1px solid ${C.border}`,color:C.sub,padding:8,borderRadius:8,width:'100%',cursor:'pointer',fontSize:12,marginBottom:14}}>入力をリセット</button>
+      </>}
+
+      {tab==="summary"&&<>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
+          {[[fmtP(calc.ratioNet),'返済比率（NET）',calc.ratioNet>0.5?C.red:C.green],
+            [fmtR(calc.yrMult)+'倍','年収倍率',C.text],
+            [fmtP(calc.ratio70),'賃料70%合算',C.text],
+            [fmtP(calc.ratio100),'賃料100%合算',C.text]
+          ].map(([v,l,c],i)=><div key={i} style={{background:'#fff',border:`1px solid ${C.border}`,borderRadius:10,padding:12,textAlign:'center',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+            <div style={{fontSize:18,fontWeight:700,color:c,fontFamily:'DM Mono'}}>{v}</div>
+            <div style={{fontSize:10,color:C.sub,marginTop:2}}>{l}</div>
+          </div>)}
+        </div>
+        <div style={sCard}>
+          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:12}}>🏦 金融機関別 合否一覧</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+            {banks.map(b=><div key={b.key} onClick={()=>setTab(b.key)} style={{background:C.inputBg,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 12px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <span style={{fontSize:12,fontWeight:600,color:C.text}}>{b.label}</span>
+              <Badge pass={b.pass}/>
+            </div>)}
+          </div>
+        </div>
+        <div style={sCard}>
+          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>💰 控除内訳</div>
+          <RRow label={calc.dedManual?"所得控除（手入力−基礎控除）":"社会保険料（年額）"} value={`¥${fmt(calc.si)}`}/>
+          <RRow label="所得税＋復興特別税" value={`¥${fmt(calc.tax.incomeTax)}`}/>
+          <RRow label="住民税" value={`¥${fmt(calc.tax.residentTax)}`}/>
+          <RRow label="税金合計" value={`¥${fmt(calc.tax.total)}`}/>
+        </div>
+        <div style={sCard}>
+          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>🔢 返済額内訳</div>
+          <RRow label="既存借入（年額）" value={`¥${fmt(calc.existTotalY)}`} sub={(calc.existBonusY+calc.otherBonusY)>0?`ボーナス ¥${fmt(calc.existBonusY+calc.otherBonusY)}含む`:null}/>
+          <RRow label="今回物件（年額）" value={`¥${fmt(calc.propYearlyTotal)}`} sub="3.194%"/>
+          <RRow label="合計年間返済額" value={`¥${fmt(calc.totalAP)}`} sub="3.194%"/>
+          <Divider/>
+          <RRow label="合計年間賃料収入" value={`¥${fmt(calc.totalRent)}`}/>
+          <RRow label="既存借入 残債" value={`¥${fmt(calc.existDebt)}`}/>
+          <RRow label="今回物件 価格合計" value={`¥${fmt(calc.propPriceTotal)}`}/>
+          <RRow label="総借入額" value={`¥${fmt(calc.totalDebt)}`}/>
+          <RRow label="年収倍率" value={`${fmtR(calc.yrMult)}倍`}/>
+        </div>
+      </>}
+
+      {tab==="rk"&&<>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <div style={{fontSize:16,fontWeight:700}}>楽天銀行 <Badge pass={calc.rk.pass}/></div>{backBtn}
+        </div>
+        <div style={sCard}>
+          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>返済比率計算</div>
+          <RRow label="生活費（200万と年収20%の高い方）" value={`¥${fmt(calc.rk.living)}`}/>
+          <RRow label="A（年収×0.7 − 生活費）" value={`¥${fmt(calc.rk.a)}`}/>
+          <RRow label="住宅費（最低8万円/月）" value={`¥${fmt(calc.rk.homeM)}/月`} sub={Number(homeRent)<80000?"8万円で計上":null}/>
+          <RRow label="B（A − 住宅費×12）" value={`¥${fmt(calc.rk.b)}`}/>
+          <RRow label="C（B − その他借入支払）" value={`¥${fmt(calc.rk.c)}`}/>
+          <Divider/>
+          <RRow label="D（購入物件価格×50%）" value={`¥${fmt(calc.rk.d)}`}/>
+          <RRow label="E（所有物件当初借入×50%）" value={`¥${fmt(calc.rk.e)}`} sub={calc.rk.origMissing?"一部残債で代用":null}/>
+          <RRow label="F（D + E）" value={`¥${fmt(calc.rk.f)}`}/>
+          <RRow label="月額支払額（4.847%・25年）" value={`¥${fmt(calc.rk.monthly)}`}/>
+          <RRow label="年間返済額（月額×12）" value={`¥${fmt(calc.rk.repay)}`}/>
+          <Divider/>
+          <RRow label="返済比率額（C − 年間返済額）" value={`¥${fmt(calc.rk.margin)}`} sub="プラスで基準クリア"/>
+          <RRow label="年収倍率（参考・判定対象外）" value={`${fmtR(calc.yrMult)}倍`}/>
+        </div>
+      </>}
+
+      {tab==="sbj"&&<>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <div style={{fontSize:16,fontWeight:700}}>SBJ銀行 <Badge pass={calc.sbj.pass}/></div>{backBtn}
+        </div>
+        <div style={sCard}>
+          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>基準1：年収倍率</div>
+          <RRow label="借入総額" value={`¥${fmt(calc.totalDebt)}`}/>
+          <RRow label="年収" value={`¥${fmt(salary)}`}/>
+          <RRow label="年収倍率" value={`${fmtR(calc.sbj.ym)}倍`} sub={calc.sbj.mPass?"（12倍未満）":"（12倍以上）"}/>
+          <Badge pass={calc.sbj.mPass}/>
+        </div>
+        <div style={sCard}>
+          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>基準2：返済比率</div>
+          <RRow label="A①（年収+賃料70%−社保−税金）" value={`¥${fmt(calc.sbj.a1)}`}/>
+          <RRow label="B（年間返済+自宅賃料）" value={`¥${fmt(calc.sbj.b)}`} sub="本件2.2%"/>
+          <RRow label="返済比率（B÷A①）" value={fmtP(calc.sbj.ratio)} sub="（50%未満）"/>
+          <Badge pass={calc.sbj.rPass}/>
+        </div>
+        <div style={sCard}>
+          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>基準3：可処分所得</div>
+          <RRow label="生活費（96万×本人＋家族）" value={`¥${fmt(calc.sbj.fam)}`} sub={`${calc.sbj.famN}人`}/>
+          <RRow label="可処分所得" value={`¥${fmt(calc.sbj.disp)}`} sub="（100万以上必要）"/>
+          <Badge pass={calc.sbj.dPass}/>
+        </div>
+      </>}
+
+      {tab==="ion"&&<>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <div style={{fontSize:16,fontWeight:700}}>イオン銀行 <Badge pass={calc.ion.pass}/></div>{backBtn}
+        </div>
+        <div style={sCard}>
+          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>基準1：返済比率＋年収倍率</div>
+          <RRow label="合計年間返済額" value={`¥${fmt(calc.ion.ap)}`} sub="本件3.0%"/>
+          <RRow label="返済比率①（給与のみ）" value={fmtP(calc.ion.r1)} sub="基準50%"/>
+          <RRow label="返済比率②（賃料100%合算）" value={fmtP(calc.ion.r2)} sub="基準35%"/>
+          <RRow label="年収倍率" value={`${fmtR(calc.yrMult)}倍`} sub={`基準${calc.ion.bm}倍`}/>
+          <Badge pass={calc.ion.rPass&&calc.ion.mPass}/>
+        </div>
+        <div style={sCard}>
+          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>基準2：可処分所得</div>
+          <RRow label="A（年収−社保−税金）" value={`¥${fmt(salary-calc.si-calc.tax.total)}`}/>
+          <RRow label="可処分所得" value={`¥${fmt(calc.ion.disp)}`} sub="（10万以上必要）"/>
+          <Badge pass={calc.ion.dPass}/>
+        </div>
+        <div style={sCard}>
+          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>基準3：年齢・勤続</div>
+          <RRow label="年齢条件" value={`${age}歳`} sub="（25歳以上）"/>
+          <RRow label="勤続条件" value={`${years}年`} sub="（2年以上）"/>
+          <Badge pass={Number(age)>=25&&Number(years)>=2}/>
+        </div>
+      </>}
+
+      {tab==="sbi"&&<>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <div style={{fontSize:16,fontWeight:700}}>SBI <Badge pass={calc.sbi.pass}/></div>{backBtn}
+        </div>
+        <div style={sCard}>
+          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>返済比率計算<span style={{fontSize:10,fontWeight:400,color:C.sub,marginLeft:6}}>（Excel「DAF合否」準拠）</span></div>
+          <RRow label="合計年間返済額" value={`¥${fmt(calc.sbi.ap)}`} sub="本件2.5%"/>
+          <RRow label="返済比率（賃料100%合算）" value={fmtP(calc.sbi.ratio)} sub={`基準${fmtP(calc.sbi.br)}`}/>
+          <RRow label="年収倍率" value={`${fmtR(calc.yrMult)}倍`} sub={`基準${calc.sbi.bm}倍`}/>
+          <RRow label="適用金利" value={fmtP(calc.sbi.rate)}/>
+          <Divider/>
+          <RRow label="年齢条件" value={`${age}歳`} sub="（25歳以上）"/>
+          <RRow label="勤続条件" value={`${years}年`} sub="（3年以上）"/>
+        </div>
+      </>}
+
+      {tab==="hig"&&<>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <div style={{fontSize:16,fontWeight:700}}>東日本銀行 <Badge pass={calc.hig.pass}/></div>{backBtn}
+        </div>
+        <div style={sCard}>
+          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:10}}>返済比率計算</div>
+          <RRow label="本件3.5%計算（年額・全物件）" value={`¥${fmt(calc.hig.pr)}`}/>
+          <RRow label="支出合計" value={`¥${fmt(calc.hig.tr)}`}/>
+          <Divider/>
+          <RRow label="年収×35%" value={`¥${fmt(calc.hig.s35)}`}/>
+          <RRow label="家賃収入−管積×70%" value={`¥${fmt(calc.hig.r70)}`}/>
+          <Divider/>
+          <RRow label="余裕額" value={`¥${fmt(calc.hig.margin)}`}/>
+          <Divider/>
+          <RRow label="年収倍率" value={`${fmtR(calc.yrMult)}倍`} sub={`基準${calc.hig.bm}倍`}/>
+          <Badge pass={calc.hig.mPass}/>
+        </div>
+      </>}
+
+      </div>
+    </div>
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+
+<button class="auth-signout" id="authSignOut" type="button">ログアウト</button>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+/* ===== ログインゲート =====
+   使えるのは AUTH_ALLOWED のGoogleアカウントだけ。
+   ※ 静的ホスティングなので、これは「使用の鍵」。HTMLソース自体は誰でも読める。 */
+(function () {
+  var CLIENT_ID = '871191983845-kr61ap39ilh7s5fcvvntvfq91tpbak17.apps.googleusercontent.com';
+  var AUTH_ALLOWED = ['iety0214@gmail.com'];
+  var STORE_KEY = 'axia_auth';
+  var SESSION_HOURS = 12;
+
+  var msg = document.getElementById('gateMsg');
+  var signOutBtn = document.getElementById('authSignOut');
+
+  function decodeJwt(token) {
+    try {
+      var p = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      var json = decodeURIComponent(atob(p).split('').map(function (c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(json);
+    } catch (e) { return null; }
+  }
+  function unlock() { document.body.classList.remove('auth-locked'); }
+  function saveSession(email) {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        email: email, exp: Date.now() + SESSION_HOURS * 3600 * 1000
+      }));
+    } catch (e) {}
+  }
+  function readSession() {
+    try {
+      var s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+      if (s && s.exp > Date.now() && AUTH_ALLOWED.indexOf(s.email) !== -1) return s;
+    } catch (e) {}
+    return null;
+  }
+  function clearSession() { try { localStorage.removeItem(STORE_KEY); } catch (e) {} }
+
+  window.handleGoogleCredential = function (res) {
+    var payload = res && res.credential ? decodeJwt(res.credential) : null;
+    if (!payload || !payload.email) {
+      msg.textContent = 'ログイン情報が読めんかった。もう一回試して。'; return;
+    }
+    if (payload.email_verified === false || AUTH_ALLOWED.indexOf(payload.email) === -1) {
+      msg.textContent = 'このアカウント（' + payload.email + '）では使えません。';
+      try { google.accounts.id.disableAutoSelect(); } catch (e) {}
+      return;
+    }
+    if (payload.aud !== CLIENT_ID) { msg.textContent = 'ログインの検証に失敗した。'; return; }
+    saveSession(payload.email); msg.textContent = ''; unlock();
+  };
+
+  signOutBtn.addEventListener('click', function () {
+    clearSession();
+    try { google.accounts.id.disableAutoSelect(); } catch (e) {}
+    location.reload();
+  });
+
+  if (readSession()) { unlock(); return; }
+
+  var tries = 0;
+  (function waitGis() {
+    if (window.google && google.accounts && google.accounts.id) {
+      google.accounts.id.initialize({
+        client_id: CLIENT_ID,
+        callback: window.handleGoogleCredential,
+        auto_select: true,
+        cancel_on_tap_outside: false
+      });
+      google.accounts.id.renderButton(document.getElementById('gbtn'), {
+        theme: 'outline', size: 'large', type: 'standard',
+        text: 'signin_with', shape: 'pill', locale: 'ja'
+      });
+      google.accounts.id.prompt();
+      return;
+    }
+    if (++tries > 100) {
+      msg.textContent = 'Googleログインを読み込めんかった。通信を確認して再読み込みして。'; return;
+    }
+    setTimeout(waitGis, 100);
+  })();
+})();
+</script>
+
+</body>
+</html>
