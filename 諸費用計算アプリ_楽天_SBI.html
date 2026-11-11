@@ -179,6 +179,14 @@ body.auth-locked #authGate {
 #authGate .gate-sub { font-size: 12px; color: var(--text-dim, #6b7086); margin-top: 8px; line-height: 1.7; }
 #authGate #gbtn { display: flex; justify-content: center; margin-top: 20px; min-height: 44px; }
 #authGate .gate-msg { font-size: 12px; color: var(--red, #d32f2f); margin-top: 14px; min-height: 18px; line-height: 1.6; }
+/* ===== 本人以外には 404 に見せる ===== */
+#authGate .gate-card { display: none; }
+body.auth-login #authGate .gate-card { display: block; }
+body.auth-locked:not(.auth-login) #authGate { background: #fff; place-items: start; padding: 0; }
+#authGate .nf { font-family: Arial, Helvetica, sans-serif; color: #222; padding: 40px 24px; -webkit-user-select: none; user-select: none; }
+#authGate .nf h1 { font-size: 30px; font-weight: 700; margin: 0 0 14px; }
+#authGate .nf p { font-size: 15px; margin: 0; color: #444; }
+body.auth-login #authGate .nf { display: none; }
 .auth-signout {
   display: block; margin: 24px auto 32px; background: none; border: none;
   font: inherit; font-size: 11px; color: var(--text-dim, #6b7086);
@@ -189,6 +197,7 @@ body.auth-locked #authGate {
 <body class="auth-locked">
 
 <div id="authGate">
+  <div class="nf" id="nf404"><h1>404 Not Found</h1><p>The requested URL was not found on this server.</p></div>
   <div class="gate-card">
     <h2>諸費用計算アプリ</h2>
     <p class="gate-sub">本人のGoogleアカウントで<br>ログインしてください</p>
@@ -486,9 +495,8 @@ window.addEventListener('DOMContentLoaded',()=>{
     } catch (e) { return null; }
   }
 
-  function unlock() {
-    document.body.classList.remove('auth-locked');
-  }
+  var ORIG_TITLE = document.title;
+  function unlock() { document.title = ORIG_TITLE; document.body.classList.remove('auth-locked', 'auth-login'); }
 
   function saveSession(email) {
     try {
@@ -539,9 +547,24 @@ window.addEventListener('DOMContentLoaded',()=>{
   /* 有効なセッションがあれば即解錠 */
   if (readSession()) { unlock(); return; }
 
-  /* ゲート表示：GISの読み込みを待つ */
+  /* 本人以外には 404 に見せる。ログイン画面は URL末尾 #login か、「404」を5回連続タップで出す */
+  document.title = '404 Not Found';
+  var nfTaps = 0, nfTimer = null, gisStarted = false;
+  function showLogin() {
+    document.body.classList.add('auth-login');
+    document.title = ORIG_TITLE;
+    if (!gisStarted) { gisStarted = true; waitGis(); }
+  }
+  document.getElementById('nf404').addEventListener('click', function () {
+    nfTaps++; clearTimeout(nfTimer);
+    nfTimer = setTimeout(function () { nfTaps = 0; }, 2000);
+    if (nfTaps >= 5) { nfTaps = 0; showLogin(); }
+  });
+  window.addEventListener('hashchange', function () { if (location.hash === '#login') showLogin(); });
+  if (location.hash === '#login') showLogin();
+
   var tries = 0;
-  (function waitGis() {
+  function waitGis() {
     if (window.google && google.accounts && google.accounts.id) {
       if (CLIENT_ID.indexOf('__') === 0) {
         msg.textContent = 'クライアントIDが未設定です。';
@@ -565,7 +588,7 @@ window.addEventListener('DOMContentLoaded',()=>{
       return;
     }
     setTimeout(waitGis, 100);
-  })();
+  }
 })();
 </script>
 </body>
