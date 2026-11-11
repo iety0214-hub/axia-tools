@@ -35,8 +35,42 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* ===== ログインゲート ===== */
+body.auth-locked > *:not(#authGate) { display: none !important; }
+#authGate { display: none; }
+body.auth-locked #authGate {
+  display: grid; place-items: center;
+  position: fixed; inset: 0; z-index: 2147483000;
+  background: #f2f3f7; padding: 24px;
+  font-family: 'Noto Sans JP', system-ui, sans-serif; color: #1a1d28;
+}
+#authGate .gate-card {
+  background: #fff; border: 1px solid #e0e3eb; border-radius: 14px;
+  padding: 28px 24px; max-width: 340px; width: 100%; text-align: center;
+  box-shadow: 0 4px 24px rgba(0,0,0,.08);
+}
+#authGate h2 { font-size: 16px; font-weight: 700; margin: 0; }
+#authGate .gate-sub { font-size: 12px; color: #6b7086; margin: 8px 0 0; line-height: 1.7; }
+#authGate #gbtn { display: flex; justify-content: center; margin-top: 20px; min-height: 44px; }
+#authGate .gate-msg { font-size: 12px; color: #d32f2f; margin: 14px 0 0; min-height: 18px; line-height: 1.6; }
+.auth-signout {
+  display: block; margin: 24px auto 32px; background: none; border: none;
+  font: inherit; font-size: 11px; color: #6b7086; text-decoration: underline; cursor: pointer;
+}
+</style>
 </head>
-<body>
+<body class="auth-locked">
+
+<div id="authGate">
+  <div class="gate-card">
+    <h2>金消予定日 一覧</h2>
+    <p class="gate-sub">本人のGoogleアカウントで<br>ログインしてください</p>
+    <div id="gbtn"></div>
+    <p class="gate-msg" id="gateMsg"></p>
+  </div>
+</div>
+
 <div id="root"></div>
 
 <script type="text/babel">
@@ -1350,7 +1384,7 @@ tr.band { page-break-after:avoid; }
           </div>
         )}
         <div style={{ fontSize: 11, opacity: .75, marginTop: 8, textAlign: 'center' }}>
-          全 {rows.length} 件{(query || bankPick) ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.14.0
+          全 {rows.length} 件{(query || bankPick) ? ` ／ 該当 ${sorted.length} 件` : ''} ／ 全項目そろい {doneCount} 件 ・ チーム同期中 ・ v13.15.0
         </div>
       </div>
 
@@ -1535,5 +1569,93 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   }
 })();
 </script>
+<button class="auth-signout" id="authSignOut" type="button">ログアウト</button>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+/* ===== ログインゲート =====
+   使えるのは AUTH_ALLOWED のGoogleアカウントだけ。
+   ※ 静的ホスティングなので、これは「使用の鍵」。HTMLソース自体は誰でも読める。 */
+(function () {
+  var CLIENT_ID = '871191983845-kr61ap39ilh7s5fcvvntvfq91tpbak17.apps.googleusercontent.com';
+  var AUTH_ALLOWED = ['iety0214@gmail.com'];
+  var STORE_KEY = 'axia_auth';
+  var SESSION_HOURS = 12;
+
+  var msg = document.getElementById('gateMsg');
+  var signOutBtn = document.getElementById('authSignOut');
+
+  function decodeJwt(token) {
+    try {
+      var p = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      var json = decodeURIComponent(atob(p).split('').map(function (c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(json);
+    } catch (e) { return null; }
+  }
+  function unlock() { document.body.classList.remove('auth-locked'); }
+  function saveSession(email) {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        email: email, exp: Date.now() + SESSION_HOURS * 3600 * 1000
+      }));
+    } catch (e) {}
+  }
+  function readSession() {
+    try {
+      var s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+      if (s && s.exp > Date.now() && AUTH_ALLOWED.indexOf(s.email) !== -1) return s;
+    } catch (e) {}
+    return null;
+  }
+  function clearSession() { try { localStorage.removeItem(STORE_KEY); } catch (e) {} }
+
+  window.handleGoogleCredential = function (res) {
+    var payload = res && res.credential ? decodeJwt(res.credential) : null;
+    if (!payload || !payload.email) {
+      msg.textContent = 'ログイン情報が読めんかった。もう一回試して。'; return;
+    }
+    if (payload.email_verified === false || AUTH_ALLOWED.indexOf(payload.email) === -1) {
+      msg.textContent = 'このアカウント（' + payload.email + '）では使えません。';
+      try { google.accounts.id.disableAutoSelect(); } catch (e) {}
+      return;
+    }
+    if (payload.aud !== CLIENT_ID) { msg.textContent = 'ログインの検証に失敗した。'; return; }
+    saveSession(payload.email); msg.textContent = ''; unlock();
+  };
+
+  signOutBtn.addEventListener('click', function () {
+    clearSession();
+    try { google.accounts.id.disableAutoSelect(); } catch (e) {}
+    location.reload();
+  });
+
+  if (readSession()) { unlock(); return; }
+
+  var tries = 0;
+  (function waitGis() {
+    if (window.google && google.accounts && google.accounts.id) {
+      google.accounts.id.initialize({
+        client_id: CLIENT_ID,
+        callback: window.handleGoogleCredential,
+        auto_select: true,
+        cancel_on_tap_outside: false
+      });
+      google.accounts.id.renderButton(document.getElementById('gbtn'), {
+        theme: 'outline', size: 'large', type: 'standard',
+        text: 'signin_with', shape: 'pill', locale: 'ja'
+      });
+      google.accounts.id.prompt();
+      return;
+    }
+    if (++tries > 100) {
+      msg.textContent = 'Googleログインを読み込めんかった。通信を確認して再読み込みして。'; return;
+    }
+    setTimeout(waitGis, 100);
+  })();
+})();
+</script>
+
 </body>
 </html>
