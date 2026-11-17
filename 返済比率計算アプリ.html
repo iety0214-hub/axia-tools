@@ -656,7 +656,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
    ※ 静的ホスティングなので、これは「使用の鍵」。HTMLソース自体は誰でも読める。 */
 (function () {
   var CLIENT_ID = '871191983845-kr61ap39ilh7s5fcvvntvfq91tpbak17.apps.googleusercontent.com';
-  var AUTH_ALLOWED = ['iety0214@gmail.com'];
+  var AUTH_ALLOWED = ['iety0214@gmail.com', 'j.fukaya.jp@gmail.com'];
   var STORE_KEY = 'axia_auth';
   var SESSION_HOURS = 12;
 
@@ -712,7 +712,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 
   if (readSession()) { unlock(); return; }
 
-  /* 本人以外には 404 に見せる。ログイン画面は URL末尾 #login か、「404」を5回連続タップで出す */
+  /* 本人以外には 404 に見せる。ログイン画面は URL末尾 #login か、「404」を3回連続タップで出す */
   document.title = '404 Not Found';
   var nfTaps = 0, nfTimer = null, gisStarted = false;
   function showLogin() {
@@ -723,7 +723,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
   document.getElementById('nf404').addEventListener('click', function () {
     nfTaps++; clearTimeout(nfTimer);
     nfTimer = setTimeout(function () { nfTaps = 0; }, 2000);
-    if (nfTaps >= 5) { nfTaps = 0; showLogin(); }
+    if (nfTaps >= 3) { nfTaps = 0; showLogin(); }
   });
   window.addEventListener('hashchange', function () { if (location.hash === '#login') showLogin(); });
   if (location.hash === '#login') showLogin();
